@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cotador Comercial de PNs & Licenciamento | v4.0 Modular</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="min-h-screen p-4 md:p-6 lg:p-8">
+
+  <div class="max-w-[1420px] mx-auto space-y-5">
+    <!-- CABEÇALHO -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-xl">⚡</div>
+        <div>
+          <h1 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+            Cotador Comercial de PNs
+            <span class="text-xs px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800 font-semibold">v4.0 Modular</span>
+          </h1>
+          <p class="text-xs text-slate-400">
+            Input bruto ➔ Output refinado • Clique no PN para copiar • <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">Ctrl + Enter</kbd> para buscar
+          </p>
+        </div>
+      </div>
+
+      <!-- Flags Globais de Visualização -->
+      <div class="flex flex-wrap items-center gap-2.5">
+        <label class="flag-chip">
+          <input type="checkbox" id="chk-mostrar-subtotal" onchange="Cotador.core.recalcularSubtotais()" class="accent-blue-500">
+          <span>Mostrar Subtotal (Qtd × Valor)</span>
+        </label>
+        <span class="text-xs px-3 py-1.5 rounded-full bg-emerald-950/90 text-emerald-400 border border-emerald-700/80 font-medium">
+          ● Supabase Online
+        </span>
+      </div>
+    </header>
+
+    <!-- LAYOUT PRINCIPAL -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      
+      <!-- COLUNA ESQUERDA: INPUT BRUTO E FLAGS DO FABRICANTE -->
+      <div class="lg:col-span-4 space-y-4 lg:sticky lg:top-6">
+        <div class="card p-5 space-y-4">
+          
+          <!-- 1. SELETOR DE FABRICANTE -->
+          <div>
+            <label class="section-label">1. Fabricante</label>
+            <div class="grid grid-cols-3 gap-2">
+              <button onclick="Cotador.app.setVendor('microsoft')" id="btn-vendor-microsoft" class="vendor-btn active">Microsoft</button>
+              <button onclick="Cotador.app.setVendor('adobe')" id="btn-vendor-adobe" class="vendor-btn">Adobe</button>
+              <button onclick="Cotador.app.setVendor('kaspersky')" id="btn-vendor-kaspersky" class="vendor-btn">Kaspersky</button>
+            </div>
+          </div>
+
+          <!-- 2. INPUT BRUTO DO VENDEDOR -->
+          <div>
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="section-label !mb-0">2. Pedido Bruto (1 item por linha)</label>
+              <div class="flex gap-3 text-xs">
+                <button onclick="Cotador.app.preencherExemplo()" class="text-sky-400 hover:underline">Exemplo</button>
+                <button onclick="Cotador.app.limparInput()" class="text-slate-400 hover:text-red-400">Limpar</button>
+              </div>
+            </div>
+            <textarea id="input-itens" oninput="Cotador.app.analisarInput()" rows="5" 
+              placeholder="Ex:&#10;business basic 10&#10;business standard 26&#10;Exchange plan 1 80&#10;planner 10"
+              class="w-full rounded-lg bg-slate-950 border border-slate-700 p-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 leading-relaxed"></textarea>
+            
+            <!-- Resumo Automático de Quantidade e Rota -->
+            <div class="mt-2 p-2.5 rounded-lg bg-slate-950/90 border border-slate-800 text-xs flex items-center justify-between">
+              <span class="text-slate-400">Direcionamento:</span>
+              <span id="valor-soma" class="font-bold text-amber-400">0 licenças</span>
+            </div>
+          </div>
+
+          <!-- 3A. OPÇÕES E FLAGS: MICROSOFT -->
+          <div id="filtros-microsoft" class="space-y-3.5 pt-3 border-t border-slate-800">
+            <div>
+              <label class="section-label">Tabela / Faturamento Microsoft</label>
+              <select id="ms-modalidade" onchange="Cotador.app.toggleMsUI()" class="select-input">
+                <option value="auto">⚡ Automático pelo Range (≤34 Scan | ≥35 Solo)</option>
+                <option value="scan">Tabela 1: Microsoft CSP - Scansource (ms_scan)</option>
+                <option value="solo">Tabela 2: Microsoft CSP Assinatura - Solo (ms_solo)</option>
+                <option value="perpetuo">Tabela 3: Microsoft CSP Perpétuo - Solo (ms_perpetuo)</option>
+                <option value="mpsa">Tabela 4: Microsoft MPSA - Solo (ms_mpsa)</option>
+              </select>
+            </div>
+
+            <!-- Contratos (Oculto para Perpétuo e MPSA) -->
+            <div id="ms-box-contratos">
+              <label class="section-label">Contratos a Exibir</label>
+              <div class="grid grid-cols-3 gap-1.5 text-xs">
+                <label class="contract-chip">
+                  <input type="checkbox" id="chk-anual-anual" checked class="accent-blue-500"> Anual/Anual
+                </label>
+                <label class="contract-chip">
+                  <input type="checkbox" id="chk-anual-mensal" checked class="accent-blue-500"> Anual/Mensal
+                </label>
+                <label class="contract-chip">
+                  <input type="checkbox" id="chk-mensal-mensal" class="accent-blue-500"> Mensal/Mensal
+                </label>
+              </div>
+            </div>
+
+            <!-- Flags de Refinamento Microsoft -->
+            <div>
+              <label class="section-label">Flags de Filtragem Limpa</label>
+              <div class="space-y-1.5 text-xs text-slate-300">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="chk-ms-commercial" checked class="accent-blue-500">
+                  <span>Apenas Comercial <span class="text-slate-500">(Ocultar Acadêmico/Charity/Gov)</span></span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="chk-hide-noteams" checked class="accent-blue-500">
+                  <span>Ocultar variantes "Sem Teams / no Teams"</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="chk-hide-copilot" checked class="accent-blue-500">
+                  <span>Ocultar "Copilot / Add-on / Attach"</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3B. OPÇÕES E FLAGS: ADOBE -->
+          <div id="filtros-adobe" class="hidden space-y-3.5 pt-3 border-t border-slate-800">
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="section-label">Tabela Adobe</label>
+                <select id="adobe-tabela" class="select-input">
+                  <option value="adobe_base">Tabela 5: Base (Renovação)</option>
+                  <option value="adobe_promo">Tabela 6: Promo (Novo Cliente)</option>
+                </select>
+              </div>
+              <div>
+                <label class="section-label">Segmento</label>
+                <select id="adobe-segmento" class="select-input">
+                  <option value="teams">For Teams</option>
+                  <option value="enterprise">For Enterprise</option>
+                  <option value="all">Mostrar Ambos</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="section-label">Faixa (Level)</label>
+                <select id="adobe-level" class="select-input">
+                  <option value="auto">⚡ Automático pela Soma</option>
+                  <option value="1">Level 1 (1-9)</option>
+                  <option value="2">Level 2 / 12 (10-49)</option>
+                  <option value="3">Level 3 / 13 (50-99)</option>
+                  <option value="4">Level 4 / 14 (100+)</option>
+                  <option value="all">Todos os Levels</option>
+                </select>
+              </div>
+              <div>
+                <label class="section-label">Dólar Fixo (R$)</label>
+                <input type="number" id="adobe-dolar" value="4.80" step="0.05" class="select-input">
+              </div>
+            </div>
+
+            <div class="space-y-1.5 text-xs text-slate-300">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="chk-adobe-hide-3y" checked class="accent-blue-500">
+                <span>Ocultar "VIP Select 3 year commit" por padrão</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 3C. OPÇÕES E FLAGS: KASPERSKY -->
+          <div id="filtros-kaspersky" class="hidden space-y-3.5 pt-3 border-t border-slate-800">
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="section-label">Faixa (Banda)</label>
+                <select id="kasp-banda" class="select-input">
+                  <option value="auto">⚡ Automático pela Soma</option>
+                  <option value="5-9">5-9</option>
+                  <option value="10-14">10-14</option>
+                  <option value="15-19">15-19</option>
+                  <option value="20-24">20-24</option>
+                  <option value="25-49">25-49</option>
+                  <option value="50-99">50-99</option>
+                  <option value="100-149">100-149</option>
+                  <option value="150-249">150-249</option>
+                  <option value="250-499">250-499</option>
+                  <option value="500-999">500-999</option>
+                  <option value="1000-1499">1000-1499</option>
+                  <option value="1500-2499">1500-2499</option>
+                  <option value="all">Todas as Bandas</option>
+                </select>
+              </div>
+              <div>
+                <label class="section-label">Período</label>
+                <select id="kasp-periodo" class="select-input">
+                  <option value="1 ANO">1 Ano</option>
+                  <option value="2 ANOS">2 Anos</option>
+                  <option value="3 ANOS">3 Anos</option>
+                  <option value="4 ANOS">4 Anos</option>
+                  <option value="5 ANOS">5 Anos</option>
+                  <option value="all">Todos os Períodos</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="section-label">Tipo de Licença</label>
+                <select id="kasp-tipo" class="select-input">
+                  <option value="Base">Base (Novo)</option>
+                  <option value="Renewal">Renovação (Renewal)</option>
+                  <option value="all">Mostrar Todos</option>
+                </select>
+              </div>
+              <div>
+                <label class="section-label">Forçar Exibição RO</label>
+                <select id="kasp-ro-mode" class="select-input">
+                  <option value="auto">Automático (≥ 100 lic.)</option>
+                  <option value="always">Sempre Mostrar RO</option>
+                  <option value="never">Apenas Revenda</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- BOTÃO DE BUSCA -->
+          <button onclick="Cotador.app.gerarCotacao()" id="btn-buscar" class="w-full py-3 px-4 rounded-xl font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-500 transition shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2">
+            <span>🔍 Gerar Cotação Refinada</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- COLUNA DIREITA: OUTPUT REFINADO -->
+      <div class="lg:col-span-8 space-y-4">
+        <div class="card p-5 min-h-[520px] flex flex-col justify-between">
+          <div>
+            <!-- Barra de Ações Rápidas -->
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3.5 mb-5">
+              <div>
+                <h2 class="text-base font-bold text-white">📋 Output Refinado (Na ordem do pedido)</h2>
+                <p class="text-xs text-slate-400">PN pronto para cópia rápida e valor unitário à vista para conferência</p>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button onclick="Cotador.core.copiarTabelasHTML()" class="text-xs px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold transition shadow">
+                  📑 Copiar Tudo (Excel / Proposta)
+                </button>
+                <button onclick="Cotador.core.copiarApenasPNsGlobal()" class="text-xs px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 font-semibold transition">
+                  🔢 Copiar Lista de PNs
+                </button>
+                <button onclick="Cotador.core.copiarMarkdown()" class="text-xs px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold transition">
+                  📝 Markdown
+                </button>
+              </div>
+            </div>
+
+            <!-- Toast de Cópia -->
+            <div id="copy-toast" class="hidden mb-4 p-2.5 rounded-lg bg-emerald-950 border border-emerald-600 text-emerald-300 text-xs text-center font-semibold">
+              ✅ Copiado com sucesso!
+            </div>
+
+            <!-- Tabelas Renderizadas -->
+            <div id="resultado-container" class="space-y-6 text-slate-300">
+              <div class="text-center py-24 text-slate-500 text-sm">
+                Cole os produtos ao lado e clique em <b>Gerar Cotação Refinada</b>.
+              </div>
+            </div>
+          </div>
+
+          <!-- Preview Markdown -->
+          <div class="mt-8 pt-3 border-t border-slate-800/80">
+            <details class="text-xs text-slate-400">
+              <summary class="cursor-pointer hover:text-slate-200 font-medium">Ver código Markdown bruto</summary>
+              <pre id="markdown-output" class="mt-2 p-3.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 overflow-x-auto font-mono text-xs"></pre>
+            </details>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SCRIPTS MODULARES (Core + 7 Tabelas Isoladas + App Controller) -->
+  <script src="js/core.js"></script>
+  <script src="js/tables/ms_scan.js"></script>
+  <script src="js/tables/ms_solo.js"></script>
+  <script src="js/tables/ms_perpetuo.js"></script>
+  <script src="js/tables/ms_mpsa.js"></script>
+  <script src="js/tables/adobe_base.js"></script>
+  <script src="js/tables/adobe_promo.js"></script>
+  <script src="js/tables/kaspersky.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
