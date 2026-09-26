@@ -340,33 +340,40 @@
                 </label>
               </div>
             </div>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="section-label">Faixa (Banda)</label>
-                <select id="kasp-banda" class="select-input">
-                  <option value="auto">Automático pela Soma</option>
-                  <option value="5-9">5-9</option>
-                  <option value="10-14">10-14</option>
-                  <option value="15-19">15-19</option>
-                  <option value="20-24">20-24</option>
-                  <option value="25-49">25-49</option>
-                  <option value="50-99">50-99</option>
-                  <option value="100-149">100-149</option>
-                  <option value="150-249">150-249</option>
-                  <option value="250-499">250-499</option>
-                  <option value="500-999">500-999</option>
-                  <option value="1000-1499">1000-1499</option>
-                  <option value="1500-2499">1500-2499</option>
-                  <option value="all">Todas as Bandas</option>
-                </select>
-              </div>
-              <div>
-                <label class="section-label">Exibição de RO</label>
-                <select id="kasp-ro-mode" class="select-input">
-                  <option value="auto">Automático (&ge; 100 lic.)</option>
-                  <option value="always">Sempre Mostrar RO</option>
-                  <option value="never">Apenas Revenda</option>
-                </select>
+            <div>
+              <label class="section-label">Faixa (Banda)</label>
+              <select id="kasp-banda" class="select-input">
+                <option value="auto">Automático pela Soma</option>
+                <option value="5-9">5-9</option>
+                <option value="10-14">10-14</option>
+                <option value="15-19">15-19</option>
+                <option value="20-24">20-24</option>
+                <option value="25-49">25-49</option>
+                <option value="50-99">50-99</option>
+                <option value="100-149">100-149</option>
+                <option value="150-249">150-249</option>
+                <option value="250-499">250-499</option>
+                <option value="500-999">500-999</option>
+                <option value="1000-1499">1000-1499</option>
+                <option value="1500-2499">1500-2499</option>
+                <option value="all">Todas as Bandas</option>
+              </select>
+            </div>
+            <div>
+              <label class="section-label">Flags de Preço Kaspersky</label>
+              <div class="space-y-1.5 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
+                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                  <input type="checkbox" id="chk-kasp-price-revenda" checked>
+                  <span>Exibir "Valor de Revenda" <span class="text-slate-400">(Padrão)</span></span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                  <input type="checkbox" id="chk-kasp-price-ro">
+                  <span>Exibir "Valor com RO"</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                  <input type="checkbox" id="chk-kasp-price-naoprime">
+                  <span>Exibir "Não Prime sem RO"</span>
+                </label>
               </div>
             </div>
             <div>

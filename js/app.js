@@ -320,29 +320,33 @@ window.Cotador.app = {
         await window.Cotador.tables[tabela].processar(this.parsedItems, flags);
       } else {
         const periodos = [];
-        if (document.getElementById('chk-kasp-p1').checked) periodos.push({ id: '1a', label: '1 ANO', match: '1 ANO' });
-        if (document.getElementById('chk-kasp-p2').checked) periodos.push({ id: '2a', label: '2 ANOS', match: '2 ANOS' });
-        if (document.getElementById('chk-kasp-p3').checked) periodos.push({ id: '3a', label: '3 ANOS', match: '3 ANOS' });
-        if (document.getElementById('chk-kasp-p4').checked) periodos.push({ id: '4a', label: '4 ANOS', match: '4 ANOS' });
-        if (document.getElementById('chk-kasp-p5').checked) periodos.push({ id: '5a', label: '5 ANOS', match: '5 ANOS' });
+        if (document.getElementById('chk-kasp-p1')?.checked) periodos.push({ id: '1a', label: '1 ANO', match: '1 ANO' });
+        if (document.getElementById('chk-kasp-p2')?.checked) periodos.push({ id: '2a', label: '2 ANOS', match: '2 ANOS' });
+        if (document.getElementById('chk-kasp-p3')?.checked) periodos.push({ id: '3a', label: '3 ANOS', match: '3 ANOS' });
+        if (document.getElementById('chk-kasp-p4')?.checked) periodos.push({ id: '4a', label: '4 ANOS', match: '4 ANOS' });
+        if (document.getElementById('chk-kasp-p5')?.checked) periodos.push({ id: '5a', label: '5 ANOS', match: '5 ANOS' });
 
         if (periodos.length === 0) {
           alert('Selecione pelo menos um período para a Kaspersky (1 a 5 Anos)!');
           return;
         }
 
-        const bandaSelect = document.getElementById('kasp-banda').value;
-        const roMode = document.getElementById('kasp-ro-mode').value;
+        const bandaSelect = document.getElementById('kasp-banda')?.value || 'auto';
+        const priceRevenda = document.getElementById('chk-kasp-price-revenda')?.checked ?? true;
+        const priceRO = document.getElementById('chk-kasp-price-ro')?.checked ?? false;
+        const priceNaoPrime = document.getElementById('chk-kasp-price-naoprime')?.checked ?? false;
+        const temAlgumPreco = priceRevenda || priceRO || priceNaoPrime;
+
         const flags = {
           periodos,
           bandaSelect,
           targetBanda: (bandaSelect === 'auto')
             ? (this.totalLicenses > 0 ? this.getKaspAutoBanda(this.totalLicenses) : 'all')
             : bandaSelect,
-          tipo: document.getElementById('kasp-tipo').value || 'Base',
-          roMode,
-          totalLicenses: this.totalLicenses,
-          mostrarRO: roMode === 'always' || (roMode === 'auto' && this.totalLicenses >= 100),
+          tipo: document.getElementById('kasp-tipo')?.value || 'Base',
+          showPriceRevenda: temAlgumPreco ? priceRevenda : true,
+          showPriceRO: priceRO,
+          showPriceNaoPrime: priceNaoPrime,
           showBasePlus: document.getElementById('chk-kasp-show-baseplus')?.checked ?? false,
           showSuccessive: document.getElementById('chk-kasp-show-successive')?.checked ?? false,
           showPublic: document.getElementById('chk-kasp-show-public')?.checked ?? false
