@@ -1,6 +1,7 @@
 // ============================================================================
 // CONTROLADOR DA APLICAÇÃO (APP) - COTADOR v5.7 ENTERPRISE (js/app.js)
 // ============================================================================
+
 window.Cotador.app = {
   currentVendor: 'microsoft',
   parsedItems: [],
@@ -88,26 +89,19 @@ window.Cotador.app = {
   },
 
   // ==========================================================================
-  // SEGMENTOS DE MERCADO MICROSOFT
+  // SEGMENTO DE MERCADO MICROSOFT (SELEÇÃO ÚNICA - 1 POR VEZ)
   // ==========================================================================
-  toggleMsSegmento(seg) {
-    if (this.msSegmentos.has(seg)) {
-      this.msSegmentos.delete(seg);
-      if (this.msSegmentos.size === 0) this.msSegmentos.add('commercial');
-    } else {
-      this.msSegmentos.add(seg);
-    }
+  setMsSegmento(seg) {
+    this.msSegmentos = new Set([seg || 'commercial']);
     this.atualizarUIMsSegmentos();
+  },
+
+  toggleMsSegmento(seg) {
+    this.setMsSegmento(seg);
   },
 
   resetarMsSegmentoComercial() {
-    this.msSegmentos = new Set(['commercial']);
-    this.atualizarUIMsSegmentos();
-  },
-
-  selecionarTodosMsSegmentos() {
-    this.msSegmentos = new Set(['commercial', 'education', 'government', 'charity']);
-    this.atualizarUIMsSegmentos();
+    this.setMsSegmento('commercial');
   },
 
   atualizarUIMsSegmentos() {
@@ -118,7 +112,7 @@ window.Cotador.app = {
   },
 
   // ==========================================================================
-  // CONTRATOS TRIENAIS & FLAGS PERPÉTUO/MPSA
+  // CONTRATOS TRIENAIS & FLAGS PERPÉTUO/MPSA ("EXIBIR...")
   // ==========================================================================
   toggleTrienaisCSP() {
     this.trienaisVisiveis = !this.trienaisVisiveis;
@@ -129,17 +123,17 @@ window.Cotador.app = {
   },
 
   syncTempFlagsFromMaster(checked) {
-    ['chk-pm-hide-mensal', 'chk-pm-hide-anual', 'chk-pm-hide-trienal'].forEach(id => {
+    ['chk-pm-show-mensal', 'chk-pm-show-anual', 'chk-pm-show-trienal'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.checked = checked;
     });
   },
 
   syncMasterFromTempPills() {
-    const m = document.getElementById('chk-pm-hide-mensal')?.checked;
-    const a = document.getElementById('chk-pm-hide-anual')?.checked;
-    const t = document.getElementById('chk-pm-hide-trienal')?.checked;
-    const master = document.getElementById('chk-pm-hide-temp');
+    const m = document.getElementById('chk-pm-show-mensal')?.checked;
+    const a = document.getElementById('chk-pm-show-anual')?.checked;
+    const t = document.getElementById('chk-pm-show-trienal')?.checked;
+    const master = document.getElementById('chk-pm-show-temp');
     if (master) master.checked = Boolean(m && a && t);
   },
 
@@ -162,7 +156,6 @@ window.Cotador.app = {
     document.getElementById('kasp-tipo').value = tipo;
     document.getElementById('btn-kasp-tipo-base').classList.toggle('active', tipo === 'Base');
     document.getElementById('btn-kasp-tipo-renewal').classList.toggle('active', tipo === 'Renewal');
-
     const labelTipo = tipo === 'Renewal' ? 'Renew' : 'Base';
     document.getElementById('resultado-container').innerHTML = `<div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">Tipo de licença Kaspersky alterado para <span class="theme-text font-semibold uppercase">${labelTipo}</span>.<br>Clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span> para consultar.</div>`;
     document.getElementById('markdown-output').textContent = '';
@@ -261,19 +254,19 @@ window.Cotador.app = {
 
         const flags = {
           contratos,
-          segmentos: Array.from(this.msSegmentos),
-          hideNoTeams: document.getElementById('chk-hide-noteams')?.checked ?? true,
-          hideCopilot: document.getElementById('chk-hide-copilot')?.checked ?? true,
-          hideTrial: document.getElementById('chk-hide-trial')?.checked ?? true,
-          hideFrontline: document.getElementById('chk-hide-frontline')?.checked ?? false,
-          pmHideMensal: document.getElementById('chk-pm-hide-mensal')?.checked ?? false,
-          pmHideAnual: document.getElementById('chk-pm-hide-anual')?.checked ?? false,
-          pmHideTrienal: document.getElementById('chk-pm-hide-trienal')?.checked ?? false,
-          pmHideStepup: document.getElementById('chk-pm-hide-stepup')?.checked ?? true,
-          pmHideCals: document.getElementById('chk-pm-hide-cals')?.checked ?? false,
-          hideSA: document.getElementById('chk-mpsa-hide-sa')?.checked ?? true,
-          hideLicSA: document.getElementById('chk-mpsa-hide-licsa')?.checked ?? false,
-          hideLicOnly: document.getElementById('chk-mpsa-hide-liconly')?.checked ?? false,
+          segmentos: Array.from(this.msSegmentos).slice(0, 1),
+          showNoTeams: document.getElementById('chk-show-noteams')?.checked ?? false,
+          showCopilot: document.getElementById('chk-show-copilot')?.checked ?? false,
+          showTrial: document.getElementById('chk-show-trial')?.checked ?? false,
+          showFrontline: document.getElementById('chk-show-frontline')?.checked ?? true,
+          pmShowMensal: document.getElementById('chk-pm-show-mensal')?.checked ?? false,
+          pmShowAnual: document.getElementById('chk-pm-show-anual')?.checked ?? false,
+          pmShowTrienal: document.getElementById('chk-pm-show-trienal')?.checked ?? false,
+          pmShowStepup: document.getElementById('chk-pm-show-stepup')?.checked ?? false,
+          pmShowCals: document.getElementById('chk-pm-show-cals')?.checked ?? true,
+          showSA: document.getElementById('chk-mpsa-show-sa')?.checked ?? false,
+          showLicSA: document.getElementById('chk-mpsa-show-licsa')?.checked ?? false,
+          showLicOnly: document.getElementById('chk-mpsa-show-liconly')?.checked ?? false,
           append: true
         };
 
@@ -281,7 +274,6 @@ window.Cotador.app = {
         for (const mod of modalidades) {
           await window.Cotador.tables[`ms_${mod}`].processar(this.parsedItems, flags);
         }
-
       } else if (this.currentVendor === 'adobe') {
         const usarPromo = document.getElementById('chk-adobe-promo').checked;
         const tabela = usarPromo ? 'adobe_promo' : 'adobe_base';
@@ -293,7 +285,6 @@ window.Cotador.app = {
           hide3YCommit: document.getElementById('chk-adobe-hide-3y').checked
         };
         await window.Cotador.tables[tabela].processar(this.parsedItems, flags);
-
       } else {
         const periodos = [];
         if (document.getElementById('chk-kasp-p1').checked) periodos.push({ id: '1a', label: '1 ANO', match: '1 ANO' });

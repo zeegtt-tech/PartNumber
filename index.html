@@ -37,7 +37,6 @@
           </p>
         </div>
       </div>
-
       <div class="flex flex-wrap items-center gap-2.5">
         <input type="checkbox" id="chk-mostrar-subtotal" class="sr-only" checked onchange="Cotador.core.recalcularSubtotais()">
         <input type="checkbox" id="chk-mostrar-detalhes" class="sr-only" checked onchange="Cotador.core.atualizarVisibilidadeDetalhes()">
@@ -58,7 +57,6 @@
             <span>Subtotais</span>
           </button>
         </div>
-
         <span class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-medium flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
           Online
@@ -109,7 +107,10 @@
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-1.5">
-                <button type="button" onclick="Cotador.app.toggleMsModalidade('scan')" id="btn-ms-mod-scan" class="modality-chip active">Scan (-7%)</button>
+                <button type="button" onclick="Cotador.app.toggleMsModalidade('scan')" id="btn-ms-mod-scan" class="modality-chip modality-chip-scan active" title="Faturamento via Scansource">
+                  <span class="scan-dot"></span>
+                  <span>Scan</span>
+                </button>
                 <button type="button" onclick="Cotador.app.toggleMsModalidade('solo')" id="btn-ms-mod-solo" class="modality-chip">CSP Solo</button>
                 <button type="button" onclick="Cotador.app.toggleMsModalidade('perpetuo')" id="btn-ms-mod-perpetuo" class="modality-chip">CSP Perpetual</button>
                 <button type="button" onclick="Cotador.app.toggleMsModalidade('mpsa')" id="btn-ms-mod-mpsa" class="modality-chip">MPSA</button>
@@ -119,21 +120,17 @@
               </p>
             </div>
 
-            <!-- 3.2 SEGMENTOS DE MERCADO -->
+            <!-- 3.2 SEGMENTO DE MERCADO (SELEÇÃO ÚNICA) -->
             <div>
               <div class="flex items-center justify-between mb-1">
                 <label class="section-label !mb-0">Segmento de Mercado</label>
-                <div class="flex items-center gap-1.5 text-[10px] font-medium">
-                  <button type="button" onclick="Cotador.app.resetarMsSegmentoComercial()" class="theme-text hover:underline" title="Focar apenas em Comercial (Padrão)">Só Comercial</button>
-                  <span class="text-slate-300">|</span>
-                  <button type="button" onclick="Cotador.app.selecionarTodosMsSegmentos()" class="text-slate-400 hover:text-slate-600" title="Ativar todos os segmentos">Todos</button>
-                </div>
+                <span class="text-[10px] text-slate-400">1 por vez</span>
               </div>
               <div class="grid grid-cols-4 gap-1">
-                <button type="button" onclick="Cotador.app.toggleMsSegmento('commercial')" id="btn-ms-seg-commercial" class="segment-chip active" title="Licenciamento Comercial / Corporativo (Padrão)">Comercial</button>
-                <button type="button" onclick="Cotador.app.toggleMsSegmento('education')" id="btn-ms-seg-education" class="segment-chip" title="Licenciamento Educacional / Academic / Faculty / Student">Educação</button>
-                <button type="button" onclick="Cotador.app.toggleMsSegmento('government')" id="btn-ms-seg-government" class="segment-chip" title="Licenciamento Governo / Setor Público">Governo</button>
-                <button type="button" onclick="Cotador.app.toggleMsSegmento('charity')" id="btn-ms-seg-charity" class="segment-chip" title="Licenciamento Filantropia / Non-Profit / ONG">Charity</button>
+                <button type="button" onclick="Cotador.app.setMsSegmento('commercial')" id="btn-ms-seg-commercial" class="segment-chip active" title="Licenciamento Comercial / Corporativo (Padrão)">Comercial</button>
+                <button type="button" onclick="Cotador.app.setMsSegmento('education')" id="btn-ms-seg-education" class="segment-chip" title="Licenciamento Educacional / Academic / Faculty / Student">Educação</button>
+                <button type="button" onclick="Cotador.app.setMsSegmento('government')" id="btn-ms-seg-government" class="segment-chip" title="Licenciamento Governo / Setor Público">Governo</button>
+                <button type="button" onclick="Cotador.app.setMsSegmento('charity')" id="btn-ms-seg-charity" class="segment-chip" title="Licenciamento Filantropia / Non-Profit / ONG">Charity</button>
               </div>
             </div>
 
@@ -155,62 +152,62 @@
               </div>
             </div>
 
-            <!-- 3.4 FLAGS DE FILTRAGEM CONTEXTUAL MICROSOFT -->
+            <!-- 3.4 FLAGS DE EXIBIÇÃO CONTEXTUAL MICROSOFT (OCULTAS POR PADRÃO, EXCETO FRONTLINE E CALS) -->
             <div id="ms-box-flags">
-              <label class="section-label">Flags de Filtragem &amp; Refinamento</label>
+              <label class="section-label">Flags de Exibição &amp; Refinamento</label>
               <div class="space-y-2.5 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
                 
                 <!-- Flags CSP & Geral -->
                 <div id="ms-flags-csp" class="space-y-1.5">
                   <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Geral &amp; CSP (Scan / Solo)</div>
                   <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-hide-noteams" checked>
-                    <span>Ocultar variantes "Sem Teams" (No Teams)</span>
+                    <input type="checkbox" id="chk-show-noteams">
+                    <span>Exibir variantes "Sem Teams" (No Teams)</span>
                   </label>
                   <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-hide-copilot" checked>
-                    <span>Ocultar "Copilot / Add-on / Attach"</span>
+                    <input type="checkbox" id="chk-show-copilot">
+                    <span>Exibir "Copilot / Add-on / Attach"</span>
                   </label>
                   <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-hide-trial" checked>
-                    <span>Ocultar "Trial / Gratuito / Promo"</span>
+                    <input type="checkbox" id="chk-show-trial">
+                    <span>Exibir "Trial / Gratuito / Promo"</span>
                   </label>
                   <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-hide-frontline">
-                    <span>Ocultar linha "Frontline / Kiosk (F1/F3)"</span>
+                    <input type="checkbox" id="chk-show-frontline" checked>
+                    <span>Exibir linha "Frontline / Kiosk (F1/F3)"</span>
                   </label>
                 </div>
 
                 <!-- Flags Perpétuo & MPSA -->
                 <div id="ms-flags-perpetuo-mpsa" class="hidden space-y-1.5 pt-2 border-t border-slate-200/70">
                   <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Perpétuo &amp; MPSA (Duração / Escopo)</div>
-                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900" title="Oculta todas as licenças temporárias/assinaturas (Mensal, Anual e Trienal) para exibir apenas licenças perpétuas">
-                    <input type="checkbox" id="chk-pm-hide-temp" onchange="Cotador.app.syncTempFlagsFromMaster(this.checked)">
-                    <span>Ocultar Contratos Temporários / Assinaturas</span>
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900" title="Exibe licenças temporárias/assinaturas (Mensal, Anual e Trienal) além das licenças perpétuas">
+                    <input type="checkbox" id="chk-pm-show-temp" onchange="Cotador.app.syncTempFlagsFromMaster(this.checked)">
+                    <span>Exibir Contratos Temporários / Assinaturas</span>
                   </label>
                   
                   <div class="grid grid-cols-3 gap-1 pt-0.5 pb-0.5">
-                    <label class="flag-mini-pill" title="Ocultar itens com vigência Mensal no Perpétuo/MPSA">
-                      <input type="checkbox" id="chk-pm-hide-mensal" onchange="Cotador.app.syncMasterFromTempPills()">
-                      <span>Ocultar Mensal</span>
+                    <label class="flag-mini-pill" title="Exibir itens com vigência Mensal no Perpétuo/MPSA">
+                      <input type="checkbox" id="chk-pm-show-mensal" onchange="Cotador.app.syncMasterFromTempPills()">
+                      <span>Exibir Mensal</span>
                     </label>
-                    <label class="flag-mini-pill" title="Ocultar itens com vigência Anual (1 Ano) no Perpétuo/MPSA">
-                      <input type="checkbox" id="chk-pm-hide-anual" onchange="Cotador.app.syncMasterFromTempPills()">
-                      <span>Ocultar Anual</span>
+                    <label class="flag-mini-pill" title="Exibir itens com vigência Anual (1 Ano) no Perpétuo/MPSA">
+                      <input type="checkbox" id="chk-pm-show-anual" onchange="Cotador.app.syncMasterFromTempPills()">
+                      <span>Exibir Anual</span>
                     </label>
-                    <label class="flag-mini-pill" title="Ocultar itens com vigência Trienal (3 Anos) no Perpétuo/MPSA">
-                      <input type="checkbox" id="chk-pm-hide-trienal" onchange="Cotador.app.syncMasterFromTempPills()">
-                      <span>Ocultar Trienal</span>
+                    <label class="flag-mini-pill" title="Exibir itens com vigência Trienal (3 Anos) no Perpétuo/MPSA">
+                      <input type="checkbox" id="chk-pm-show-trienal" onchange="Cotador.app.syncMasterFromTempPills()">
+                      <span>Exibir Trienal</span>
                     </label>
                   </div>
 
                   <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-pm-hide-stepup" checked>
-                    <span>Ocultar "Step-Up / Upgrade / Migration"</span>
+                    <input type="checkbox" id="chk-pm-show-stepup">
+                    <span>Exibir "Step-Up / Upgrade / Migration"</span>
                   </label>
                   <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-pm-hide-cals">
-                    <span>Ocultar "CALs" (User / Device / RDS CAL)</span>
+                    <input type="checkbox" id="chk-pm-show-cals" checked>
+                    <span>Exibir "CALs de Acesso" (User / Device / RDS CAL)</span>
                   </label>
                 </div>
 
@@ -218,16 +215,16 @@
                 <div id="ms-flags-mpsa" class="hidden space-y-1.5 pt-2 border-t border-slate-200/70">
                   <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Opções de Uso MPSA</div>
                   <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-mpsa-hide-sa" checked>
-                    <span>Ocultar "SA Only" (Software Assurance Avulso)</span>
+                    <input type="checkbox" id="chk-mpsa-show-sa">
+                    <span>Exibir "SA Only" (Software Assurance Avulso)</span>
                   </label>
                   <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-mpsa-hide-licsa">
-                    <span>Ocultar "Licença + SA" (Exibir apenas Licença pura)</span>
+                    <input type="checkbox" id="chk-mpsa-show-licsa">
+                    <span>Exibir "Licença + SA"</span>
                   </label>
                   <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-mpsa-hide-liconly">
-                    <span>Ocultar "License Only" (Exibir apenas c/ SA)</span>
+                    <input type="checkbox" id="chk-mpsa-show-liconly">
+                    <span>Exibir "License Only" (Licença Pura)</span>
                   </label>
                 </div>
 
@@ -245,7 +242,6 @@
                 <button type="button" onclick="Cotador.app.setAdobeSegmento('enterprise')" id="btn-adobe-seg-enterprise" class="modality-chip">For Enterprise</button>
               </div>
             </div>
-
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="section-label">Filtro de Level</label>
@@ -263,7 +259,6 @@
                 <input type="number" id="adobe-dolar" value="4.80" step="0.05" class="select-input tabular-nums">
               </div>
             </div>
-
             <div>
               <label class="section-label">Flags de Filtragem Adobe</label>
               <div class="space-y-1.5 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
@@ -289,7 +284,6 @@
                 <button type="button" onclick="Cotador.app.setKaspTipo('Renewal')" id="btn-kasp-tipo-renewal" class="modality-chip">Renew</button>
               </div>
             </div>
-
             <div>
               <label class="section-label">Períodos a Consultar (Flags de Período)</label>
               <div class="grid grid-cols-5 gap-1 text-[11px] text-slate-600 font-medium bg-slate-50/70 p-2 rounded-lg border border-slate-200/80">
@@ -315,7 +309,6 @@
                 </label>
               </div>
             </div>
-
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="section-label">Faixa (Banda)</label>
@@ -345,7 +338,6 @@
                 </select>
               </div>
             </div>
-
             <div>
               <label class="section-label">Filtro de Solução (EDR)</label>
               <select id="kasp-edr-filter" class="select-input">
@@ -354,7 +346,6 @@
                 <option value="without_edr">Apenas SEM EDR</option>
               </select>
             </div>
-
             <div>
               <label class="section-label">Flags de Filtragem Kaspersky</label>
               <div class="space-y-1.5 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
@@ -373,7 +364,6 @@
           <button onclick="Cotador.app.gerarCotacao()" id="btn-buscar" class="btn-theme-primary w-full py-2.5 px-4 rounded-lg font-medium text-xs flex items-center justify-center gap-2">
             <span>Buscar e Montar Tabelas</span>
           </button>
-
         </div>
       </div>
 

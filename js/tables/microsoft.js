@@ -2,6 +2,7 @@
 // MÓDULO DE TABELAS: MICROSOFT (Scan, Solo, Perpétuo, MPSA) - v5.7 ENTERPRISE
 // Arquivo: js/tables/microsoft.js
 // ============================================================================
+
 window.Cotador.tables.ms_scan = {
   async processar(parsedItems, flags = {}) {
     const core = window.Cotador.core;
@@ -17,12 +18,13 @@ window.Cotador.tables.ms_scan = {
         const nome = (r.offer_display_name || '').toLowerCase();
         const preco = core.parsePrice(r.preco_unitario);
         if (!core.isItemSegmentoValido(r.offer_display_name, r, flags.segmentos, preco)) return false;
-        if (flags.hideNoTeams && /\b(no|sem|without)\s+teams\b/i.test(nome)) return false;
-        if (flags.hideCopilot && (nome.includes('copilot') || nome.includes('add-on') || nome.includes('attach'))) return false;
-        if (flags.hideTrial && /\b(trial|free|gratuito|promo)\b/i.test(nome)) return false;
-        if (flags.hideFrontline && /\b(frontline|kiosk|f1|f3)\b/i.test(nome)) return false;
+        if (!flags.showNoTeams && /\b(no|sem|without)\s+teams\b/i.test(nome)) return false;
+        if (!flags.showCopilot && (nome.includes('copilot') || /\badd[\s\-]?on\b/i.test(nome) || nome.includes('attach'))) return false;
+        if (!flags.showTrial && /\b(trial|free|gratuito|promo)\b/i.test(nome)) return false;
+        if (!flags.showFrontline && /\b(frontline|kiosk|f1|f3|flw)\b/i.test(nome)) return false;
         return true;
       });
+
       return { item, data };
     });
 
@@ -50,7 +52,7 @@ window.Cotador.tables.ms_scan = {
             <td>${core.renderQtyInput(item.qty)}</td>
             <td>${core.renderPnBadge(pn)}</td>
             <td class="col-secondary text-slate-400 font-normal whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtTabela, fmtTabela, 'Custo Tabela')}</td>
-            <td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtFinal, fmtFinal, 'Custo Final (-7%)')}</td>
+            <td class="font-medium text-amber-900 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtFinal, fmtFinal, 'Custo Final (-7%)')}</td>
             <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
             <td class="text-right">${core.renderRowActions()}</td>
           </tr>`;
@@ -58,10 +60,9 @@ window.Cotador.tables.ms_scan = {
       }
 
       if (!rowsHTML) continue;
-
       const bId = `blk-scan-${c.id}`;
-      const headerTitle = `Contrato: ${c.label} (Faturamento: Scansource -7%)`;
-      container.insertAdjacentHTML('beforeend', `<div id="${bId}" class="quote-block" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th class="col-secondary">Custo Tabela</th><th>Custo Final (-7%)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`);
+      const headerTitle = `Contrato: ${c.label} (Faturamento: Scansource)`;
+      container.insertAdjacentHTML('beforeend', `<div id="${bId}" class="quote-block quote-block-scan" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th class="col-secondary">Custo Tabela</th><th>Custo Final (-7%)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`);
     }
   }
 };
@@ -81,12 +82,13 @@ window.Cotador.tables.ms_solo = {
         const nome = (r.titulo_sku || '').toLowerCase();
         const preco = core.getSoloPrice(r);
         if (!core.isItemSegmentoValido(r.titulo_sku, r, flags.segmentos, preco)) return false;
-        if (flags.hideNoTeams && /\b(no|sem|without)\s+teams\b/i.test(nome)) return false;
-        if (flags.hideCopilot && (nome.includes('copilot') || nome.includes('add-on') || nome.includes('attach'))) return false;
-        if (flags.hideTrial && /\b(trial|free|gratuito|promo)\b/i.test(nome)) return false;
-        if (flags.hideFrontline && /\b(frontline|kiosk|f1|f3)\b/i.test(nome)) return false;
+        if (!flags.showNoTeams && /\b(no|sem|without)\s+teams\b/i.test(nome)) return false;
+        if (!flags.showCopilot && (nome.includes('copilot') || /\badd[\s\-]?on\b/i.test(nome) || nome.includes('attach'))) return false;
+        if (!flags.showTrial && /\b(trial|free|gratuito|promo)\b/i.test(nome)) return false;
+        if (!flags.showFrontline && /\b(frontline|kiosk|f1|f3|flw)\b/i.test(nome)) return false;
         return true;
       });
+
       return { item, data };
     });
 
@@ -124,7 +126,6 @@ window.Cotador.tables.ms_solo = {
       }
 
       if (!rowsHTML) continue;
-
       const bId = `blk-solo-${c.id}`;
       const headerTitle = `Contrato: ${c.label} (Faturamento: Solo CSP)`;
       container.insertAdjacentHTML('beforeend', `<div id="${bId}" class="quote-block" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th>Valor com 5% Serviços</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`);
@@ -150,7 +151,6 @@ window.Cotador.tables.ms_perpetuo = {
       try {
         data = await core.fetchSupabase('microsoft_perpetuo', params);
       } catch (_) {
-        // Fallback caso a cláusula OR encontre alguma restrição de schema
         const fallbackParams = [['select', '*'], ['limit', '600']];
         item.keywords.forEach(kw => fallbackParams.push(['nome_produto', `ilike.*${kw}*`]));
         data = await core.fetchSupabase('microsoft_perpetuo', fallbackParams);
@@ -158,19 +158,27 @@ window.Cotador.tables.ms_perpetuo = {
 
       data = data.filter(r => {
         const nome = (r.nome_produto || '').toLowerCase();
+        const plano = (r.plano_pagamento || '').toLowerCase();
         const preco = core.parsePrice(r.fob_impostos || r.erp);
         if (!core.isItemSegmentoValido(r.nome_produto, r, flags.segmentos, preco)) return false;
-        if (flags.pmHideMensal && /\b(1\s*m|month|mensal|p1m)\b/i.test(nome)) return false;
-        if (flags.pmHideAnual && /\b(1\s*y|1\s*year|1\s*ano|annual|anual|p1y)\b/i.test(nome)) return false;
-        if (flags.pmHideTrienal && /\b(3\s*y|3\s*year|3\s*anos|trienal|triennial|p3y)\b/i.test(nome)) return false;
-        if (flags.pmHideStepup && /\b(step-up|step up|upgrade|migration)\b/i.test(nome)) return false;
-        if (flags.pmHideCals && /\b(cal|rds)\b/i.test(nome)) return false;
+
+        const isMensal = plano === 'monthly' || /\b(1\s*m|month|mensal|p1m)\b/i.test(nome);
+        const isAnual = plano === 'annual' || (plano !== 'monthly' && /\b(1\s*y|1\s*year|1\s*ano|annual|anual|p1y)\b/i.test(nome));
+        const isTrienal = plano === 'triennial' || /\b(3\s*y|3\s*year|3\s*anos|trienal|triennial|p3y)\b/i.test(nome);
+
+        if (!flags.pmShowMensal && isMensal) return false;
+        if (!flags.pmShowAnual && isAnual) return false;
+        if (!flags.pmShowTrienal && isTrienal) return false;
+        if (!flags.pmShowStepup && /\b(step-up|step up|upgrade|migration)\b/i.test(nome)) return false;
+        if (!flags.pmShowCals && /\b(cal|rds)\b/i.test(nome)) return false;
         return true;
       });
+
       return { item, data };
     });
 
     const resultados = await Promise.all(promessas);
+
     resultados.forEach(({ item, data }) => {
       data.forEach(row => {
         const skuId = String(row.sku_id || '').padStart(4, '0');
@@ -191,7 +199,6 @@ window.Cotador.tables.ms_perpetuo = {
     });
 
     if (!rowsHTML) return;
-
     const bId = 'blk-perpetuo';
     const title = 'Microsoft CSP Perpétuo (Faturamento: Solo)';
     container.insertAdjacentHTML('beforeend', `<div id="${bId}" class="quote-block" data-title="### ${title}">${core.renderBlockHeader(title, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th>Custo Final (FOB+Impostos)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`);
@@ -254,20 +261,23 @@ window.Cotador.tables.ms_mpsa = {
         const uso = (r.uso_recurso || '').toLowerCase();
         const preco = core.parsePrice(r.custo_com_imposto || r.valor_preco_liquido_atual);
         if (!core.isItemSegmentoValido(r.nome_curto_peca, r, flags.segmentos, preco)) return false;
-        if (flags.pmHideMensal && /\b(1\s*m|month|mensal)\b/i.test(nome)) return false;
-        if (flags.pmHideAnual && /\b(1\s*y|1\s*year|1\s*ano|annual|anual)\b/i.test(nome)) return false;
-        if (flags.pmHideTrienal && /\b(3\s*y|3\s*year|3\s*anos|trienal|triennial)\b/i.test(nome)) return false;
-        if (flags.pmHideStepup && /\b(step-up|step up|upgrade|migration)\b/i.test(nome + ' ' + uso)) return false;
-        if (flags.pmHideCals && /\b(cal|rds)\b/i.test(nome + ' ' + uso)) return false;
-        if (flags.hideSA && (uso.includes('sa only') || nome.includes('sa only'))) return false;
-        if (flags.hideLicSA && (uso.includes('license and software assurance') || uso.includes('lic/sa') || nome.includes('licsa'))) return false;
-        if (flags.hideLicOnly && (uso.includes('license only') || uso === 'license')) return false;
+
+        if (!flags.pmShowMensal && /\b(1\s*m|month|mensal)\b/i.test(nome)) return false;
+        if (!flags.pmShowAnual && /\b(1\s*y|1\s*year|1\s*ano|annual|anual)\b/i.test(nome)) return false;
+        if (!flags.pmShowTrienal && /\b(3\s*y|3\s*year|3\s*anos|trienal|triennial)\b/i.test(nome)) return false;
+        if (!flags.pmShowStepup && /\b(step-up|step up|upgrade|migration)\b/i.test(nome + ' ' + uso)) return false;
+        if (!flags.pmShowCals && /\b(cal|rds)\b/i.test(nome + ' ' + uso)) return false;
+        if (!flags.showSA && (uso.includes('sa only') || nome.includes('sa only'))) return false;
+        if (!flags.showLicSA && (uso.includes('license and software assurance') || uso.includes('lic/sa') || nome.includes('licsa'))) return false;
+        if (!flags.showLicOnly && (uso.includes('license only') || uso === 'license')) return false;
         return true;
       });
+
       return { item, data };
     });
 
     const resultados = await Promise.all(promessas);
+
     resultados.forEach(({ item, data }) => {
       data.forEach(r => {
         const pn = r.numero_item || '';
@@ -293,7 +303,6 @@ window.Cotador.tables.ms_mpsa = {
     });
 
     if (!rowsHTML) return;
-
     const bId = 'blk-mpsa';
     const title = 'Microsoft MPSA (Faturamento: Solo)';
     container.insertAdjacentHTML('beforeend', `<div id="${bId}" class="quote-block" data-title="### ${title}">${core.renderBlockHeader(title, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (Item)</th><th class="col-secondary">Pool / Cat.</th><th>Custo c/ Imposto</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`);
