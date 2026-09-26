@@ -28,6 +28,8 @@ window.Cotador.core = {
     "business premium": ["Business Premium"],
     "exchange plan 1": ["Exchange Online", "Plan 1"],
     "exchange plan 2": ["Exchange Online", "Plan 2"],
+    "exchange online plan 1": ["Exchange Online", "Plan 1"],
+    "exchange online plan 2": ["Exchange Online", "Plan 2"],
     "exchange online": ["Exchange Online"],
     "planner": ["Planner"]
   },
@@ -44,7 +46,9 @@ window.Cotador.core = {
     "foundation": "Foundations",
     "bussiness": "Business",
     "busines": "Business",
-    "exchenge": "Exchange"
+    "exchenge": "Exchange",
+    "projet": "Project",
+    "projec": "Project"
   },
 
   escapeHTML(str) {
@@ -56,17 +60,165 @@ window.Cotador.core = {
 
   extrairKeywords(prodName) {
     const lower = prodName.toLowerCase().trim();
-    for (const [key, kwList] of Object.entries(this.SEARCH_KEYWORDS)) {
-      if (lower === key || lower.includes(key)) return kwList;
+
+    // 1. Correspondência exata com o dicionário de atalhos
+    if (this.SEARCH_KEYWORDS[lower]) {
+      return [...this.SEARCH_KEYWORDS[lower]];
     }
-    return prodName
+
+    // 2. Normaliza "exchange plan X" e agrupa "plan X" / "plano X" como token único ("Plan X")
+    let normalized = prodName
       .replace(/[()]/g, ' ')
+      .replace(/\bexchenge\b/gi, 'Exchange')
+      .replace(/\bexchange\s+(?:online\s+)?plan(?:o)?\s*(\d+)\b/gi, 'Exchange Online __PLAN_$1__')
+      .replace(/\bplan(?:o)?\s*(\d+)\b/gi, '__PLAN_$1__');
+
+    // 3. Aplica substituição de expressões conhecidas sem perder qualificadores extras
+    const lowerNorm = normalized.toLowerCase().trim();
+    for (const [key, kwList] of Object.entries(this.SEARCH_KEYWORDS)) {
+      if (lowerNorm === key) return [...kwList];
+    }
+
+    return normalized
       .split(/\s+/)
       .filter(w => w.length > 0)
       .map(w => {
+        const planMatch = w.match(/^__PLAN_(\d+)__$/i);
+        if (planMatch) return `Plan ${planMatch[1]}`;
         const cleanW = w.toLowerCase();
         return this.TOKEN_TYPO_MAP[cleanW] || w;
       });
+  },
+
+  // ==========================================================================
+  // PARSER SEMÂNTICO DE INPUT: DIFERENCIA VERSÃO/PLANO/ANO DE QUANTIDADE
+  // ==========================================================================
+  isNumeroParteDoProduto(prefixText, numStr) {
+    const n = parseInt(numStr, 10);
+    if (isNaN(n)) return false;
+
+    const cleanPrefix = (prefixText || '').trim().toLowerCase();
+    if (!cleanPrefix) return false;
+
+    const tokens = cleanPrefix.split(/\s+/).filter(Boolean);
+    const lastWord = (tokens[tokens.length - 1] || '').replace(/[^a-z0-9\-áéíóúâêôãõç]/g, '');
+    const prevWord = (tokens[tokens.length - 2] || '').replace(/[^a-z0-9\-áéíóúâêôãõç]/g, '');
+
+    // 1. Anos de lançamento de software (ex: Windows Server 2025, SQL Server 2022, Office 2024)
+    // Se o texto antes do número ainda não possui um ano, um número entre 2005 e 2035 é o ano da versão
+    const prefixHasYear = /\b20[0-3]\d\b/.test(cleanPrefix);
+    if (n >= 2005 && n <= 2035 && !prefixHasYear) {
+      return true;
+    }
+
+    // 2. Família "365" (ex: "Microsoft 365", "Office 365", "Dynamics 365", "Windows 365")
+    if (n === 365 && ['microsoft', 'ms', 'office', 'o', 'dynamics', 'windows', 'win', 'm', 'd'].includes(lastWord)) {
+      return true;
+    }
+
+    // 3. Palavras designadoras de Plano, Nível, Versão ou Edição imediatamente antes do número
+    // Ex: "project plan 3", "exchange plan 1", "visio plan 2", "plano 3", "level 1", "tier 2"
+    const designators = new Set([
+      'plan', 'plano', 'pl',
+      'level', 'lvl', 'nivel', 'nível', 'tier',
+      'version', 'versao', 'versão', 'ver', 'v', 'release', 'rel', 'r',
+      'edition', 'edicao', 'edição', 'ed',
+      'gen', 'generation', 'geracao', 'geração',
+      'wave', 'step', 'phase', 'fase',
+      'type', 'tipo', 'cat', 'categoria', 'group', 'grupo', 'option', 'opcao', 'opção',
+      'pack', 'pacote', 'suite', 'suíte',
+      'e', 'f', 'p', 'g', 'a', 'k'
+    ]);
+    if (designators.has(lastWord)) {
+      return true;
+    }
+
+    // 4. Sistemas Operacionais e Produtos com versão numérica direta
+    // Ex: "windows 10", "windows 11", "win 10", "win 11", "hololens 2", "surface pro 9"
+    if (['windows', 'win'].includes(lastWord) && [7, 8, 10, 11, 365].includes(n)) {
+      return true;
+    }
+    if (lastWord === 'hololens' && [1, 2, 3].includes(n)) {
+      return true;
+    }
+    if (prevWord === 'surface' && ['pro', 'go', 'laptop', 'studio'].includes(lastWord) && n >= 1 && n <= 15) {
+      return true;
+    }
+
+    return false;
+  },
+
+  parseInputLines(rawText) {
+    const lines = rawText.trim().split('\n').map(l => l.trim()).filter(Boolean);
+    const items = [];
+    let sumLicenses = 0;
+
+    lines.forEach((line, idx) => {
+      let qty = null;
+      let prodName = line.trim();
+
+      // 1. Quantidade explícita no final com unidade (ex: "project plan 3 10 un", "business basic 15 lic", "photoshop 5x")
+      const explicitUnitEnd = prodName.match(/^(.*?)(?:[\s\-:|=\t]+|\b(?:qtd|qtde|quant)\s*[:=]?\s*)(\d+)\s*(?:x|un|unid|unidades?|lic|licen[cç]as?|users?|usu[aá]rios?|pcs?|seats?|disp|dispositivos?)\.?$/i);
+
+      // 2. Quantidade explícita no final separada por delimitador claro (: | = Tab ou " - ")
+      const explicitDelimEnd = !explicitUnitEnd && prodName.match(/^(.*?)(?:\t+|\s*[:|=]\s*|\s+-\s+)(\d+)\s*$/);
+
+      // 3. Quantidade explícita no início com multiplicador/unidade/hífen (ex: "10x windows server 2025", "5 un project plan 3", "3 - photoshop")
+      const explicitStart = !explicitUnitEnd && !explicitDelimEnd && prodName.match(/^(\d+)\s*(?:x\b|un\b|unid\b|unidades?\b|lic\b|licen[cç]as?\b|\s*-\s+)\s*(.+)$/i);
+
+      if (explicitUnitEnd && explicitUnitEnd[1].trim()) {
+        prodName = explicitUnitEnd[1].trim();
+        qty = parseInt(explicitUnitEnd[2], 10);
+      } else if (explicitDelimEnd && explicitDelimEnd[1].trim()) {
+        prodName = explicitDelimEnd[1].trim();
+        qty = parseInt(explicitDelimEnd[2], 10);
+      } else if (explicitStart && explicitStart[2].trim()) {
+        qty = parseInt(explicitStart[1], 10);
+        prodName = explicitStart[2].trim();
+      } else {
+        // Remove palavras de unidade residuais soltas caso existam
+        const clean = prodName.replace(/\b(unidades|unidade|licenças|licencas|lic|unid|un)\b/gi, '').replace(/\s+/g, ' ').trim();
+        prodName = clean;
+
+        // 4. Número ao final separado por espaço (ex: "business basic 10", "windows server 2025 10", "project plan 3")
+        const matchEnd = clean.match(/^(.*?)\s+(\d+)$/);
+        if (matchEnd && matchEnd[1].trim()) {
+          const candidateProd = matchEnd[1].trim();
+          const candidateNum = matchEnd[2];
+
+          // Verifica se esse número final faz parte do nome do produto (ex: "2025" em Windows Server 2025 ou "3" em Project Plan 3)
+          if (!this.isNumeroParteDoProduto(candidateProd, candidateNum)) {
+            prodName = candidateProd;
+            qty = parseInt(candidateNum, 10);
+          }
+        } else {
+          // 5. Número no início separado apenas por espaço (ex: "10 business basic")
+          const matchStart = clean.match(/^(\d+)\s+(.+)$/);
+          if (matchStart && matchStart[2].trim()) {
+            const startNum = parseInt(matchStart[1], 10);
+            const restProd = matchStart[2].trim();
+            // Evita confundir "365 business basic" com 365 unidades
+            const is365Brand = startNum === 365 && /^(business|enterprise|apps|e3|e5|f1|f3|copilot|basic|standard|premium)\b/i.test(restProd);
+            if (!is365Brand) {
+              qty = startNum;
+              prodName = restProd;
+            }
+          }
+        }
+      }
+
+      if (qty !== null && !isNaN(qty)) sumLicenses += qty;
+
+      items.push({
+        itemIndex: idx,
+        original: this.escapeHTML(prodName),
+        rawSearch: prodName,
+        keywords: this.extrairKeywords(prodName),
+        qty: qty !== null ? qty : '-'
+      });
+    });
+
+    return { items, sumLicenses };
   },
 
   // ==========================================================================
@@ -159,7 +311,7 @@ window.Cotador.core = {
       }
     }
 
-    // 2. Checa indicadores de segmentos especiais no nome do produto (mesmo que a coluna segment esteja genérica)
+    // 2. Checa indicadores de segmentos especiais no nome do produto
     if (/\b(charity|non-profit|nonprofit|non profit|donation|filantropia)\b/i.test(nome)) {
       return 'charity';
     }
@@ -194,41 +346,6 @@ window.Cotador.core = {
     };
     const info = map[seg] || map.commercial;
     return `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${info.label}" data-label="Segmento" title="Clique para copiar o segmento" class="copy-link sec-detail ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium border ${info.cls}">${info.label}</span>`;
-  },
-
-  parseInputLines(rawText) {
-    const lines = rawText.trim().split('\n').map(l => l.trim()).filter(Boolean);
-    const items = [];
-    let sumLicenses = 0;
-
-    lines.forEach((line, idx) => {
-      const clean = line.replace(/\b(unidades|unidade|licenças|licencas|lic|unid|un)\b/gi, '').trim();
-      let qty = null;
-      let prodName = clean;
-
-      const matchEnd = clean.match(/^(.*?)(?:[\s\-:]+)(\d+)\s*$/);
-      const matchStart = clean.match(/^(\d+)(?:x|\s+|\s*-\s*)(.+)$/i);
-
-      if (matchEnd) {
-        prodName = matchEnd[1].trim();
-        qty = parseInt(matchEnd[2], 10);
-      } else if (matchStart) {
-        qty = parseInt(matchStart[1], 10);
-        prodName = matchStart[2].trim();
-      }
-
-      if (qty !== null && !isNaN(qty)) sumLicenses += qty;
-
-      items.push({
-        itemIndex: idx,
-        original: this.escapeHTML(prodName),
-        rawSearch: prodName,
-        keywords: this.extrairKeywords(prodName),
-        qty: qty !== null ? qty : '-'
-      });
-    });
-
-    return { items, sumLicenses };
   },
 
   async fetchSupabase(table, paramsArray) {
