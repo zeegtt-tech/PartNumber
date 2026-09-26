@@ -557,7 +557,7 @@ window.Cotador.core = {
         const firstTd = tr.querySelector('td');
         if (!firstTd) return;
 
-        const baseName = this.obterChaveProduto(tr);
+        const baseName = tr.getAttribute('data-prod-key') || this.obterChaveProduto(tr);
         if (baseName && !tr.getAttribute('data-prod-key')) {
           tr.setAttribute('data-prod-key', baseName);
         }
@@ -721,11 +721,6 @@ window.Cotador.core = {
           subTd.textContent = '-';
         }
       });
-
-      const baseName = tr.getAttribute('data-prod-key') || this.obterChaveProduto(tr);
-        if (baseName && !tr.getAttribute('data-prod-key')) {
-          tr.setAttribute('data-prod-key', baseName);
-        }
 
       const badgeTotal = document.getElementById(`total-${block.id}`);
       if (badgeTotal) {

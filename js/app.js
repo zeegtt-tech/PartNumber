@@ -348,6 +348,7 @@ window.Cotador.app = {
           showPublic: document.getElementById('chk-kasp-show-public')?.checked ?? false
         };
         await window.Cotador.tables.kaspersky.processar(this.parsedItems, flags);
+      }
 
       window.Cotador.core.limparBlocosVazios();
       window.Cotador.core.recalcularSubtotais();
