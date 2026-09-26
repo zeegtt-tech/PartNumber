@@ -2,13 +2,37 @@
 // MÓDULO DE TABELAS: ADOBE (Base Padrão & Promo Novos Clientes) - v5.7 ENTERPRISE
 // Arquivo: js/tables/adobe.js
 // ============================================================================
-function extrairOrdemLevelAdobe(levelDetail) {
-  const ld = (levelDetail || '').toLowerCase();
-  if (ld.includes('level 1 ') || ld.includes('1 - 9') || ld.includes('1-9')) return 1;
-  if (ld.includes('level 2 ') || ld.includes('level 12') || ld.includes('10 - 49') || ld.includes('10-49')) return 2;
-  if (ld.includes('level 3 ') || ld.includes('level 13') || ld.includes('50 - 99') || ld.includes('50-99')) return 3;
-  if (ld.includes('level 4 ') || ld.includes('level 14') || ld.includes('100+')) return 4;
-  return 99;
+
+function obterInfoLevelAdobe(levelDetail) {
+  const raw = String(levelDetail || '').trim();
+  const ld = raw.toLowerCase();
+  const is3Y = ld.includes('3 year commit') || ld.includes('3y commit');
+  const suffix3Y = is3Y ? ' (3Y Commit)' : '';
+  const offset = is3Y ? 10 : 0;
+
+  if (/\blevel\s*0?1\b/i.test(ld) || /\b1\s*-\s*9\b/.test(ld) || /\b1\s+to\s+9\b/i.test(ld)) {
+    return { ordem: 1 + offset, groupCode: '1', label: `Level 1 (1-9)${suffix3Y}` };
+  }
+  if (/\blevel\s*12\b/i.test(ld)) {
+    return { ordem: 2 + offset, groupCode: '2', label: `Level 12 (10-49)${suffix3Y}` };
+  }
+  if (/\blevel\s*0?2\b/i.test(ld) || /\b10\s*-\s*49\b/.test(ld) || /\b10\s+to\s+49\b/i.test(ld)) {
+    return { ordem: 2 + offset, groupCode: '2', label: `Level 2 (10-49)${suffix3Y}` };
+  }
+  if (/\blevel\s*13\b/i.test(ld)) {
+    return { ordem: 3 + offset, groupCode: '3', label: `Level 13 (50-99)${suffix3Y}` };
+  }
+  if (/\blevel\s*0?3\b/i.test(ld) || /\b50\s*-\s*99\b/.test(ld) || /\b50\s+to\s+99\b/i.test(ld)) {
+    return { ordem: 3 + offset, groupCode: '3', label: `Level 3 (50-99)${suffix3Y}` };
+  }
+  if (/\blevel\s*14\b/i.test(ld)) {
+    return { ordem: 4 + offset, groupCode: '4', label: `Level 14 (100+)${suffix3Y}` };
+  }
+  if (/\blevel\s*0?4\b/i.test(ld) || /100\+/.test(ld)) {
+    return { ordem: 4 + offset, groupCode: '4', label: `Level 4 (100+)${suffix3Y}` };
+  }
+
+  return { ordem: 99, groupCode: 'other', label: raw };
 }
 
 function criarModuloAdobe(tableName, labelTitulo) {
@@ -23,48 +47,48 @@ function criarModuloAdobe(tableName, labelTitulo) {
         : [flags.segmento || 'teams'];
 
       const promessas = parsedItems.map(async item => {
-        const params = [['select', '*'], ['limit', '300']];
+        const params = [['select', '*'], ['limit', '500']];
         item.keywords.forEach(kw => params.push(['product_family', `ilike.*${kw}*`]));
+
         let data = await core.fetchSupabase(tableName, params);
 
         if (flags.hide3YCommit) {
           data = data.filter(r => !(r.level_detail || '').toLowerCase().includes('3 year commit'));
         }
 
-        // Se o produto não tiver quantidade e o filtro estiver em 'auto', retorna todos os levels
+        // Sem quantidade definida no item -> exibe todas as faixas (ranges) em ordem crescente
         const semQuantidade = item.qty === '-' || item.qty === null || item.qty === '' || isNaN(item.qty);
         const effectiveLevel = (flags.levelSelect === 'auto' && semQuantidade)
           ? 'all'
           : flags.targetLevel;
 
         if (effectiveLevel !== 'all') {
-          data = data.filter(r => {
-            const ld = (r.level_detail || '').toLowerCase();
-            if (effectiveLevel === '1') return ld.includes('level 1 ') || ld.includes('1 - 9') || ld.includes('1-9');
-            if (effectiveLevel === '2') return ld.includes('level 2 ') || ld.includes('level 12') || ld.includes('10 - 49') || ld.includes('10-49');
-            if (effectiveLevel === '3') return ld.includes('level 3 ') || ld.includes('level 13') || ld.includes('50 - 99') || ld.includes('50-99');
-            if (effectiveLevel === '4') return ld.includes('level 4 ') || ld.includes('level 14') || ld.includes('100+');
-            return true;
-          });
+          data = data.filter(r => obterInfoLevelAdobe(r.level_detail).groupCode === String(effectiveLevel));
         }
 
-        return { item, data };
+        return { item, data, effectiveLevel };
       });
 
       const resultados = await Promise.all(promessas);
 
       for (const seg of segmentosAtivos) {
         let rowsHTML = '';
+        let lastCategoryKey = null;
 
         resultados.forEach(({ item, data }) => {
-          let filtradosSeg = data.filter(r => (r.product_family || '').toLowerCase().includes(seg));
+          const filtradosSeg = data.filter(r => (r.product_family || '').toLowerCase().includes(seg));
 
-          // Mantém agrupado por produto e ordena os levels/ranges em ordem crescente
+          // Categoriza por nome base do produto e ordena os ranges (levels) em ordem crescente
           filtradosSeg.sort((a, b) => {
             const prodA = (a.product_family || '').toLowerCase().trim();
             const prodB = (b.product_family || '').toLowerCase().trim();
             if (prodA !== prodB) return prodA.localeCompare(prodB);
-            return extrairOrdemLevelAdobe(a.level_detail) - extrairOrdemLevelAdobe(b.level_detail);
+
+            const lvlA = obterInfoLevelAdobe(a.level_detail);
+            const lvlB = obterInfoLevelAdobe(b.level_detail);
+            if (lvlA.ordem !== lvlB.ordem) return lvlA.ordem - lvlB.ordem;
+
+            return core.parsePrice(a.partner_price) - core.parsePrice(b.partner_price);
           });
 
           filtradosSeg.forEach(r => {
@@ -74,8 +98,19 @@ function criarModuloAdobe(tableName, labelTitulo) {
             const fmtUSD = `US$ ${core.formatUSD(usd)}`;
             const fmtBRL = `R$ ${core.formatBRL(brl)}`;
 
-            rowsHTML += `<tr data-unit-price="${usd}" data-unit-price-brl="${brl}" data-currency="USD" data-pn="${core.escapeHTML(pn)}">
-              <td class="font-medium text-slate-800">${core.renderCopyLink(r.product_family, r.product_family, 'Produto')}</td>
+            const nomeBase = (r.product_family || '').trim();
+            const infoLvl = obterInfoLevelAdobe(r.level_detail);
+            const nomeComLevel = infoLvl.label ? `${nomeBase} - ${infoLvl.label}` : nomeBase;
+
+            const categoryKey = nomeBase.toLowerCase();
+            const isNewCategory = lastCategoryKey !== null && lastCategoryKey !== categoryKey;
+            lastCategoryKey = categoryKey;
+            const rowBorderClass = isNewCategory ? 'border-t-2 border-slate-200' : '';
+
+            const produtoDisplayHTML = `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${core.escapeHTML(nomeComLevel)}" data-label="Produto" title="Clique para copiar produto com level" class="copy-link"><span>${core.escapeHTML(nomeBase)}</span>${infoLvl.label ? ` <span class="theme-text font-semibold">- ${core.escapeHTML(infoLvl.label)}</span>` : ''}</span>`;
+
+            rowsHTML += `<tr class="${rowBorderClass}" data-unit-price="${usd}" data-unit-price-brl="${brl}" data-currency="USD" data-pn="${core.escapeHTML(pn)}" data-prod-key="${core.escapeHTML(nomeComLevel.toLowerCase())}">
+              <td class="font-medium text-slate-800">${produtoDisplayHTML}</td>
               <td>${core.renderQtyInput(item.qty)}</td>
               <td>${core.renderPnBadge(pn)}</td>
               <td class="col-secondary text-xs text-slate-500 font-normal whitespace-nowrap">${core.renderCopyLink(r.level_detail, r.level_detail, 'Level')}</td>
