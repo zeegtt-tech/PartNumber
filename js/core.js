@@ -1,13 +1,16 @@
 // ============================================================================
 // NUCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.5 ENTERPRISE (js/core.js)
 // ============================================================================
-
 window.Cotador = { core: {}, tables: {}, app: {} };
 
 window.Cotador.core = {
   SUPABASE_URL: "https://rftvbxlbltmiwamjhgzl.supabase.co/rest/v1",
   SUPABASE_KEY: "sb_publishable_fN_BXmhXXod2gpeyJ8u38Q_rvgDPl7N",
-  
+
+  _dragInitialized: false,
+  _draggedRow: null,
+  _lastMouseDownTarget: null,
+
   SEARCH_KEYWORDS: {
     "phothosop": ["Photoshop"], "photshop": ["Photoshop"], "photosop": ["Photoshop"], "photoshop": ["Photoshop"],
     "ilustrator": ["Illustrator"], "illustrator": ["Illustrator"], "indesing": ["InDesign"], "acrobat pro": ["Acrobat", "Pro"],
@@ -91,7 +94,6 @@ window.Cotador.core = {
       'Authorization': `Bearer ${this.SUPABASE_KEY}`,
       'Accept': 'application/json'
     };
-
     const resp = await fetch(url, { method: 'GET', headers });
     if (!resp.ok) {
       const errTxt = await resp.text();
@@ -133,7 +135,45 @@ window.Cotador.core = {
   },
 
   renderRowActions() {
-    return `<div class="flex items-center justify-end whitespace-nowrap"><button type="button" onclick="this.closest('tr').remove(); Cotador.core.recalcularSubtotais();" title="Remover item da tabela" class="text-[11px] font-normal text-slate-400 hover:text-red-600 hover:bg-red-50 rounded px-2 py-1 transition flex items-center gap-1"><span>&#10005;</span> <span class="hidden sm:inline">Remover</span></button></div>`;
+    return `<div class="flex items-center justify-end gap-1 whitespace-nowrap"><button type="button" onclick="Cotador.core.removerLinhaUnica(this)" title="Remover apenas este item desta tabela" class="text-[11px] font-normal text-slate-400 hover:text-red-600 hover:bg-red-50 rounded px-1.5 py-1 transition flex items-center gap-1"><span>&#10005;</span> <span class="hidden sm:inline">Remover</span></button><button type="button" onclick="Cotador.core.removerLinhasSemelhantes(this)" title="Remover este produto de todas as tabelas e contratos" class="text-[11px] font-medium text-slate-400 hover:text-red-700 hover:bg-red-100/80 border border-transparent hover:border-red-200 rounded px-1.5 py-1 transition flex items-center gap-1"><svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg><span class="hidden sm:inline">Semelhantes</span></button></div>`;
+  },
+
+  obterChaveProduto(tr) {
+    const firstTd = tr ? tr.querySelector('td') : null;
+    if (!firstTd) return '';
+    const cloneTd = firstTd.cloneNode(true);
+    cloneTd.querySelectorAll('.no-export').forEach(el => el.remove());
+    return cloneTd.innerText.replace(/\s+/g, ' ').trim().toLowerCase();
+  },
+
+  removerLinhaUnica(btn) {
+    const tr = btn.closest('tr');
+    if (!tr) return;
+    tr.remove();
+    this.recalcularSubtotais();
+  },
+
+  removerLinhasSemelhantes(btn) {
+    const tr = btn.closest('tr');
+    if (!tr) return;
+    const chaveAlvo = tr.getAttribute('data-prod-key') || this.obterChaveProduto(tr);
+    if (!chaveAlvo) {
+      tr.remove();
+      this.recalcularSubtotais();
+      return;
+    }
+
+    let removidos = 0;
+    document.querySelectorAll('.quote-block tbody tr').forEach(row => {
+      const chaveRow = row.getAttribute('data-prod-key') || this.obterChaveProduto(row);
+      if (chaveRow === chaveAlvo) {
+        row.remove();
+        removidos++;
+      }
+    });
+
+    this.recalcularSubtotais();
+    this.mostrarToast(`Produto removido em ${removidos} linha(s)/tabela(s)!`);
   },
 
   renderNotFoundRow(item, colspan) {
@@ -144,6 +184,153 @@ window.Cotador.core = {
     return `<div onclick="Cotador.core.toggleBlock('${blockId}')" class="block-header-bar flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none" title="Clique para recolher ou expandir esta tabela"><div class="flex items-center gap-2"><svg class="w-4 h-4 text-slate-400 chevron-icon transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg><h3 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">${title}</h3></div><div class="flex items-center gap-1.5" onclick="event.stopPropagation()"><span id="total-${blockId}" class="text-xs font-semibold theme-badge px-2.5 py-0.5 rounded tabular-nums mr-1 hidden"></span><button type="button" onclick="Cotador.core.copiarBlocoUnico('${blockId}', false)" class="text-[11px] font-medium px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 transition">Copiar Tabela</button><button type="button" onclick="Cotador.core.copiarBlocoUnico('${blockId}', true)" class="text-[11px] font-medium px-2.5 py-1 rounded btn-theme-primary">Copiar PNs</button></div></div>`;
   },
 
+  // ==========================================================================
+  // DRAG & DROP DE LINHAS COM SINCRONIZACAO ENTRE TABELAS DE CONTRATO/PERIODO
+  // ==========================================================================
+  initDragEvents() {
+    if (this._dragInitialized) return;
+    this._dragInitialized = true;
+
+    document.addEventListener('mousedown', (e) => {
+      this._lastMouseDownTarget = e.target;
+    }, true);
+
+    document.addEventListener('dragstart', (e) => {
+      const tr = e.target.closest('.quote-block tbody tr.draggable-row');
+      if (!tr) return;
+
+      if (this._lastMouseDownTarget && this._lastMouseDownTarget.closest('input, button:not(.drag-handle)')) {
+        e.preventDefault();
+        return;
+      }
+
+      this._draggedRow = tr;
+      tr.classList.add('is-dragging');
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', tr.getAttribute('data-sync-key') || '');
+      }
+    });
+
+    document.addEventListener('dragover', (e) => {
+      if (!this._draggedRow) return;
+      const targetTr = e.target.closest('.quote-block tbody tr.draggable-row');
+      if (!targetTr || targetTr === this._draggedRow) return;
+
+      const sourceTbody = this._draggedRow.parentElement;
+      if (targetTr.parentElement !== sourceTbody) return;
+
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+
+      const rect = targetTr.getBoundingClientRect();
+      const isAfter = (e.clientY - rect.top) > (rect.height / 2);
+      if (isAfter) {
+        sourceTbody.insertBefore(this._draggedRow, targetTr.nextElementSibling);
+      } else {
+        sourceTbody.insertBefore(this._draggedRow, targetTr);
+      }
+    });
+
+    document.addEventListener('drop', (e) => {
+      if (!this._draggedRow) return;
+      e.preventDefault();
+    });
+
+    document.addEventListener('dragend', () => {
+      if (!this._draggedRow) return;
+      const movedRow = this._draggedRow;
+      const sourceTbody = movedRow.parentElement;
+      movedRow.classList.remove('is-dragging');
+      this._draggedRow = null;
+
+      if (sourceTbody) {
+        this.sincronizarOrdemTabelas(sourceTbody, movedRow);
+        this.atualizarMarkdownBruto();
+      }
+    });
+  },
+
+  prepararLinhasDrag() {
+    this.initDragEvents();
+
+    document.querySelectorAll('.quote-block tbody').forEach(tbody => {
+      const keyCounts = {};
+
+      tbody.querySelectorAll('tr').forEach(tr => {
+        const firstTd = tr.querySelector('td');
+        if (!firstTd) return;
+
+        const baseName = this.obterChaveProduto(tr);
+        if (baseName && !tr.getAttribute('data-prod-key')) {
+          tr.setAttribute('data-prod-key', baseName);
+        }
+
+        if (!tr.getAttribute('data-sync-key')) {
+          const count = (keyCounts[baseName] || 0) + 1;
+          keyCounts[baseName] = count;
+          tr.setAttribute('data-sync-key', `${baseName}::#${count}`);
+        }
+
+        if (!tr.classList.contains('draggable-row')) {
+          tr.classList.add('draggable-row');
+          tr.setAttribute('draggable', 'true');
+        }
+
+        if (!firstTd.querySelector('.drag-handle')) {
+          const handle = document.createElement('span');
+          handle.className = 'drag-handle no-export';
+          handle.title = 'Arraste para organizar (sincroniza entre contratos)';
+          handle.innerHTML = `<svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><circle cx="5.5" cy="3.5" r="1.2"/><circle cx="10.5" cy="3.5" r="1.2"/><circle cx="5.5" cy="8" r="1.2"/><circle cx="10.5" cy="8" r="1.2"/><circle cx="5.5" cy="12.5" r="1.2"/><circle cx="10.5" cy="12.5" r="1.2"/></svg>`;
+          firstTd.insertBefore(handle, firstTd.firstChild);
+        }
+      });
+    });
+  },
+
+  sincronizarOrdemTabelas(sourceTbody, movedRow) {
+    const syncKey = movedRow.getAttribute('data-sync-key');
+    if (!syncKey) return;
+
+    const keysAfter = [];
+    let next = movedRow.nextElementSibling;
+    while (next) {
+      const k = next.getAttribute('data-sync-key');
+      if (k) keysAfter.push(k);
+      next = next.nextElementSibling;
+    }
+
+    document.querySelectorAll('.quote-block tbody').forEach(otherTbody => {
+      if (otherTbody === sourceTbody) return;
+
+      const rows = Array.from(otherTbody.querySelectorAll('tr'));
+      const matchingRow = rows.find(r => r.getAttribute('data-sync-key') === syncKey);
+      if (!matchingRow) return;
+
+      let refRow = null;
+      for (const afterKey of keysAfter) {
+        const candidate = rows.find(r => r.getAttribute('data-sync-key') === afterKey);
+        if (candidate && candidate !== matchingRow) {
+          refRow = candidate;
+          break;
+        }
+      }
+
+      if (refRow) {
+        otherTbody.insertBefore(matchingRow, refRow);
+      } else {
+        otherTbody.appendChild(matchingRow);
+      }
+
+      matchingRow.classList.remove('row-synced-flash');
+      void matchingRow.offsetWidth;
+      matchingRow.classList.add('row-synced-flash');
+    });
+  },
+
+  // ==========================================================================
+  // CONTROLES DE VISIBILIDADE E SUBTOTAIS
+  // ==========================================================================
   toggleBlock(blockId) {
     const block = document.getElementById(blockId);
     if (block) block.classList.toggle('is-collapsed');
@@ -189,10 +376,11 @@ window.Cotador.core = {
   },
 
   recalcularSubtotais() {
+    this.prepararLinhasDrag();
+
     const showSub = document.getElementById('chk-mostrar-subtotal').checked;
     const btnSub = document.getElementById('btn-toggle-subtotal');
     if (btnSub) btnSub.classList.toggle('active', showSub);
-
     document.querySelectorAll('.col-subtotal').forEach(el => el.classList.toggle('hidden', !showSub));
     
     document.querySelectorAll('.quote-block').forEach(block => {
@@ -218,7 +406,7 @@ window.Cotador.core = {
       const badgeTotal = document.getElementById(`total-${block.id}`);
       if (badgeTotal) {
         badgeTotal.textContent = `Total: R$ ${this.formatBRL(somaBloco)}`;
-        badgeTotal.classList.toggle('hidden', !temQtd);
+        badgeTotal.classList.toggle('hidden', !temQtd || !showSub);
       }
     });
     this.atualizarMarkdownBruto();
@@ -230,6 +418,7 @@ window.Cotador.core = {
     const badge = td.querySelector('.pn-badge');
     if (badge) return badge.getAttribute('data-pn-val') || badge.childNodes[0].textContent.trim();
     const clone = td.cloneNode(true);
+    clone.querySelectorAll('.no-export').forEach(el => el.remove());
     if (document.body.classList.contains('hide-secondary-details')) {
       clone.querySelectorAll('.sec-detail').forEach(el => el.remove());
     }
