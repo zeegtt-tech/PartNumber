@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cotador Comercial de PNs & Licenciamento | v5.5 Enterprise</title>
+  <title>Cotador Comercial de PNs & Licenciamento | v5.6 Enterprise</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="./css/styles.css">
   <script defer src="./js/core.js"></script>
@@ -29,11 +29,11 @@
               Gerador Comercial de PNs &amp; Cotação
             </h1>
             <span class="text-[10px] px-2 py-0.5 rounded-full theme-badge font-medium uppercase tracking-wide transition-colors">
-              v5.5 Enterprise
+              v5.6 Enterprise
             </span>
           </div>
           <p class="text-[11px] text-slate-400">
-            Clique em qualquer PN para copiar &bull; Pressione <kbd class="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-slate-600 font-medium">Ctrl + Enter</kbd> para buscar
+            Clique no PN para copiar &bull; Arraste as linhas (ou use ▲▼) para ordenar todas as tabelas &bull; <kbd class="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-slate-600 font-medium">Ctrl + Enter</kbd> para buscar
           </p>
         </div>
       </div>
@@ -41,7 +41,7 @@
       <div class="flex flex-wrap items-center gap-2.5">
         <input type="checkbox" id="chk-mostrar-subtotal" class="sr-only" checked onchange="Cotador.core.recalcularSubtotais()">
         <input type="checkbox" id="chk-mostrar-detalhes" class="sr-only" checked onchange="Cotador.core.atualizarVisibilidadeDetalhes()">
-
+        
         <div class="unified-view-control" role="group" aria-label="Controle de exibição da tabela">
           <button type="button" id="btn-toggle-all-view" onclick="Cotador.core.alternarVisaoUnificada()" title="Alternar visão completa ou enxuta (Detalhes + Subtotais)" class="mini-toggle-btn text-slate-500 hover:text-slate-800 px-2 border-r border-slate-200/80 rounded-none">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
@@ -53,7 +53,7 @@
             <span class="dot"></span>
             <span>Detalhes</span>
           </button>
-          <button type="button" id="btn-toggle-subtotal" onclick="Cotador.core.toggleMostrarSubtotal()" title="Habilitar/desabilitar coluna de Subtotal (Qtd × Custo)" class="mini-toggle-btn active">
+          <button type="button" id="btn-toggle-subtotal" onclick="Cotador.core.toggleMostrarSubtotal()" title="Habilitar/desabilitar coluna de Subtotal e valor Total da tabela" class="mini-toggle-btn active">
             <span class="dot"></span>
             <span>Subtotais</span>
           </button>
@@ -97,48 +97,143 @@
 
           <!-- 3. FILTROS MICROSOFT -->
           <div id="filtros-microsoft" class="space-y-3.5 pt-3 border-t border-slate-100">
+            
+            <!-- 3.1 MODALIDADES (MULTI-SELEÇÃO) -->
             <div>
-              <label class="section-label">Modalidade / Tabela Microsoft</label>
-              <input type="hidden" id="ms-modalidade" value="scan">
+              <div class="flex items-center justify-between mb-1">
+                <label class="section-label !mb-0">Modalidades / Tabelas</label>
+                <div class="flex items-center gap-2 text-[10px] font-medium">
+                  <button type="button" onclick="Cotador.app.selecionarTodasMsModalidades()" class="theme-text hover:underline" title="Marcar todas as 4 modalidades">Todas</button>
+                  <span class="text-slate-300">|</span>
+                  <button type="button" onclick="Cotador.app.limparMsModalidades()" class="text-slate-400 hover:text-slate-600" title="Desmarcar todas (busca todas automaticamente)">Limpar</button>
+                </div>
+              </div>
               <div class="grid grid-cols-2 gap-1.5">
-                <button type="button" onclick="Cotador.app.setMsModalidade('scan')" id="btn-ms-mod-scan" class="modality-chip active">Scan</button>
-                <button type="button" onclick="Cotador.app.setMsModalidade('solo')" id="btn-ms-mod-solo" class="modality-chip">CSP Solo</button>
-                <button type="button" onclick="Cotador.app.setMsModalidade('perpetuo')" id="btn-ms-mod-perpetuo" class="modality-chip">CSP Perpetual</button>
-                <button type="button" onclick="Cotador.app.setMsModalidade('mpsa')" id="btn-ms-mod-mpsa" class="modality-chip">MPSA</button>
+                <button type="button" onclick="Cotador.app.toggleMsModalidade('scan')" id="btn-ms-mod-scan" class="modality-chip active">Scan (-7%)</button>
+                <button type="button" onclick="Cotador.app.toggleMsModalidade('solo')" id="btn-ms-mod-solo" class="modality-chip">CSP Solo</button>
+                <button type="button" onclick="Cotador.app.toggleMsModalidade('perpetuo')" id="btn-ms-mod-perpetuo" class="modality-chip">CSP Perpetual</button>
+                <button type="button" onclick="Cotador.app.toggleMsModalidade('mpsa')" id="btn-ms-mod-mpsa" class="modality-chip">MPSA</button>
+              </div>
+              <p id="ms-mod-hint" class="text-[10px] text-slate-400 mt-1 leading-tight">
+                Dica: selecione mais de uma para comparar ou desmarque todas para buscar nas 4 tabelas.
+              </p>
+            </div>
+
+            <!-- 3.2 SEGMENTOS DE MERCADO (BOTÕES ESPECÍFICOS) -->
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="section-label !mb-0">Segmento de Mercado</label>
+                <div class="flex items-center gap-1.5 text-[10px] font-medium">
+                  <button type="button" onclick="Cotador.app.resetarMsSegmentoComercial()" class="theme-text hover:underline" title="Focar apenas em Comercial (Padrão)">Só Comercial</button>
+                  <span class="text-slate-300">|</span>
+                  <button type="button" onclick="Cotador.app.selecionarTodosMsSegmentos()" class="text-slate-400 hover:text-slate-600" title="Ativar todos os segmentos">Todos</button>
+                </div>
+              </div>
+              <div class="grid grid-cols-4 gap-1">
+                <button type="button" onclick="Cotador.app.toggleMsSegmento('commercial')" id="btn-ms-seg-commercial" class="segment-chip active" title="Licenciamento Comercial / Corporativo (Padrão)">Comercial</button>
+                <button type="button" onclick="Cotador.app.toggleMsSegmento('education')" id="btn-ms-seg-education" class="segment-chip" title="Licenciamento Educacional / Academic / Faculty / Student">Educação</button>
+                <button type="button" onclick="Cotador.app.toggleMsSegmento('government')" id="btn-ms-seg-government" class="segment-chip" title="Licenciamento Governo / Setor Público">Governo</button>
+                <button type="button" onclick="Cotador.app.toggleMsSegmento('charity')" id="btn-ms-seg-charity" class="segment-chip" title="Licenciamento Filantropia / Non-Profit / ONG">Charity</button>
               </div>
             </div>
 
-            <div id="ms-box-contratos">
-              <label class="section-label">Contratos a Exibir</label>
+            <!-- 3.3 CONTRATOS CSP (SCAN & SOLO) -->
+            <div id="ms-box-contratos" class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <label class="section-label !mb-0">Contratos CSP (Vigência / Ciclo)</label>
+                <button type="button" id="btn-toggle-trienais" onclick="Cotador.app.toggleTrienaisCSP()" class="text-[10px] font-medium theme-text hover:underline">+ Trienais</button>
+              </div>
               <div class="grid grid-cols-3 gap-1.5">
-                <label class="contract-chip"><input type="checkbox" id="chk-anual-anual" checked> Anual/Anual</label>
-                <label class="contract-chip"><input type="checkbox" id="chk-anual-mensal" checked> Anual/Mensal</label>
-                <label class="contract-chip"><input type="checkbox" id="chk-mensal-mensal"> Mensal/Mensal</label>
+                <label class="contract-chip" title="Compromisso Anual com Faturamento Anual"><input type="checkbox" id="chk-anual-anual" checked> Anual/Anual</label>
+                <label class="contract-chip" title="Compromisso Anual com Faturamento Mensal"><input type="checkbox" id="chk-anual-mensal" checked> Anual/Mensal</label>
+                <label class="contract-chip" title="Compromisso Mensal com Faturamento Mensal"><input type="checkbox" id="chk-mensal-mensal"> Mensal/Mensal</label>
+              </div>
+              <div id="ms-contratos-trienais" class="hidden grid grid-cols-3 gap-1.5 pt-0.5">
+                <label class="contract-chip" title="Compromisso Trienal (3 Anos) com Faturamento Anual"><input type="checkbox" id="chk-trienal-anual"> Trienal/Anual</label>
+                <label class="contract-chip" title="Compromisso Trienal (3 Anos) com Faturamento Mensal"><input type="checkbox" id="chk-trienal-mensal"> Trienal/Mensal</label>
+                <label class="contract-chip" title="Compromisso Trienal (3 Anos) com Pagamento Único/Total"><input type="checkbox" id="chk-trienal-trienal"> Trienal/Total</label>
               </div>
             </div>
 
+            <!-- 3.4 FLAGS DE FILTRAGEM CONTEXTUAL MICROSOFT -->
             <div id="ms-box-flags">
-              <label class="section-label">Flags de Filtragem Microsoft</label>
-              <div class="space-y-1.5 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
+              <label class="section-label">Flags de Filtragem &amp; Refinamento</label>
+              <div class="space-y-2.5 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
+                
+                <!-- Flags CSP & Geral -->
                 <div id="ms-flags-csp" class="space-y-1.5">
+                  <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Geral &amp; CSP (Scan / Solo)</div>
                   <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
                     <input type="checkbox" id="chk-hide-noteams" checked>
-                    <span>Ocultar variantes "Sem Teams"</span>
+                    <span>Ocultar variantes "Sem Teams" (No Teams)</span>
                   </label>
                   <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
                     <input type="checkbox" id="chk-hide-copilot" checked>
-                    <span>Ocultar "Copilot / Add-on"</span>
+                    <span>Ocultar "Copilot / Add-on / Attach"</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                    <input type="checkbox" id="chk-hide-trial" checked>
+                    <span>Ocultar "Trial / Gratuito / Promo"</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                    <input type="checkbox" id="chk-hide-frontline">
+                    <span>Ocultar linha "Frontline / Kiosk (F1/F3)"</span>
                   </label>
                 </div>
 
-                <div id="ms-flags-mpsa" class="hidden space-y-1.5">
+                <!-- Flags Perpétuo & MPSA (Contratos Temporários, Ciclos e CALs) -->
+                <div id="ms-flags-perpetuo-mpsa" class="hidden space-y-1.5 pt-2 border-t border-slate-200/70">
+                  <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Perpétuo &amp; MPSA (Duração / Escopo)</div>
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900" title="Oculta todas as licenças temporárias/assinaturas (Mensal, Anual e Trienal) para exibir apenas licenças perpétuas">
+                    <input type="checkbox" id="chk-pm-hide-temp" onchange="Cotador.app.syncTempFlagsFromMaster(this.checked)">
+                    <span>Ocultar Contratos Temporários / Assinaturas</span>
+                  </label>
+                  
+                  <div class="grid grid-cols-3 gap-1 pt-0.5 pb-0.5">
+                    <label class="flag-mini-pill" title="Ocultar itens com vigência Mensal no Perpétuo/MPSA">
+                      <input type="checkbox" id="chk-pm-hide-mensal" onchange="Cotador.app.syncMasterFromTempPills()">
+                      <span>Ocultar Mensal</span>
+                    </label>
+                    <label class="flag-mini-pill" title="Ocultar itens com vigência Anual (1 Ano) no Perpétuo/MPSA">
+                      <input type="checkbox" id="chk-pm-hide-anual" onchange="Cotador.app.syncMasterFromTempPills()">
+                      <span>Ocultar Anual</span>
+                    </label>
+                    <label class="flag-mini-pill" title="Ocultar itens com vigência Trienal (3 Anos) no Perpétuo/MPSA">
+                      <input type="checkbox" id="chk-pm-hide-trienal" onchange="Cotador.app.syncMasterFromTempPills()">
+                      <span>Ocultar Trienal</span>
+                    </label>
+                  </div>
+
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                    <input type="checkbox" id="chk-pm-hide-stepup" checked>
+                    <span>Ocultar "Step-Up / Upgrade / Migration"</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                    <input type="checkbox" id="chk-pm-hide-cals">
+                    <span>Ocultar "CALs" (User / Device / RDS CAL)</span>
+                  </label>
+                </div>
+
+                <!-- Flags Exclusivas MPSA -->
+                <div id="ms-flags-mpsa" class="hidden space-y-1.5 pt-2 border-t border-slate-200/70">
+                  <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Opções de Uso MPSA</div>
                   <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
                     <input type="checkbox" id="chk-mpsa-hide-sa" checked>
                     <span>Ocultar "SA Only" (Software Assurance Avulso)</span>
                   </label>
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                    <input type="checkbox" id="chk-mpsa-hide-licsa">
+                    <span>Ocultar "Licença + SA" (Exibir apenas Licença pura)</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                    <input type="checkbox" id="chk-mpsa-hide-liconly">
+                    <span>Ocultar "License Only" (Exibir apenas c/ SA)</span>
+                  </label>
                 </div>
+
               </div>
             </div>
+
           </div>
 
           <!-- 3. FILTROS ADOBE -->
@@ -279,6 +374,7 @@
           <button onclick="Cotador.app.gerarCotacao()" id="btn-buscar" class="btn-theme-primary w-full py-2.5 px-4 rounded-lg font-medium text-xs flex items-center justify-center gap-2">
             <span>Buscar e Montar Tabelas</span>
           </button>
+
         </div>
       </div>
 
@@ -292,8 +388,9 @@
                   <span class="w-2 h-2 rounded-sm theme-bg-solid inline-block transition-colors"></span>
                   Resultado da Cotação
                 </h2>
-                <p class="text-[11px] text-slate-400 mt-0.5">Clique na barra de título de qualquer tabela para recolher ou expandir</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Arraste qualquer linha (ou clique em ▲▼) para reordenar todas as tabelas simultaneamente &bull; Clique na barra de título para recolher</p>
               </div>
+
               <div class="flex flex-wrap items-center gap-1.5">
                 <button onclick="Cotador.core.alternarTodasTabelas()" class="text-[11px] px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 font-medium transition" title="Expandir ou recolher todas as tabelas">
                   Expandir / Recolher

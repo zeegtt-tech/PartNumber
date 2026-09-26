@@ -1,38 +1,35 @@
 // ============================================================================
 // MODULO DE TABELAS: MICROSOFT (Scan, Solo, Perpetuo, MPSA)
 // Arquivo: js/tables/microsoft.js
-// ----------------------------------------------------------------------------
-// CONTRATO DE CONTEXTO PARA IA (GEMINI PRO):
-// Registra `ms_scan`, `ms_solo`, `ms_perpetuo` e `ms_mpsa` em `window.Cotador.tables`.
-// Metodos em `window.Cotador.core`: fetchSupabase, isItemComercialValido, parsePrice,
-// getSoloPrice, formatBRL, escapeHTML, renderPnBadge, renderQtyInput, renderRowActions,
-// renderNotFoundRow, renderBlockHeader.
 // ============================================================================
 
 window.Cotador.tables.ms_scan = {
-  async processar(parsedItems, flags) {
+  async processar(parsedItems, flags = {}) {
     const core = window.Cotador.core;
     const container = document.getElementById('resultado-container');
-    container.innerHTML = '';
-    
+    if (!flags.append) container.innerHTML = '';
+
     const promessas = parsedItems.map(async item => {
       const params = [['select', '*'], ['limit', '250']];
       item.keywords.forEach(kw => params.push(['offer_display_name', `ilike.*${kw}*`]));
       let data = await core.fetchSupabase('microsoft_scan', params);
+
       data = data.filter(r => {
         const nome = (r.offer_display_name || '').toLowerCase();
         const preco = core.parsePrice(r.preco_unitario);
-        if (!core.isItemComercialValido(r.offer_display_name, r.segmento, preco)) return false;
+        if (!core.isItemSegmentoValido(r.offer_display_name, r.segmento, flags.segmentos, preco)) return false;
         if (flags.hideNoTeams && /\b(no|sem|without)\s+teams\b/i.test(nome)) return false;
         if (flags.hideCopilot && (nome.includes('copilot') || nome.includes('add-on') || nome.includes('attach'))) return false;
+        if (flags.hideTrial && /\b(trial|free|gratuito|promo)\b/i.test(nome)) return false;
+        if (flags.hideFrontline && /\b(frontline|kiosk|f1|f3)\b/i.test(nome)) return false;
         return true;
       });
       return { item, data };
     });
-    
+
     const resultadosPorItem = await Promise.all(promessas);
 
-    for (const c of flags.contratos) {
+    for (const c of (flags.contratos || [])) {
       let rowsHTML = '';
       for (const { item, data } of resultadosPorItem) {
         const filtrados = data.filter(r => {
@@ -40,7 +37,6 @@ window.Cotador.tables.ms_scan = {
           const plano = (r.ciclo_pagamento || '').trim().toUpperCase();
           return (c.scanTempo.toUpperCase() === termo) && (c.scanCiclo.toUpperCase() === plano);
         });
-
         if (filtrados.length === 0) {
           rowsHTML += core.renderNotFoundRow(item, 6);
         } else {
@@ -54,27 +50,30 @@ window.Cotador.tables.ms_scan = {
       }
       const bId = `blk-scan-${c.id}`;
       const headerTitle = `Contrato: ${c.label} (Faturamento: Scansource -7%)`;
-      container.innerHTML += `<div id="${bId}" class="quote-block" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th class="col-secondary">Custo Tabela</th><th>Custo Final (-7%)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
+      container.insertAdjacentHTML('beforeend', `<div id="${bId}" class="quote-block" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th class="col-secondary">Custo Tabela</th><th>Custo Final (-7%)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`);
     }
   }
 };
 
 window.Cotador.tables.ms_solo = {
-  async processar(parsedItems, flags) {
+  async processar(parsedItems, flags = {}) {
     const core = window.Cotador.core;
     const container = document.getElementById('resultado-container');
-    container.innerHTML = '';
-    
+    if (!flags.append) container.innerHTML = '';
+
     const promessas = parsedItems.map(async item => {
       const params = [['select', '*'], ['limit', '1000']];
       item.keywords.forEach(kw => params.push(['titulo_sku', `ilike.*${kw}*`]));
       let data = await core.fetchSupabase('microsoft_solo', params);
+
       data = data.filter(r => {
         const nome = (r.titulo_sku || '').toLowerCase();
         const preco = core.getSoloPrice(r);
-        if (!core.isItemComercialValido(r.titulo_sku, r.segmento, preco)) return false;
+        if (!core.isItemSegmentoValido(r.titulo_sku, r.segmento, flags.segmentos, preco)) return false;
         if (flags.hideNoTeams && /\b(no|sem|without)\s+teams\b/i.test(nome)) return false;
         if (flags.hideCopilot && (nome.includes('copilot') || nome.includes('add-on') || nome.includes('attach'))) return false;
+        if (flags.hideTrial && /\b(trial|free|gratuito|promo)\b/i.test(nome)) return false;
+        if (flags.hideFrontline && /\b(frontline|kiosk|f1|f3)\b/i.test(nome)) return false;
         return true;
       });
       return { item, data };
@@ -82,14 +81,13 @@ window.Cotador.tables.ms_solo = {
 
     const resultadosPorItem = await Promise.all(promessas);
 
-    for (const c of flags.contratos) {
+    for (const c of (flags.contratos || [])) {
       let rowsHTML = '';
       for (const { item, data } of resultadosPorItem) {
-        const filtrados = data.filter(r => 
+        const filtrados = data.filter(r =>
           (r.termo_duracao || '').trim().toUpperCase() === c.soloTermo &&
           (r.plano_pagamento || '').trim().toLowerCase() === c.soloPlano.toLowerCase()
         );
-
         if (filtrados.length === 0) {
           rowsHTML += core.renderNotFoundRow(item, 5);
         } else {
@@ -99,43 +97,47 @@ window.Cotador.tables.ms_solo = {
             const custo = core.getSoloPrice(r);
             const mensalParc = core.parsePrice(r.termo_anual_pagamento_mensal);
             const infoMensal = (c.id === 'am' && mensalParc > 0)
-              ? `<div class="sec-detail text-[11px] font-normal text-slate-500">12x de R$ ${core.formatBRL(mensalParc)}/m\u00eas</div>`
+              ? `<div class="sec-detail text-[11px] font-normal text-slate-500">12x de R$ ${core.formatBRL(mensalParc)}/mês</div>`
               : '';
-
             rowsHTML += `<tr data-unit-price="${custo}" data-pn="${pn}"><td class="font-medium text-slate-800">${core.escapeHTML(r.titulo_sku)}</td><td>${core.renderQtyInput(item.qty)}</td><td>${core.renderPnBadge(pn)}</td><td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">R$ ${core.formatBRL(custo)}${infoMensal}</td><td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td><td class="text-right">${core.renderRowActions()}</td></tr>`;
           });
         }
       }
       const bId = `blk-solo-${c.id}`;
       const headerTitle = `Contrato: ${c.label} (Faturamento: Solo CSP)`;
-      container.innerHTML += `<div id="${bId}" class="quote-block" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th>Valor com 5% Servi\u00e7os</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
+      container.insertAdjacentHTML('beforeend', `<div id="${bId}" class="quote-block" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th>Valor com 5% Serviços</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`);
     }
   }
 };
 
 window.Cotador.tables.ms_perpetuo = {
-  async processar(parsedItems) {
+  async processar(parsedItems, flags = {}) {
     const core = window.Cotador.core;
     const container = document.getElementById('resultado-container');
+    if (!flags.append) container.innerHTML = '';
     let rowsHTML = '';
-    
+
     const promessas = parsedItems.map(async item => {
       const params = [['select', '*'], ['limit', '200']];
       item.keywords.forEach(kw => params.push(['nome_produto', `ilike.*${kw}*`]));
       let data = await core.fetchSupabase('microsoft_perpetuo', params);
-      
+
       data = data.filter(r => {
-        const seg = (r.segment || '').toLowerCase().trim();
-        if (seg && !seg.includes('commercial') && !seg.includes('comercial') && !seg.includes('corp')) return false;
         const nome = (r.nome_produto || '').toLowerCase();
-        const restritos = ['education', 'academic', 'charity', 'non-profit', 'government'];
-        return !restritos.some(t => nome.includes(t));
+        const preco = core.parsePrice(r.fob_impostos || r.erp);
+        if (!core.isItemSegmentoValido(r.nome_produto, r.segment, flags.segmentos, preco)) return false;
+        if (flags.pmHideMensal && /\b(1\s*m|month|mensal|p1m)\b/i.test(nome)) return false;
+        if (flags.pmHideAnual && /\b(1\s*y|1\s*year|1\s*ano|annual|anual|p1y)\b/i.test(nome)) return false;
+        if (flags.pmHideTrienal && /\b(3\s*y|3\s*year|3\s*anos|trienal|triennial|p3y)\b/i.test(nome)) return false;
+        if (flags.pmHideStepup && /\b(step-up|step up|upgrade|migration)\b/i.test(nome)) return false;
+        if (flags.pmHideCals && /\b(cal|rds)\b/i.test(nome)) return false;
+        return true;
       });
       return { item, data };
     });
 
     const resultados = await Promise.all(promessas);
-    resultados.forEach(({item, data}) => {
+    resultados.forEach(({ item, data }) => {
       if (data.length === 0) {
         rowsHTML += core.renderNotFoundRow(item, 5);
       } else {
@@ -149,20 +151,21 @@ window.Cotador.tables.ms_perpetuo = {
     });
 
     const bId = 'blk-perpetuo';
-    const title = 'Microsoft CSP Perp\u00e9tuo (Faturamento: Solo)';
-    container.innerHTML = `<div id="${bId}" class="quote-block" data-title="### ${title}">${core.renderBlockHeader(title, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th>Custo Final (FOB+Impostos)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
+    const title = 'Microsoft CSP Perpétuo (Faturamento: Solo)';
+    container.insertAdjacentHTML('beforeend', `<div id="${bId}" class="quote-block" data-title="### ${title}">${core.renderBlockHeader(title, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th>Custo Final (FOB+Impostos)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`);
   }
 };
 
 window.Cotador.tables.ms_mpsa = {
-  async processar(parsedItems, flags) {
+  async processar(parsedItems, flags = {}) {
     const core = window.Cotador.core;
     const container = document.getElementById('resultado-container');
+    if (!flags.append) container.innerHTML = '';
     let rowsHTML = '';
-    
+
     const promessas = parsedItems.map(async item => {
       const params = [['select', '*'], ['limit', '250']];
-      
+
       const lowerOrig = item.rawSearch.toLowerCase();
       let searchTerms = [...item.keywords];
       if (lowerOrig.includes('office standard') || lowerOrig.includes('office std')) searchTerms.push('OffStd');
@@ -172,26 +175,30 @@ window.Cotador.tables.ms_mpsa = {
 
       searchTerms.forEach(kw => params.push(['nome_curto_peca', `ilike.*${kw}*`]));
       let data = await core.fetchSupabase('microsoft_mpsa', params);
-      
+
       data = data.filter(r => {
-        const tc = (r.tipo_conta_compras || '').toLowerCase().trim();
-        if (!tc) return true;
-        return tc.includes('comercial') || tc.includes('commercial') || tc.includes('corporate');
+        const nome = (r.nome_curto_peca || '').toLowerCase();
+        const uso = (r.uso_recurso || '').toLowerCase();
+        const preco = core.parsePrice(r.custo_com_imposto || r.valor_preco_liquido_atual);
+
+        if (!core.isItemSegmentoValido(r.nome_curto_peca, r.tipo_conta_compras, flags.segmentos, preco)) return false;
+        if (flags.pmHideMensal && /\b(1\s*m|month|mensal)\b/i.test(nome)) return false;
+        if (flags.pmHideAnual && /\b(1\s*y|1\s*year|1\s*ano|annual|anual)\b/i.test(nome)) return false;
+        if (flags.pmHideTrienal && /\b(3\s*y|3\s*year|3\s*anos|trienal|triennial)\b/i.test(nome)) return false;
+        if (flags.pmHideStepup && /\b(step-up|step up|upgrade|migration)\b/i.test(nome + ' ' + uso)) return false;
+        if (flags.pmHideCals && /\b(cal|rds)\b/i.test(nome + ' ' + uso)) return false;
+
+        if (flags.hideSA && (uso.includes('sa only') || nome.includes('sa only'))) return false;
+        if (flags.hideLicSA && (uso.includes('license and software assurance') || uso.includes('lic/sa') || nome.includes('licsa'))) return false;
+        if (flags.hideLicOnly && (uso.includes('license only') || uso === 'license')) return false;
+
+        return true;
       });
-
-      if (flags.hideSA) {
-        data = data.filter(r => {
-          const uso = (r.uso_recurso || '').toLowerCase();
-          const nome = (r.nome_curto_peca || '').toLowerCase();
-          return !uso.includes('sa only') && !nome.includes('sa only');
-        });
-      }
-
       return { item, data };
     });
 
     const resultados = await Promise.all(promessas);
-    resultados.forEach(({item, data}) => {
+    resultados.forEach(({ item, data }) => {
       if (data.length === 0) {
         rowsHTML += core.renderNotFoundRow(item, 6);
       } else {
@@ -205,6 +212,6 @@ window.Cotador.tables.ms_mpsa = {
 
     const bId = 'blk-mpsa';
     const title = 'Microsoft MPSA (Faturamento: Solo)';
-    container.innerHTML = `<div id="${bId}" class="quote-block" data-title="### ${title}">${core.renderBlockHeader(title, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (Item)</th><th class="col-secondary">Pool / Cat.</th><th>Custo c/ Imposto</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
+    container.insertAdjacentHTML('beforeend', `<div id="${bId}" class="quote-block" data-title="### ${title}">${core.renderBlockHeader(title, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (Item)</th><th class="col-secondary">Pool / Cat.</th><th>Custo c/ Imposto</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`);
   }
 };

@@ -1,12 +1,11 @@
 // ============================================================================
-// NUCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.5 ENTERPRISE (js/core.js)
+// NUCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.6 ENTERPRISE (js/core.js)
 // ============================================================================
 window.Cotador = { core: {}, tables: {}, app: {} };
 
 window.Cotador.core = {
   SUPABASE_URL: "https://rftvbxlbltmiwamjhgzl.supabase.co/rest/v1",
   SUPABASE_KEY: "sb_publishable_fN_BXmhXXod2gpeyJ8u38Q_rvgDPl7N",
-
   _dragInitialized: false,
   _draggedRow: null,
   _lastMouseDownTarget: null,
@@ -35,34 +34,48 @@ window.Cotador.core = {
     return prodName.replace(/[()]/g, ' ').split(/\s+/).filter(w => w.length > 0);
   },
 
-  isItemComercialValido(nomeProduto, segmento, precoUnitario) {
+  detectarSegmentoItem(nomeProduto, segmentoRaw) {
     const nome = (nomeProduto || '').toLowerCase();
-    const seg = (segmento || '').trim().toLowerCase();
-    if (seg && !['commercial', 'comercial', 'csp commercial', 'corporate'].some(valid => seg.includes(valid))) return false;
-    
-    const termosRestritos = [
-      'education', 'faculty', 'student', 'academic', 'academico', 'acad\u00eamico',
-      'charity', 'non-profit', 'nonprofit', 'non profit', 'donation', 'filantropia',
-      'government', 'gov '
-    ];
-    if (termosRestritos.some(t => nome.includes(t))) return false;
+    const seg = (segmentoRaw || '').trim().toLowerCase();
+
+    const isEdu = ['education', 'faculty', 'student', 'academic', 'academico', 'acadêmico'].some(t => seg.includes(t) || nome.includes(t));
+    if (isEdu) return 'education';
+
+    const isCharity = ['charity', 'non-profit', 'nonprofit', 'non profit', 'donation', 'filantropia'].some(t => seg.includes(t) || nome.includes(t));
+    if (isCharity) return 'charity';
+
+    const isGov = ['government', 'gov ', 'governo', 'public sector', 'setor publico', 'setor público'].some(t => seg.includes(t) || nome.includes(t));
+    if (isGov) return 'government';
+
+    return 'commercial';
+  },
+
+  isItemSegmentoValido(nomeProduto, segmentoRaw, allowedSegments, precoUnitario) {
     if (typeof precoUnitario === 'number' && precoUnitario < 0) return false;
-    return true;
+    const activeSegs = Array.isArray(allowedSegments) && allowedSegments.length > 0
+      ? allowedSegments
+      : ['commercial'];
+    const itemSeg = this.detectarSegmentoItem(nomeProduto, segmentoRaw);
+    return activeSegs.includes(itemSeg);
+  },
+
+  isItemComercialValido(nomeProduto, segmento, precoUnitario) {
+    return this.isItemSegmentoValido(nomeProduto, segmento, ['commercial'], precoUnitario);
   },
 
   parseInputLines(rawText) {
     const lines = rawText.trim().split('\n').map(l => l.trim()).filter(Boolean);
     const items = [];
     let sumLicenses = 0;
-    
+
     lines.forEach((line, idx) => {
-      const clean = line.replace(/\b(unidades|unidade|licen\u00e7as|licencas|lic|unid|un)\b/gi, '').trim();
+      const clean = line.replace(/\b(unidades|unidade|licenças|licencas|lic|unid|un)\b/gi, '').trim();
       let qty = null;
       let prodName = clean;
-      
+
       const matchEnd = clean.match(/^(.*?)(?:[\s\-:]+)(\d+)\s*$/);
       const matchStart = clean.match(/^(\d+)(?:x|\s+|\s*-\s*)(.+)$/i);
-      
+
       if (matchEnd) {
         prodName = matchEnd[1].trim();
         qty = parseInt(matchEnd[2], 10);
@@ -70,9 +83,9 @@ window.Cotador.core = {
         qty = parseInt(matchStart[1], 10);
         prodName = matchStart[2].trim();
       }
-      
+
       if (qty !== null && !isNaN(qty)) sumLicenses += qty;
-      
+
       items.push({
         itemIndex: idx,
         original: this.escapeHTML(prodName),
@@ -81,19 +94,20 @@ window.Cotador.core = {
         qty: qty !== null ? qty : '-'
       });
     });
-    
+
     return { items, sumLicenses };
   },
 
   async fetchSupabase(table, paramsArray) {
     const qs = paramsArray.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
     const url = `${this.SUPABASE_URL}/${table}?${qs}`;
-    
+
     const headers = {
       'apikey': this.SUPABASE_KEY,
       'Authorization': `Bearer ${this.SUPABASE_KEY}`,
       'Accept': 'application/json'
     };
+
     const resp = await fetch(url, { method: 'GET', headers });
     if (!resp.ok) {
       const errTxt = await resp.text();
@@ -117,7 +131,7 @@ window.Cotador.core = {
   },
 
   getSoloPrice(row) {
-    const raw = row.valor_5pct_servicos ?? row.valor_com_5_servicos ?? row['Valor com 5% servi\u00e7os'] ?? row.fob_impostos;
+    const raw = row.valor_5pct_servicos ?? row.valor_com_5_servicos ?? row['Valor com 5% serviços'] ?? row.fob_impostos;
     return this.parsePrice(raw);
   },
 
@@ -162,7 +176,6 @@ window.Cotador.core = {
       this.recalcularSubtotais();
       return;
     }
-
     let removidos = 0;
     document.querySelectorAll('.quote-block tbody tr').forEach(row => {
       const chaveRow = row.getAttribute('data-prod-key') || this.obterChaveProduto(row);
@@ -171,17 +184,16 @@ window.Cotador.core = {
         removidos++;
       }
     });
-
     this.recalcularSubtotais();
     this.mostrarToast(`Produto removido em ${removidos} linha(s)/tabela(s)!`);
   },
 
   renderNotFoundRow(item, colspan) {
-    return `<tr class="bg-amber-50/40"><td class="text-amber-900 font-medium">${item.original} <span class="text-xs font-normal text-amber-700">(Qtd: ${item.qty})</span></td><td colspan="${colspan}" class="text-amber-700 text-xs font-normal">Produto n\u00e3o localizado nesta modalidade com os filtros ativos.</td></tr>`;
+    return `<tr class="bg-amber-50/40"><td class="text-amber-900 font-medium">${item.original} <span class="text-xs font-normal text-amber-700">(Qtd: ${item.qty})</span></td><td colspan="${colspan}" class="text-amber-700 text-xs font-normal">Produto não localizado nesta modalidade com os filtros ativos.</td></tr>`;
   },
 
   renderBlockHeader(title, blockId) {
-    return `<div onclick="Cotador.core.toggleBlock('${blockId}')" class="block-header-bar flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none" title="Clique para recolher ou expandir esta tabela"><div class="flex items-center gap-2"><svg class="w-4 h-4 text-slate-400 chevron-icon transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg><h3 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">${title}</h3></div><div class="flex items-center gap-1.5" onclick="event.stopPropagation()"><span id="total-${blockId}" class="text-xs font-semibold theme-badge px-2.5 py-0.5 rounded tabular-nums mr-1 hidden"></span><button type="button" onclick="Cotador.core.copiarBlocoUnico('${blockId}', false)" class="text-[11px] font-medium px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 transition">Copiar Tabela</button><button type="button" onclick="Cotador.core.copiarBlocoUnico('${blockId}', true)" class="text-[11px] font-medium px-2.5 py-1 rounded btn-theme-primary">Copiar PNs</button></div></div>`;
+    return `<div onclick="Cotador.core.toggleBlock('${blockId}')" class="block-header-bar flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none" title="Clique para recolher ou expandir esta tabela"><div class="flex items-center gap-2"><svg class="w-4 h-4 text-slate-400 chevron-icon transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg><h3 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">${title}</h3></div><div class="flex items-center gap-1.5" onclick="event.stopPropagation()"><span id="total-${blockId}" class="block-total-badge text-xs font-semibold theme-badge px-2.5 py-0.5 rounded tabular-nums mr-1 hidden"></span><button type="button" onclick="Cotador.core.copiarBlocoUnico('${blockId}', false)" class="text-[11px] font-medium px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 transition">Copiar Tabela</button><button type="button" onclick="Cotador.core.copiarBlocoUnico('${blockId}', true)" class="text-[11px] font-medium px-2.5 py-1 rounded btn-theme-primary">Copiar PNs</button></div></div>`;
   },
 
   // ==========================================================================
@@ -198,12 +210,10 @@ window.Cotador.core = {
     document.addEventListener('dragstart', (e) => {
       const tr = e.target.closest('.quote-block tbody tr.draggable-row');
       if (!tr) return;
-
       if (this._lastMouseDownTarget && this._lastMouseDownTarget.closest('input, button:not(.drag-handle)')) {
         e.preventDefault();
         return;
       }
-
       this._draggedRow = tr;
       tr.classList.add('is-dragging');
       if (e.dataTransfer) {
@@ -216,7 +226,6 @@ window.Cotador.core = {
       if (!this._draggedRow) return;
       const targetTr = e.target.closest('.quote-block tbody tr.draggable-row');
       if (!targetTr || targetTr === this._draggedRow) return;
-
       const sourceTbody = this._draggedRow.parentElement;
       if (targetTr.parentElement !== sourceTbody) return;
 
@@ -243,7 +252,6 @@ window.Cotador.core = {
       const sourceTbody = movedRow.parentElement;
       movedRow.classList.remove('is-dragging');
       this._draggedRow = null;
-
       if (sourceTbody) {
         this.sincronizarOrdemTabelas(sourceTbody, movedRow);
         this.atualizarMarkdownBruto();
@@ -251,12 +259,25 @@ window.Cotador.core = {
     });
   },
 
+  moverLinha(btn, direcao) {
+    const tr = btn.closest('tr');
+    if (!tr || !tr.parentElement) return;
+    const tbody = tr.parentElement;
+    if (direcao < 0 && tr.previousElementSibling) {
+      tbody.insertBefore(tr, tr.previousElementSibling);
+    } else if (direcao > 0 && tr.nextElementSibling) {
+      tbody.insertBefore(tr.nextElementSibling, tr);
+    } else {
+      return;
+    }
+    this.sincronizarOrdemTabelas(tbody, tr);
+    this.atualizarMarkdownBruto();
+  },
+
   prepararLinhasDrag() {
     this.initDragEvents();
-
     document.querySelectorAll('.quote-block tbody').forEach(tbody => {
       const keyCounts = {};
-
       tbody.querySelectorAll('tr').forEach(tr => {
         const firstTd = tr.querySelector('td');
         if (!firstTd) return;
@@ -265,24 +286,27 @@ window.Cotador.core = {
         if (baseName && !tr.getAttribute('data-prod-key')) {
           tr.setAttribute('data-prod-key', baseName);
         }
-
         if (!tr.getAttribute('data-sync-key')) {
           const count = (keyCounts[baseName] || 0) + 1;
           keyCounts[baseName] = count;
           tr.setAttribute('data-sync-key', `${baseName}::#${count}`);
         }
-
         if (!tr.classList.contains('draggable-row')) {
           tr.classList.add('draggable-row');
           tr.setAttribute('draggable', 'true');
         }
-
-        if (!firstTd.querySelector('.drag-handle')) {
-          const handle = document.createElement('span');
-          handle.className = 'drag-handle no-export';
-          handle.title = 'Arraste para organizar (sincroniza entre contratos)';
-          handle.innerHTML = `<svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><circle cx="5.5" cy="3.5" r="1.2"/><circle cx="10.5" cy="3.5" r="1.2"/><circle cx="5.5" cy="8" r="1.2"/><circle cx="10.5" cy="8" r="1.2"/><circle cx="5.5" cy="12.5" r="1.2"/><circle cx="10.5" cy="12.5" r="1.2"/></svg>`;
-          firstTd.insertBefore(handle, firstTd.firstChild);
+        if (!firstTd.querySelector('.row-grip-wrap')) {
+          const wrap = document.createElement('span');
+          wrap.className = 'row-grip-wrap no-export';
+          wrap.innerHTML = `
+            <span class="drag-handle" title="Arraste para organizar (sincroniza entre contratos)">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><circle cx="5.5" cy="3.5" r="1.2"/><circle cx="10.5" cy="3.5" r="1.2"/><circle cx="5.5" cy="8" r="1.2"/><circle cx="10.5" cy="8" r="1.2"/><circle cx="5.5" cy="12.5" r="1.2"/><circle cx="10.5" cy="12.5" r="1.2"/></svg>
+            </span>
+            <span class="row-move-btns">
+              <button type="button" class="row-move-btn" onclick="Cotador.core.moverLinha(this, -1)" title="Subir linha">&#9650;</button>
+              <button type="button" class="row-move-btn" onclick="Cotador.core.moverLinha(this, 1)" title="Descer linha">&#9660;</button>
+            </span>`;
+          firstTd.insertBefore(wrap, firstTd.firstChild);
         }
       });
     });
@@ -302,7 +326,6 @@ window.Cotador.core = {
 
     document.querySelectorAll('.quote-block tbody').forEach(otherTbody => {
       if (otherTbody === sourceTbody) return;
-
       const rows = Array.from(otherTbody.querySelectorAll('tr'));
       const matchingRow = rows.find(r => r.getAttribute('data-sync-key') === syncKey);
       if (!matchingRow) return;
@@ -377,12 +400,12 @@ window.Cotador.core = {
 
   recalcularSubtotais() {
     this.prepararLinhasDrag();
-
     const showSub = document.getElementById('chk-mostrar-subtotal').checked;
+    document.body.classList.toggle('hide-subtotals', !showSub);
     const btnSub = document.getElementById('btn-toggle-subtotal');
     if (btnSub) btnSub.classList.toggle('active', showSub);
     document.querySelectorAll('.col-subtotal').forEach(el => el.classList.toggle('hidden', !showSub));
-    
+
     document.querySelectorAll('.quote-block').forEach(block => {
       let somaBloco = 0;
       let temQtd = false;
@@ -391,7 +414,7 @@ window.Cotador.core = {
         const input = tr.querySelector('.qty-input');
         const subTd = tr.querySelector('.col-subtotal');
         if (!input || isNaN(unit)) return;
-        
+
         const qty = parseInt(input.value, 10);
         if (!isNaN(qty) && qty > 0) {
           const sub = unit * qty;
@@ -402,7 +425,7 @@ window.Cotador.core = {
           subTd.textContent = '-';
         }
       });
-      
+
       const badgeTotal = document.getElementById(`total-${block.id}`);
       if (badgeTotal) {
         badgeTotal.textContent = `Total: R$ ${this.formatBRL(somaBloco)}`;
