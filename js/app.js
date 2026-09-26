@@ -1,5 +1,5 @@
 // ============================================================================
-// CONTROLADOR DA APLICAÇÃO (APP) - COTADOR v5.7 ENTERPRISE (js/app.js)
+// CONTROLADOR DA APLICAÇÃO (APP) - COTADOR v5.8 ENTERPRISE (js/app.js)
 // ============================================================================
 window.Cotador.app = {
   currentVendor: 'microsoft',
@@ -9,18 +9,69 @@ window.Cotador.app = {
   msSegmentos: new Set(['commercial']),
   adobeSegmentos: new Set(['teams']),
   trienaisVisiveis: false,
+  STORAGE_KEY: 'cotador_enterprise_prefs_v58',
 
   init() {
-    document.getElementById('input-itens').addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        this.gerarCotacao();
-      }
-    });
+    window.Cotador.core.injetarControlesComerciaisHeader();
+
+    const inputItens = document.getElementById('input-itens');
+    if (inputItens) {
+      inputItens.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault();
+          this.gerarCotacao();
+        }
+      });
+    }
+
+    // Câmbio Dólar Adobe reativo em tempo real (sem nova requisição ao banco)
+    const inputDolar = document.getElementById('adobe-dolar');
+    if (inputDolar) {
+      inputDolar.addEventListener('input', (e) => {
+        this.salvarPreferencias();
+        window.Cotador.core.atualizarCambioAdobeEmTempoReal(e.target.value);
+      });
+    }
+
+    // Marca "License Only" como padrão inicial para MPSA
+    const chkMpsaLicOnly = document.getElementById('chk-mpsa-show-liconly');
+    if (chkMpsaLicOnly) chkMpsaLicOnly.checked = true;
+
+    this.carregarPreferencias();
     this.atualizarUIMsModalidades();
     this.atualizarUIMsSegmentos();
     this.atualizarUIAdobeSegmentos();
-    this.preencherExemplo();
+
+    if (!inputItens || !inputItens.value.trim()) {
+      this.preencherExemplo();
+    } else {
+      this.analisarInput();
+    }
+  },
+
+  salvarPreferencias() {
+    try {
+      const prefs = {
+        vendor: this.currentVendor,
+        dolar: document.getElementById('adobe-dolar')?.value || '4.80',
+        msModalidades: Array.from(this.msModalidades)
+      };
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(prefs));
+    } catch (_) {}
+  },
+
+  carregarPreferencias() {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      if (!raw) return;
+      const prefs = JSON.parse(raw);
+      if (prefs.dolar && document.getElementById('adobe-dolar')) {
+        document.getElementById('adobe-dolar').value = prefs.dolar;
+      }
+      if (Array.isArray(prefs.msModalidades)) {
+        this.msModalidades = new Set(prefs.msModalidades);
+      }
+    } catch (_) {}
   },
 
   setVendor(vendor) {
@@ -34,6 +85,7 @@ window.Cotador.app = {
 
     document.getElementById('resultado-container').innerHTML = `<div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">Fabricante alterado para <span class="theme-text font-semibold uppercase">${vendor}</span>.<br>Insira os itens no painel esquerdo e clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span>.</div>`;
     document.getElementById('markdown-output').textContent = '';
+    this.salvarPreferencias();
     this.analisarInput();
   },
 
@@ -46,16 +98,19 @@ window.Cotador.app = {
     } else {
       this.msModalidades.add(mod);
     }
+    this.salvarPreferencias();
     this.atualizarUIMsModalidades();
   },
 
   selecionarTodasMsModalidades() {
     ['scan', 'solo', 'perpetuo', 'mpsa'].forEach(m => this.msModalidades.add(m));
+    this.salvarPreferencias();
     this.atualizarUIMsModalidades();
   },
 
   limparMsModalidades() {
     this.msModalidades.clear();
+    this.salvarPreferencias();
     this.atualizarUIMsModalidades();
   },
 
@@ -246,10 +301,12 @@ window.Cotador.app = {
     const btn = document.getElementById('btn-buscar');
     const container = document.getElementById('resultado-container');
     btn.disabled = true;
-    btn.innerHTML = '<span>Consultando SKUs e montando propostas...</span>';
+    btn.innerHTML = '<span>Consultando SKUs em paralelo e montando propostas...</span>';
     container.innerHTML = '<div class="text-center py-20 text-slate-400 text-xs font-normal animate-pulse bg-slate-50/60 rounded-xl border border-slate-200">Consultando banco de dados corporativo...</div>';
 
     try {
+      let missingItems = [];
+
       if (this.currentVendor === 'microsoft') {
         const modalidades = this.obterModalidadesAtivas();
         const contratos = [];
@@ -293,13 +350,26 @@ window.Cotador.app = {
           showSA: document.getElementById('chk-mpsa-show-sa')?.checked ?? false,
           showLicSA: document.getElementById('chk-mpsa-show-licsa')?.checked ?? false,
           showLicOnly: document.getElementById('chk-mpsa-show-liconly')?.checked ?? false,
-          append: true
+          append: true,
+          returnHTML: true
         };
 
-        container.innerHTML = '';
-        for (const mod of modalidades) {
-          await window.Cotador.tables[`ms_${mod}`].processar(this.parsedItems, flags);
-        }
+        // Executa todas as modalidades Microsoft em paralelo mantendo a ordem de exibição
+        const resultadosMod = await Promise.all(
+          modalidades.map(mod => window.Cotador.tables[`ms_${mod}`].processar(this.parsedItems, flags))
+        );
+
+        const globalMatchedIndices = new Set();
+        let combinedHTML = '';
+        resultadosMod.forEach(res => {
+          if (res && res.html) combinedHTML += res.html;
+          if (res && res.matchedItemIndices) {
+            res.matchedItemIndices.forEach(idx => globalMatchedIndices.add(idx));
+          }
+        });
+
+        container.innerHTML = combinedHTML;
+        missingItems = this.parsedItems.filter(it => !globalMatchedIndices.has(it.itemIndex));
       } else if (this.currentVendor === 'adobe') {
         const usarPromo = document.getElementById('chk-adobe-promo').checked;
         const tabela = usarPromo ? 'adobe_promo' : 'adobe_base';
@@ -355,6 +425,7 @@ window.Cotador.app = {
       }
 
       window.Cotador.core.limparBlocosVazios();
+      window.Cotador.core.renderUnmatchedWarning(missingItems);
       window.Cotador.core.recalcularSubtotais();
     } catch (err) {
       container.innerHTML = `<div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-900 text-xs"><b>Erro na consulta:</b> ${err.message}</div>`;
