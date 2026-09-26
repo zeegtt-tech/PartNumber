@@ -14,10 +14,11 @@
       --accent-dark: #075985;        /* Sky 800 */
       --accent-bright: #0ea5e9;      /* Sky 500 */
       --accent-light: #e0f2fe;       /* Sky 100 */
-      --accent-tint: #f0f9ff;        /* Sky 50 */
-      --accent-border: #7dd3fc;      /* Sky 300 */
-      --accent-ring: rgba(14, 165, 233, 0.18);
-      --accent-shadow: rgba(2, 132, 199, 0.2);
+      --accent-tint: #f8fafc;        /* Suavizado para menor fadiga */
+      --accent-row-hover: #f0f9ff;   /* Sky 50 sutil */
+      --accent-border: #bae6fd;      /* Sky 200 */
+      --accent-ring: rgba(14, 165, 233, 0.14);
+      --accent-shadow: rgba(2, 132, 199, 0.12);
     }
 
     body[data-vendor="adobe"] {
@@ -26,10 +27,11 @@
       --accent-dark: #7f1d1d;        /* Red 900 */
       --accent-bright: #dc2626;      /* Red 600 */
       --accent-light: #fee2e2;       /* Red 100 */
-      --accent-tint: #fef2f2;        /* Red 50 */
-      --accent-border: #fca5a5;      /* Red 300 */
-      --accent-ring: rgba(220, 38, 38, 0.15);
-      --accent-shadow: rgba(153, 27, 27, 0.22);
+      --accent-tint: #f8fafc;
+      --accent-row-hover: #fef2f2;   /* Red 50 sutil */
+      --accent-border: #fecaca;      /* Red 200 */
+      --accent-ring: rgba(220, 38, 38, 0.12);
+      --accent-shadow: rgba(153, 27, 27, 0.14);
     }
 
     body[data-vendor="kaspersky"] {
@@ -38,15 +40,16 @@
       --accent-dark: #115e59;        /* Teal 800 */
       --accent-bright: #14b8a6;      /* Teal 500 */
       --accent-light: #ccfbf1;       /* Teal 100 */
-      --accent-tint: #f0fdfa;        /* Teal 50 */
-      --accent-border: #5eead4;      /* Teal 300 */
-      --accent-ring: rgba(20, 184, 166, 0.18);
-      --accent-shadow: rgba(13, 148, 136, 0.22);
+      --accent-tint: #f8fafc;
+      --accent-row-hover: #f0fdfa;   /* Teal 50 sutil */
+      --accent-border: #99f6e4;      /* Teal 200 */
+      --accent-ring: rgba(20, 184, 166, 0.14);
+      --accent-shadow: rgba(13, 148, 136, 0.14);
     }
 
     body {
       background-color: #f8fafc;
-      color: #09090b;
+      color: #1e293b;
       font-family: Inter, system-ui, -apple-system, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
@@ -55,7 +58,7 @@
       background-color: #ffffff;
       border: 1px solid #e2e8f0;
       border-radius: 0.75rem;
-      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px -2px rgba(15, 23, 42, 0.04);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
     }
 
     .card-accent-top {
@@ -65,8 +68,8 @@
 
     .section-label {
       display: block;
-      font-size: 10.5px;
-      font-weight: 700;
+      font-size: 10px;
+      font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: #64748b;
@@ -75,12 +78,12 @@
 
     /* Botões de Fabricante Compactos */
     .vendor-btn {
-      padding: 0.42rem 0.5rem;
+      padding: 0.4rem 0.5rem;
       border-radius: 0.45rem;
-      font-weight: 600;
+      font-weight: 500;
       font-size: 0.75rem;
       background-color: #f8fafc;
-      color: #334155;
+      color: #475569;
       border: 1px solid #e2e8f0;
       transition: all 0.15s ease;
       cursor: pointer;
@@ -93,8 +96,9 @@
     .vendor-btn.active {
       background-color: var(--accent-primary);
       color: #ffffff;
+      font-weight: 600;
       border-color: var(--accent-dark);
-      box-shadow: 0 2px 8px var(--accent-shadow);
+      box-shadow: 0 1px 4px var(--accent-shadow);
     }
 
     /* Inputs e Selects */
@@ -103,10 +107,10 @@
       border-radius: 0.45rem;
       background-color: #ffffff;
       border: 1px solid #cbd5e1;
-      padding: 0.42rem 0.55rem;
+      padding: 0.4rem 0.55rem;
       font-size: 0.75rem;
-      color: #0f172a;
-      font-weight: 500;
+      color: #1e293b;
+      font-weight: 400;
       transition: all 0.15s ease;
     }
     .select-input:focus,
@@ -125,12 +129,12 @@
       justify-content: center;
       gap: 0.3rem;
       background-color: #f8fafc;
-      color: #334155;
-      padding: 0.38rem 0.4rem;
+      color: #475569;
+      padding: 0.36rem 0.4rem;
       border-radius: 0.45rem;
-      border: 1px solid #cbd5e1;
+      border: 1px solid #e2e8f0;
       font-size: 0.72rem;
-      font-weight: 600;
+      font-weight: 500;
       cursor: pointer;
       transition: all 0.15s ease;
       user-select: none;
@@ -138,34 +142,61 @@
     }
     .contract-chip:hover,
     .modality-chip:hover {
-      border-color: var(--accent-primary);
-      background-color: var(--accent-tint);
-      color: var(--accent-dark);
+      border-color: #cbd5e1;
+      background-color: #f1f5f9;
+      color: #0f172a;
     }
     .contract-chip:has(input:checked),
     .modality-chip.active {
-      background-color: var(--accent-tint);
+      background-color: var(--accent-row-hover);
       border-color: var(--accent-primary);
       color: var(--accent-dark);
-      box-shadow: inset 0 0 0 1px var(--accent-primary);
+      font-weight: 600;
     }
 
-    .flag-chip {
+    /* Mini Controle Unificado de Visualização */
+    .unified-view-control {
       display: inline-flex;
       align-items: center;
-      gap: 0.45rem;
-      font-size: 0.73rem;
-      font-weight: 600;
-      background-color: #ffffff;
-      padding: 0.35rem 0.7rem;
-      border-radius: 0.45rem;
+      background-color: #f1f5f9;
       border: 1px solid #e2e8f0;
-      color: #334155;
-      cursor: pointer;
-      transition: border-color 0.15s ease;
+      border-radius: 0.5rem;
+      padding: 0.15rem;
+      gap: 0.15rem;
     }
-    .flag-chip:hover {
-      border-color: #cbd5e1;
+    .mini-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.22rem 0.55rem;
+      border-radius: 0.375rem;
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: #64748b;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .mini-toggle-btn:hover {
+      color: #0f172a;
+    }
+    .mini-toggle-btn.active {
+      background-color: #ffffff;
+      color: #0f172a;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    }
+    .mini-toggle-btn .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 9999px;
+      background-color: #cbd5e1;
+      transition: background-color 0.15s ease;
+    }
+    .mini-toggle-btn.active .dot {
+      background-color: var(--accent-primary);
     }
 
     /* Cores do Tema */
@@ -173,7 +204,7 @@
       background-color: var(--accent-primary);
       color: #ffffff;
       transition: all 0.15s ease;
-      box-shadow: 0 2px 8px var(--accent-shadow);
+      box-shadow: 0 1px 4px var(--accent-shadow);
     }
     .btn-theme-primary:hover {
       background-color: var(--accent-hover);
@@ -186,80 +217,127 @@
     .theme-text-dark { color: var(--accent-dark); }
     .theme-bg-solid { background-color: var(--accent-primary); }
     .theme-badge {
-      background-color: var(--accent-tint);
+      background-color: var(--accent-row-hover);
       color: var(--accent-dark);
       border: 1px solid var(--accent-border);
     }
-    .theme-block-header {
-      border-left: 4px solid var(--accent-bright);
+
+    /* Cabeçalho da Tabela Suavizado e Colapsável */
+    .block-header-bar {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 3px solid var(--accent-primary);
+      transition: background-color 0.15s ease, border-radius 0.15s ease;
     }
-    .theme-subtotal {
-      color: var(--accent-dark);
-      background-color: var(--accent-tint);
+    .block-header-bar:hover {
+      background-color: #f1f5f9;
+    }
+    .quote-block.is-collapsed .block-header-bar {
+      border-radius: 0.5rem;
+    }
+    .quote-block:not(.is-collapsed) .block-header-bar {
+      border-top-left-radius: 0.5rem;
+      border-top-right-radius: 0.5rem;
+      border-bottom: none;
+    }
+    .quote-block.is-collapsed .block-table-wrapper {
+      display: none;
+    }
+    .quote-block.is-collapsed .chevron-icon {
+      transform: rotate(-90deg);
     }
 
-    /* Tabelas */
+    /* Subtotal Minimalista */
+    .theme-subtotal {
+      color: var(--accent-dark);
+      background-color: rgba(248, 250, 252, 0.6);
+    }
+
+    /* Tabelas Otimizadas para Leitura Contínua */
     table { width: 100%; border-collapse: collapse; background-color: #ffffff; }
     th {
-      background-color: #f8fafc;
-      color: #475569;
-      font-weight: 700;
+      background-color: #ffffff;
+      color: #64748b;
+      font-weight: 600;
       text-align: left;
-      padding: 0.55rem 0.75rem;
-      font-size: 0.68rem;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.66rem;
       text-transform: uppercase;
       letter-spacing: 0.04em;
       border-bottom: 1px solid #e2e8f0;
       white-space: nowrap;
     }
     td {
-      padding: 0.5rem 0.75rem;
+      padding: 0.48rem 0.75rem;
       border-bottom: 1px solid #f1f5f9;
-      font-size: 0.8rem;
-      color: #0f172a;
+      font-size: 0.78rem;
+      color: #334155;
       vertical-align: middle;
     }
     tr:last-child td { border-bottom: none; }
-    tbody tr:hover td { background-color: var(--accent-tint); }
+    tbody tr:hover td { background-color: var(--accent-row-hover); }
 
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* PN Minimalista (Sem Caixa Destacada) */
     .pn-badge {
       display: inline-flex;
       align-items: center;
       gap: 0.35rem;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 0.74rem;
-      font-weight: 600;
-      background: #f8fafc;
-      padding: 0.2rem 0.55rem;
-      border-radius: 0.375rem;
-      border: 1px solid #cbd5e1;
-      color: #0f172a;
+      font-weight: 400;
+      color: #475569;
+      background: transparent;
+      padding: 0.1rem 0;
+      border: none;
       white-space: nowrap;
       cursor: pointer;
-      transition: all 0.15s ease;
+      transition: color 0.15s ease;
     }
     .pn-badge:hover {
-      border-color: var(--accent-primary);
-      background: var(--accent-light);
-      color: var(--accent-dark);
-      transform: translateY(-1px);
+      color: var(--accent-primary);
+    }
+    .pn-badge .copy-icon {
+      color: #94a3b8;
+      opacity: 0.65;
+      transition: all 0.15s ease;
+    }
+    .pn-badge:hover .copy-icon {
+      color: var(--accent-primary);
+      opacity: 1;
+      transform: scale(1.08);
     }
 
+    /* Input de Quantidade Leve */
     .qty-input {
-      width: 3.6rem;
+      width: 3.4rem;
       background: #ffffff;
-      border: 1px solid #cbd5e1;
-      border-radius: 0.375rem;
-      padding: 0.18rem 0.35rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.35rem;
+      padding: 0.15rem 0.3rem;
       text-align: center;
-      color: #0f172a;
-      font-weight: 700;
-      font-size: 0.78rem;
+      color: #1e293b;
+      font-weight: 500;
+      font-size: 0.76rem;
+      font-variant-numeric: tabular-nums;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .qty-input:hover {
+      border-color: #cbd5e1;
     }
     .qty-input:focus {
       outline: none;
       border-color: var(--accent-primary);
       box-shadow: 0 0 0 2px var(--accent-ring);
+    }
+
+    /* Ocultação de Detalhes Secundários quando Desabilitados */
+    body.hide-secondary-details .col-secondary,
+    body.hide-secondary-details .sec-detail {
+      display: none !important;
     }
 
     input[type="checkbox"] {
@@ -268,39 +346,57 @@
     }
   </style>
 </head>
-<body data-vendor="microsoft" class="min-h-screen p-3 md:p-5 lg:px-6 lg:py-4 text-zinc-950">
-  <div class="max-w-[1600px] mx-auto space-y-4">
+<body data-vendor="microsoft" class="min-h-screen p-3 md:p-5 lg:px-6 lg:py-4 text-slate-800">
+  <div class="max-w-[1600px] mx-auto space-y-3.5">
     
-    <!-- CABEÇALHO CORPORATIVO -->
-    <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm">
+    <!-- CABEÇALHO CORPORATIVO MINIMALISTA -->
+    <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm">
       <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-lg theme-bg-solid text-white flex items-center justify-center shadow-sm transition-colors">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <div class="w-8 h-8 rounded-lg theme-bg-solid text-white flex items-center justify-center transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
           </svg>
         </div>
         <div>
           <div class="flex items-center gap-2 flex-wrap">
-            <h1 class="text-base md:text-lg font-extrabold text-slate-900 tracking-tight">
+            <h1 class="text-sm md:text-base font-semibold text-slate-900 tracking-tight">
               Gerador Comercial de PNs & Cotação
             </h1>
-            <span class="text-[10px] px-2 py-0.5 rounded-full theme-badge font-bold uppercase tracking-wide transition-colors">
+            <span class="text-[10px] px-2 py-0.5 rounded-full theme-badge font-medium uppercase tracking-wide transition-colors">
               v5.5 Enterprise
             </span>
           </div>
-          <p class="text-[11px] text-slate-500">
-            Clique em qualquer PN para copiar • Pressione <kbd class="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-slate-800 font-semibold">Ctrl + Enter</kbd> para buscar
+          <p class="text-[11px] text-slate-400">
+            Clique em qualquer PN para copiar • Pressione <kbd class="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-slate-600 font-medium">Ctrl + Enter</kbd> para buscar
           </p>
         </div>
       </div>
 
       <div class="flex flex-wrap items-center gap-2.5">
-        <label class="flag-chip">
-          <input type="checkbox" id="chk-mostrar-subtotal" checked onchange="Cotador.core.recalcularSubtotais()">
-          <span>Mostrar Subtotal (Qtd × Custo)</span>
-        </label>
-        <span class="text-[11px] px-2.5 py-1 rounded-full bg-slate-900 text-white font-semibold flex items-center gap-1.5">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <!-- Checkboxes nativos ocultos preservados para total compatibilidade de estado -->
+        <input type="checkbox" id="chk-mostrar-subtotal" class="sr-only" checked onchange="Cotador.core.recalcularSubtotais()">
+        <input type="checkbox" id="chk-mostrar-detalhes" class="sr-only" checked onchange="Cotador.core.atualizarVisibilidadeDetalhes()">
+
+        <!-- MINI CONTROLE UNIFICADO DE DETALHES E SUBTOTAIS -->
+        <div class="unified-view-control" role="group" aria-label="Controle de exibição da tabela">
+          <button type="button" id="btn-toggle-all-view" onclick="Cotador.core.alternarVisaoUnificada()" title="Alternar visão completa ou enxuta (Detalhes + Subtotais)" class="mini-toggle-btn text-slate-500 hover:text-slate-800 px-2 border-r border-slate-200/80 rounded-none">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+            </svg>
+            <span>Visão</span>
+          </button>
+          <button type="button" id="btn-toggle-detalhes" onclick="Cotador.core.toggleDetalhesSecundarios()" title="Habilitar/desabilitar colunas e informações secundárias (Custo Tabela, USD, Faixa, Tags)" class="mini-toggle-btn active">
+            <span class="dot"></span>
+            <span>Detalhes</span>
+          </button>
+          <button type="button" id="btn-toggle-subtotal" onclick="Cotador.core.toggleMostrarSubtotal()" title="Habilitar/desabilitar coluna de Subtotal (Qtd × Custo)" class="mini-toggle-btn active">
+            <span class="dot"></span>
+            <span>Subtotais</span>
+          </button>
+        </div>
+
+        <span class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-medium flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
           Online
         </span>
       </div>
@@ -327,18 +423,18 @@
           <div>
             <div class="flex justify-between items-center mb-1">
               <label class="section-label !mb-0">2. Lista de Produtos</label>
-              <div class="flex gap-2.5 text-[11px] font-semibold">
+              <div class="flex gap-2.5 text-[11px] font-medium">
                 <button onclick="Cotador.app.preencherExemplo()" class="theme-text hover:underline">Exemplo</button>
-                <button onclick="Cotador.app.limparInput()" class="text-slate-400 hover:text-slate-700">Limpar</button>
+                <button onclick="Cotador.app.limparInput()" class="text-slate-400 hover:text-slate-600">Limpar</button>
               </div>
             </div>
             <textarea id="input-itens" oninput="Cotador.app.analisarInput()" rows="4" 
               placeholder="Ex:&#10;business basic 10&#10;business standard 26&#10;Exchange plan 1 80"
-              class="textarea-input w-full rounded-lg bg-slate-50 border border-slate-300 p-2.5 text-xs text-slate-900 font-medium placeholder-slate-400 leading-relaxed transition"></textarea>
+              class="textarea-input w-full rounded-lg bg-slate-50/70 border border-slate-200 p-2.5 text-xs text-slate-800 font-normal placeholder-slate-400 leading-relaxed transition"></textarea>
           </div>
 
           <!-- 3. FILTROS MICROSOFT -->
-          <div id="filtros-microsoft" class="space-y-3.5 pt-3 border-t border-slate-200">
+          <div id="filtros-microsoft" class="space-y-3.5 pt-3 border-t border-slate-100">
             <div>
               <label class="section-label">Modalidade / Tabela Microsoft</label>
               <input type="hidden" id="ms-modalidade" value="scan">
@@ -360,23 +456,23 @@
               </div>
             </div>
 
-            <!-- Flags Dinâmicas Microsoft (Filtro Comercial Nativo no Código) -->
+            <!-- Flags Dinâmicas Microsoft -->
             <div id="ms-box-flags">
               <label class="section-label">Flags de Filtragem Microsoft</label>
-              <div class="space-y-1.5 text-[11px] text-slate-700 font-medium bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+              <div class="space-y-1.5 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
                 <div id="ms-flags-csp" class="space-y-1.5">
-                  <label class="flex items-center gap-2 cursor-pointer">
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
                     <input type="checkbox" id="chk-hide-noteams" checked>
                     <span>Ocultar variantes "Sem Teams"</span>
                   </label>
-                  <label class="flex items-center gap-2 cursor-pointer">
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
                     <input type="checkbox" id="chk-hide-copilot" checked>
                     <span>Ocultar "Copilot / Add-on"</span>
                   </label>
                 </div>
 
                 <div id="ms-flags-mpsa" class="hidden space-y-1.5">
-                  <label class="flex items-center gap-2 cursor-pointer">
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
                     <input type="checkbox" id="chk-mpsa-hide-sa" checked>
                     <span>Ocultar "SA Only" (Software Assurance Avulso)</span>
                   </label>
@@ -386,7 +482,7 @@
           </div>
 
           <!-- 3. FILTROS ADOBE -->
-          <div id="filtros-adobe" class="hidden space-y-3.5 pt-3 border-t border-slate-200">
+          <div id="filtros-adobe" class="hidden space-y-3.5 pt-3 border-t border-slate-100">
             <div>
               <label class="section-label">Segmento Adobe</label>
               <input type="hidden" id="adobe-segmento" value="teams">
@@ -410,18 +506,18 @@
               </div>
               <div>
                 <label class="section-label">Câmbio Dólar (R$)</label>
-                <input type="number" id="adobe-dolar" value="4.80" step="0.05" class="select-input">
+                <input type="number" id="adobe-dolar" value="4.80" step="0.05" class="select-input tabular-nums">
               </div>
             </div>
 
             <div>
               <label class="section-label">Flags de Filtragem Adobe</label>
-              <div class="space-y-1.5 text-[11px] text-slate-700 font-medium bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <label class="flex items-center gap-2 cursor-pointer">
+              <div class="space-y-1.5 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
+                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
                   <input type="checkbox" id="chk-adobe-promo">
-                  <span>Usar Valor Promocional <span class="text-slate-400 font-normal">(Promo - Novo Cliente)</span></span>
+                  <span>Usar Valor Promocional <span class="text-slate-400">(Novo Cliente)</span></span>
                 </label>
-                <label class="flex items-center gap-2 cursor-pointer">
+                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
                   <input type="checkbox" id="chk-adobe-hide-3y" checked>
                   <span>Ocultar "VIP Select 3 year commit"</span>
                 </label>
@@ -430,7 +526,7 @@
           </div>
 
           <!-- 3. FILTROS KASPERSKY -->
-          <div id="filtros-kaspersky" class="hidden space-y-3.5 pt-3 border-t border-slate-200">
+          <div id="filtros-kaspersky" class="hidden space-y-3.5 pt-3 border-t border-slate-100">
             <div>
               <label class="section-label">Tipo de Licença Kaspersky</label>
               <input type="hidden" id="kasp-tipo" value="Base">
@@ -442,7 +538,7 @@
 
             <div>
               <label class="section-label">Períodos a Consultar (Flags de Período)</label>
-              <div class="grid grid-cols-5 gap-1 text-[11px] text-slate-700 font-semibold bg-slate-50 p-2 rounded-lg border border-slate-200">
+              <div class="grid grid-cols-5 gap-1 text-[11px] text-slate-600 font-medium bg-slate-50/70 p-2 rounded-lg border border-slate-200/80">
                 <label class="flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap hover:text-slate-900">
                   <input type="checkbox" id="chk-kasp-p1" checked>
                   <span>1 Ano</span>
@@ -507,12 +603,12 @@
 
             <div>
               <label class="section-label">Flags de Filtragem Kaspersky</label>
-              <div class="space-y-1.5 text-[11px] text-slate-700 font-medium bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <label class="flex items-center gap-2 cursor-pointer">
+              <div class="space-y-1.5 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
+                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
                   <input type="checkbox" id="chk-kasp-ignore-successive" checked>
                   <span>Ignorar "Successive Licence"</span>
                 </label>
-                <label class="flex items-center gap-2 cursor-pointer">
+                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
                   <input type="checkbox" id="chk-kasp-ignore-public" checked>
                   <span>Ignorar "Public Sector Licence"</span>
                 </label>
@@ -521,7 +617,7 @@
           </div>
 
           <!-- BOTÃO DE AÇÃO -->
-          <button onclick="Cotador.app.gerarCotacao()" id="btn-buscar" class="btn-theme-primary w-full py-2.5 px-4 rounded-lg font-bold text-xs flex items-center justify-center gap-2">
+          <button onclick="Cotador.app.gerarCotacao()" id="btn-buscar" class="btn-theme-primary w-full py-2.5 px-4 rounded-lg font-medium text-xs flex items-center justify-center gap-2">
             <span>Buscar e Montar Tabelas</span>
           </button>
         </div>
@@ -532,45 +628,48 @@
         <div class="card p-4 md:p-5 min-h-[560px] flex flex-col justify-between">
           <div>
             <!-- BARRA DE AÇÕES -->
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3.5 mb-4">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3.5 mb-4">
               <div>
-                <h2 class="text-sm md:text-base font-extrabold text-slate-900 flex items-center gap-2">
-                  <span class="w-2.5 h-2.5 rounded-sm theme-bg-solid inline-block transition-colors"></span>
+                <h2 class="text-sm md:text-base font-semibold text-slate-800 flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-sm theme-bg-solid inline-block transition-colors"></span>
                   Resultado da Cotação
                 </h2>
-                <p class="text-[11px] text-slate-500 mt-0.5">Visualização estruturada por contrato / período</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Clique na barra de título de qualquer tabela para recolher ou expandir</p>
               </div>
-              <div class="flex flex-wrap gap-1.5">
-                <button onclick="Cotador.core.copiarTabelasHTML()" class="btn-theme-primary text-xs px-3 py-1.5 rounded-lg font-bold">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <button onclick="Cotador.core.alternarTodasTabelas()" class="text-[11px] px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 font-medium transition" title="Expandir ou recolher todas as tabelas">
+                  Expandir / Recolher
+                </button>
+                <button onclick="Cotador.core.copiarTabelasHTML()" class="btn-theme-primary text-xs px-3 py-1.5 rounded-lg font-medium">
                   Copiar Tudo (Proposta / Excel)
                 </button>
-                <button onclick="Cotador.core.copiarApenasPNsGlobal()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold transition">
+                <button onclick="Cotador.core.copiarApenasPNsGlobal()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium transition">
                   Copiar Todos os PNs
                 </button>
-                <button onclick="Cotador.core.copiarMarkdown()" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-semibold transition">
+                <button onclick="Cotador.core.copiarMarkdown()" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 font-medium transition">
                   Markdown
                 </button>
               </div>
             </div>
 
             <!-- TOAST FEEDBACK -->
-            <div id="copy-toast" class="hidden mb-3 p-2.5 rounded-lg theme-badge text-xs text-center font-bold shadow-sm">
+            <div id="copy-toast" class="hidden mb-3 p-2 rounded-lg theme-badge text-xs text-center font-medium shadow-sm">
               Copiado com sucesso!
             </div>
 
             <!-- CONTAINER DAS TABELAS -->
-            <div id="resultado-container" class="space-y-5 text-slate-900">
-              <div class="text-center py-24 text-slate-500 text-xs bg-slate-50/70 rounded-xl border border-dashed border-slate-300">
-                Cole os produtos no painel esquerdo e clique em <b class="theme-text">Buscar e Montar Tabelas</b> (ou <kbd class="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-slate-800 font-semibold">Ctrl + Enter</kbd>).
+            <div id="resultado-container" class="space-y-4 text-slate-800">
+              <div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                Cole os produtos no painel esquerdo e clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span> (ou <kbd class="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-600 font-medium">Ctrl + Enter</kbd>).
               </div>
             </div>
           </div>
 
           <!-- MARKDOWN BRUTO -->
-          <div class="mt-6 pt-3 border-t border-slate-200">
-            <details class="text-xs text-slate-500">
-              <summary class="cursor-pointer hover:text-slate-800 font-semibold">Ver código Markdown bruto da proposta</summary>
-              <pre id="markdown-output" class="mt-2 p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 overflow-x-auto font-mono text-xs"></pre>
+          <div class="mt-6 pt-3 border-t border-slate-100">
+            <details class="text-xs text-slate-400">
+              <summary class="cursor-pointer hover:text-slate-600 font-medium select-none">Ver código Markdown bruto da proposta</summary>
+              <pre id="markdown-output" class="mt-2 p-3 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-700 overflow-x-auto font-mono text-xs"></pre>
             </details>
           </div>
         </div>
@@ -703,9 +802,10 @@
       formatBRL(num) { return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
       formatUSD(num) { return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
 
+      // PN minimalista sem caixa destacada, preservando cópia com 1 clique e extração limpa
       renderPnBadge(pn) {
         const safePn = this.escapeHTML(pn);
-        return `<span onclick="Cotador.core.copiarTextoUnico('${safePn}')" title="Clique para copiar este PN" class="pn-badge">${safePn} <span class="text-[10px] opacity-70">📋</span></span>`;
+        return `<button type="button" onclick="Cotador.core.copiarTextoUnico('${safePn}')" title="Clique para copiar este PN" class="pn-badge" data-pn-val="${safePn}"><span>${safePn}</span><svg class="w-3.5 h-3.5 copy-icon shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>`;
       },
 
       renderQtyInput(qty) {
@@ -716,34 +816,88 @@
       renderRowActions() {
         return `
           <div class="flex items-center justify-end whitespace-nowrap">
-            <button onclick="this.closest('tr').remove(); Cotador.core.recalcularSubtotais();" title="Remover linha" class="text-[11px] font-semibold text-slate-500 hover:text-red-700 bg-slate-100 hover:bg-red-50 border border-slate-200 hover:border-red-200 rounded px-2 py-0.5 transition flex items-center gap-1">
-              <span>✕</span> <span>Remover</span>
+            <button type="button" onclick="this.closest('tr').remove(); Cotador.core.recalcularSubtotais();" title="Remover item da tabela" class="text-[11px] font-normal text-slate-400 hover:text-red-600 hover:bg-red-50 rounded px-2 py-1 transition flex items-center gap-1">
+              <span>✕</span> <span class="hidden sm:inline">Remover</span>
             </button>
           </div>`;
       },
 
       renderNotFoundRow(item, colspan) {
         return `
-          <tr class="bg-amber-50/60">
-            <td class="text-amber-900 font-bold">${item.original} <span class="text-xs font-normal text-amber-700">(Qtd: ${item.qty})</span></td>
-            <td colspan="${colspan}" class="text-amber-800 text-xs font-medium">Produto não localizado nesta modalidade com os filtros ativos.</td>
+          <tr class="bg-amber-50/40">
+            <td class="text-amber-900 font-medium">${item.original} <span class="text-xs font-normal text-amber-700">(Qtd: ${item.qty})</span></td>
+            <td colspan="${colspan}" class="text-amber-700 text-xs font-normal">Produto não localizado nesta modalidade com os filtros ativos.</td>
           </tr>`;
       },
 
+      // Barra de título colapsável (Accordion) com preservação do Total e ações isoladas
       renderBlockHeader(title, blockId) {
         return `
-          <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-900 theme-block-header px-4 py-2.5 rounded-t-lg">
-            <h3 class="text-xs font-extrabold text-white uppercase tracking-wider">${title}</h3>
-            <div class="flex items-center gap-1.5">
-              <span id="total-${blockId}" class="text-xs font-extrabold theme-bg-solid text-white px-2.5 py-0.5 rounded mr-1 hidden"></span>
-              <button onclick="Cotador.core.copiarBlocoUnico('${blockId}', false)" class="text-[11px] font-semibold px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition">Copiar Tabela</button>
-              <button onclick="Cotador.core.copiarBlocoUnico('${blockId}', true)" class="text-[11px] font-semibold px-2.5 py-1 rounded btn-theme-primary">Copiar PNs</button>
+          <div onclick="Cotador.core.toggleBlock('${blockId}')" class="block-header-bar flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none" title="Clique para recolher ou expandir esta tabela">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-slate-400 chevron-icon transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+              </svg>
+              <h3 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">${title}</h3>
+            </div>
+            <div class="flex items-center gap-1.5" onclick="event.stopPropagation()">
+              <span id="total-${blockId}" class="text-xs font-semibold theme-badge px-2.5 py-0.5 rounded tabular-nums mr-1 hidden"></span>
+              <button type="button" onclick="Cotador.core.copiarBlocoUnico('${blockId}', false)" class="text-[11px] font-medium px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 transition">Copiar Tabela</button>
+              <button type="button" onclick="Cotador.core.copiarBlocoUnico('${blockId}', true)" class="text-[11px] font-medium px-2.5 py-1 rounded btn-theme-primary">Copiar PNs</button>
             </div>
           </div>`;
       },
 
+      toggleBlock(blockId) {
+        const block = document.getElementById(blockId);
+        if (block) block.classList.toggle('is-collapsed');
+      },
+
+      alternarTodasTabelas() {
+        const blocks = Array.from(document.querySelectorAll('.quote-block'));
+        if (blocks.length === 0) return;
+        const algumaAberta = blocks.some(b => !b.classList.contains('is-collapsed'));
+        blocks.forEach(b => b.classList.toggle('is-collapsed', algumaAberta));
+      },
+
+      // Controles unificados de Subtotais e Detalhes Secundários
+      toggleMostrarSubtotal() {
+        const chk = document.getElementById('chk-mostrar-subtotal');
+        chk.checked = !chk.checked;
+        document.getElementById('btn-toggle-subtotal').classList.toggle('active', chk.checked);
+        this.recalcularSubtotais();
+      },
+
+      toggleDetalhesSecundarios() {
+        const chk = document.getElementById('chk-mostrar-detalhes');
+        chk.checked = !chk.checked;
+        this.atualizarVisibilidadeDetalhes();
+      },
+
+      alternarVisaoUnificada() {
+        const chkSub = document.getElementById('chk-mostrar-subtotal');
+        const chkDet = document.getElementById('chk-mostrar-detalhes');
+        const ativarAmbos = !(chkSub.checked && chkDet.checked);
+        chkSub.checked = ativarAmbos;
+        chkDet.checked = ativarAmbos;
+        document.getElementById('btn-toggle-subtotal').classList.toggle('active', ativarAmbos);
+        this.atualizarVisibilidadeDetalhes();
+        this.recalcularSubtotais();
+      },
+
+      atualizarVisibilidadeDetalhes() {
+        const showDet = document.getElementById('chk-mostrar-detalhes').checked;
+        document.body.classList.toggle('hide-secondary-details', !showDet);
+        const btnDet = document.getElementById('btn-toggle-detalhes');
+        if (btnDet) btnDet.classList.toggle('active', showDet);
+        this.atualizarMarkdownBruto();
+      },
+
       recalcularSubtotais() {
         const showSub = document.getElementById('chk-mostrar-subtotal').checked;
+        const btnSub = document.getElementById('btn-toggle-subtotal');
+        if (btnSub) btnSub.classList.toggle('active', showSub);
+
         document.querySelectorAll('.col-subtotal').forEach(el => el.classList.toggle('hidden', !showSub));
         
         document.querySelectorAll('.quote-block').forEach(block => {
@@ -779,24 +933,35 @@
         const input = td.querySelector('.qty-input');
         if (input) return input.value ? input.value : '-';
         const badge = td.querySelector('.pn-badge');
-        if (badge) return badge.childNodes[0].textContent.trim();
-        return td.innerText.replace(/\s+/g, ' ').trim();
+        if (badge) return badge.getAttribute('data-pn-val') || badge.childNodes[0].textContent.trim();
+        const clone = td.cloneNode(true);
+        if (document.body.classList.contains('hide-secondary-details')) {
+          clone.querySelectorAll('.sec-detail').forEach(el => el.remove());
+        }
+        return clone.innerText.replace(/\s+/g, ' ').trim();
+      },
+
+      isColunaVisivel(cell) {
+        const showSub = document.getElementById('chk-mostrar-subtotal').checked;
+        const showDet = !document.body.classList.contains('hide-secondary-details');
+        if (!showSub && cell.classList.contains('col-subtotal')) return false;
+        if (!showDet && cell.classList.contains('col-secondary')) return false;
+        return true;
       },
 
       atualizarMarkdownBruto() {
-        const showSub = document.getElementById('chk-mostrar-subtotal').checked;
         const blocks = document.querySelectorAll('.quote-block');
         let md = '';
         blocks.forEach(block => {
           md += `${block.getAttribute('data-title')}\n`;
           const table = block.querySelector('table');
           const headers = Array.from(table.querySelectorAll('thead th'))
-            .slice(0, -1).filter(th => showSub || !th.classList.contains('col-subtotal'))
+            .slice(0, -1).filter(th => this.isColunaVisivel(th))
             .map(th => th.innerText.trim());
           md += `| ${headers.join(' | ')} |\n|${headers.map(() => '---').join('|')}|\n`;
           table.querySelectorAll('tbody tr').forEach(tr => {
             const cells = Array.from(tr.querySelectorAll('td'))
-              .slice(0, -1).filter(td => showSub || !td.classList.contains('col-subtotal'));
+              .slice(0, -1).filter(td => this.isColunaVisivel(td));
             if (cells.length > 0) md += `| ${cells.map(td => this.extrairValorCelula(td)).join(' | ')} |\n`;
           });
           md += '\n';
@@ -817,27 +982,27 @@
         this.mostrarToast(`PN copiado: ${txt}`);
       },
 
-      gerarExtracaoBloco(block, showSub) {
+      gerarExtracaoBloco(block) {
         const title = block.getAttribute('data-title').replace('### ', '');
         const table = block.querySelector('table');
         const headers = Array.from(table.querySelectorAll('thead th'))
           .slice(0, -1)
-          .filter(th => showSub || !th.classList.contains('col-subtotal'))
+          .filter(th => this.isColunaVisivel(th))
           .map(th => th.innerText.trim());
 
         let tsv = `${title}\n${headers.join('\t')}\n`;
-        let html = `<h4 style="font-family:sans-serif;color:#111827;margin:12px 0 6px 0;">${title}</h4>`;
-        html += `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:sans-serif;font-size:12px;border-color:#d4d4d8;width:100%;">`;
-        html += `<thead style="background:#111827;color:#ffffff;"><tr>${headers.map(h => `<th align="left">${h}</th>`).join('')}</tr></thead><tbody>`;
+        let html = `<h4 style="font-family:sans-serif;color:#1e293b;margin:12px 0 6px 0;">${title}</h4>`;
+        html += `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:sans-serif;font-size:12px;border-color:#e2e8f0;width:100%;">`;
+        html += `<thead style="background:#f1f5f9;color:#334155;"><tr>${headers.map(h => `<th align="left">${h}</th>`).join('')}</tr></thead><tbody>`;
 
         table.querySelectorAll('tbody tr').forEach(tr => {
           const cells = Array.from(tr.querySelectorAll('td'))
             .slice(0, -1)
-            .filter(td => showSub || !td.classList.contains('col-subtotal'))
+            .filter(td => this.isColunaVisivel(td))
             .map(td => this.extrairValorCelula(td));
           if (cells.length > 0) {
             tsv += `${cells.join('\t')}\n`;
-            html += `<tr>${cells.map(c => `<td style="border:1px solid #e4e4e7;">${c}</td>`).join('')}</tr>`;
+            html += `<tr>${cells.map(c => `<td style="border:1px solid #e2e8f0;">${c}</td>`).join('')}</tr>`;
           }
         });
         html += `</tbody></table><br>`;
@@ -870,8 +1035,7 @@
           this.mostrarToast(`${pns.length} PN(s) copiados!`);
           return;
         }
-        const showSub = document.getElementById('chk-mostrar-subtotal').checked;
-        const { tsv, html } = this.gerarExtracaoBloco(block, showSub);
+        const { tsv, html } = this.gerarExtracaoBloco(block);
         this.copiarRichTextOuTexto(tsv, html, 'Tabela copiada!');
       },
 
@@ -888,12 +1052,11 @@
       },
 
       copiarTabelasHTML() {
-        const showSub = document.getElementById('chk-mostrar-subtotal').checked;
         const blocks = document.querySelectorAll('.quote-block');
         let allTsv = '';
         let allHtml = '';
         blocks.forEach(block => {
-          const { tsv, html } = this.gerarExtracaoBloco(block, showSub);
+          const { tsv, html } = this.gerarExtracaoBloco(block);
           allTsv += tsv + '\n';
           allHtml += html;
         });
@@ -945,12 +1108,12 @@
                 const pn = r.sku;
                 rowsHTML += `
                   <tr data-unit-price="${finalDesc}" data-pn="${pn}">
-                    <td class="font-bold text-slate-900">${core.escapeHTML(r.offer_display_name)}</td>
+                    <td class="font-medium text-slate-800">${core.escapeHTML(r.offer_display_name)}</td>
                     <td>${core.renderQtyInput(item.qty)}</td>
                     <td>${core.renderPnBadge(pn)}</td>
-                    <td class="text-slate-500 whitespace-nowrap">R$ ${core.formatBRL(tabela)}</td>
-                    <td class="font-extrabold text-slate-900 whitespace-nowrap">R$ ${core.formatBRL(finalDesc)}</td>
-                    <td class="col-subtotal font-extrabold theme-subtotal whitespace-nowrap">-</td>
+                    <td class="col-secondary text-slate-400 font-normal whitespace-nowrap tabular-nums">R$ ${core.formatBRL(tabela)}</td>
+                    <td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">R$ ${core.formatBRL(finalDesc)}</td>
+                    <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
                     <td class="text-right">${core.renderRowActions()}</td>
                   </tr>`;
               });
@@ -961,9 +1124,9 @@
           container.innerHTML += `
             <div id="${bId}" class="quote-block" data-title="### ${headerTitle}">
               ${core.renderBlockHeader(headerTitle, bId)}
-              <div class="overflow-x-auto rounded-b-lg border border-slate-200">
+              <div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200">
                 <table>
-                  <thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th>Custo Tabela</th><th>Custo Final (-7%)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead>
+                  <thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th class="col-secondary">Custo Tabela</th><th>Custo Final (-7%)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead>
                   <tbody>${rowsHTML}</tbody>
                 </table>
               </div>
@@ -1012,19 +1175,19 @@
                 const custo = core.getSoloPrice(r);
                 const mensalParc = core.parsePrice(r.termo_anual_pagamento_mensal);
                 const infoMensal = (c.id === 'am' && mensalParc > 0)
-                  ? `<div class="text-[11px] font-semibold theme-text-dark">12x de R$ ${core.formatBRL(mensalParc)}/mês</div>`
+                  ? `<div class="sec-detail text-[11px] font-normal text-slate-500">12x de R$ ${core.formatBRL(mensalParc)}/mês</div>`
                   : '';
 
                 rowsHTML += `
                   <tr data-unit-price="${custo}" data-pn="${pn}">
-                    <td class="font-bold text-slate-900">${core.escapeHTML(r.titulo_sku)}</td>
+                    <td class="font-medium text-slate-800">${core.escapeHTML(r.titulo_sku)}</td>
                     <td>${core.renderQtyInput(item.qty)}</td>
                     <td>${core.renderPnBadge(pn)}</td>
-                    <td class="font-extrabold text-slate-900 whitespace-nowrap">
+                    <td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">
                       R$ ${core.formatBRL(custo)}
                       ${infoMensal}
                     </td>
-                    <td class="col-subtotal font-extrabold theme-subtotal whitespace-nowrap">-</td>
+                    <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
                     <td class="text-right">${core.renderRowActions()}</td>
                   </tr>`;
               });
@@ -1035,7 +1198,7 @@
           container.innerHTML += `
             <div id="${bId}" class="quote-block" data-title="### ${headerTitle}">
               ${core.renderBlockHeader(headerTitle, bId)}
-              <div class="overflow-x-auto rounded-b-lg border border-slate-200">
+              <div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200">
                 <table>
                   <thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th>Valor com 5% Serviços</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead>
                   <tbody>${rowsHTML}</tbody>
@@ -1078,11 +1241,11 @@
               const preco = core.parsePrice(row.fob_impostos || row.erp);
               rowsHTML += `
                 <tr data-unit-price="${preco}" data-pn="${pn}">
-                  <td class="font-bold text-slate-900">${core.escapeHTML(row.nome_produto)}</td>
+                  <td class="font-medium text-slate-800">${core.escapeHTML(row.nome_produto)}</td>
                   <td>${core.renderQtyInput(item.qty)}</td>
                   <td>${core.renderPnBadge(pn)}</td>
-                  <td class="font-extrabold text-slate-900 whitespace-nowrap">R$ ${core.formatBRL(preco)}</td>
-                  <td class="col-subtotal font-extrabold theme-subtotal whitespace-nowrap">-</td>
+                  <td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">R$ ${core.formatBRL(preco)}</td>
+                  <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
                   <td class="text-right">${core.renderRowActions()}</td>
                 </tr>`;
             });
@@ -1094,7 +1257,7 @@
         container.innerHTML = `
           <div id="${bId}" class="quote-block" data-title="### ${title}">
             ${core.renderBlockHeader(title, bId)}
-            <div class="overflow-x-auto rounded-b-lg border border-slate-200">
+            <div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200">
               <table>
                 <thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th>Custo Final (FOB+Impostos)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead>
                 <tbody>${rowsHTML}</tbody>
@@ -1150,12 +1313,12 @@
               const custoImp = core.parsePrice(r.custo_com_imposto || r.valor_preco_liquido_atual);
               rowsHTML += `
                 <tr data-unit-price="${custoImp}" data-pn="${pn}">
-                  <td class="font-bold text-slate-900">${core.escapeHTML(r.nome_curto_peca)} <span class="text-xs text-slate-500 font-normal">(${r.uso_recurso || ''})</span></td>
+                  <td class="font-medium text-slate-800">${core.escapeHTML(r.nome_curto_peca)} <span class="sec-detail text-xs text-slate-400 font-normal">(${r.uso_recurso || ''})</span></td>
                   <td>${core.renderQtyInput(item.qty)}</td>
                   <td>${core.renderPnBadge(pn)}</td>
-                  <td class="text-xs text-slate-600 font-medium">Pool: ${r.pool || '-'} (${r.categoria_precos || '-'})</td>
-                  <td class="font-extrabold text-slate-900 whitespace-nowrap">R$ ${core.formatBRL(custoImp)}</td>
-                  <td class="col-subtotal font-extrabold theme-subtotal whitespace-nowrap">-</td>
+                  <td class="col-secondary text-xs text-slate-500 font-normal">Pool: ${r.pool || '-'} (${r.categoria_precos || '-'})</td>
+                  <td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">R$ ${core.formatBRL(custoImp)}</td>
+                  <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
                   <td class="text-right">${core.renderRowActions()}</td>
                 </tr>`;
             });
@@ -1167,9 +1330,9 @@
         container.innerHTML = `
           <div id="${bId}" class="quote-block" data-title="### ${title}">
             ${core.renderBlockHeader(title, bId)}
-            <div class="overflow-x-auto rounded-b-lg border border-slate-200">
+            <div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200">
               <table>
-                <thead><tr><th>Produto</th><th>Qtd</th><th>PN (Item)</th><th>Pool / Cat.</th><th>Custo c/ Imposto</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead>
+                <thead><tr><th>Produto</th><th>Qtd</th><th>PN (Item)</th><th class="col-secondary">Pool / Cat.</th><th>Custo c/ Imposto</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead>
                 <tbody>${rowsHTML}</tbody>
               </table>
             </div>
@@ -1222,13 +1385,13 @@
                 const pn = r.part_number;
                 rowsHTML += `
                   <tr data-unit-price="${brl}" data-pn="${pn}">
-                    <td class="font-bold text-slate-900">${core.escapeHTML(r.product_family)}</td>
+                    <td class="font-medium text-slate-800">${core.escapeHTML(r.product_family)}</td>
                     <td>${core.renderQtyInput(item.qty)}</td>
                     <td>${core.renderPnBadge(pn)}</td>
-                    <td class="text-xs text-slate-600 font-medium whitespace-nowrap">${r.level_detail}</td>
-                    <td class="text-slate-500 whitespace-nowrap">US$ ${core.formatUSD(usd)}</td>
-                    <td class="font-extrabold text-slate-900 whitespace-nowrap">R$ ${core.formatBRL(brl)}</td>
-                    <td class="col-subtotal font-extrabold theme-subtotal whitespace-nowrap">-</td>
+                    <td class="col-secondary text-xs text-slate-500 font-normal whitespace-nowrap">${r.level_detail}</td>
+                    <td class="col-secondary text-slate-400 font-normal whitespace-nowrap tabular-nums">US$ ${core.formatUSD(usd)}</td>
+                    <td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">R$ ${core.formatBRL(brl)}</td>
+                    <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
                     <td class="text-right">${core.renderRowActions()}</td>
                   </tr>`;
               });
@@ -1241,9 +1404,9 @@
           container.innerHTML = `
             <div id="${bId}" class="quote-block" data-title="### ${headerTitle}">
               ${core.renderBlockHeader(headerTitle, bId)}
-              <div class="overflow-x-auto rounded-b-lg border border-slate-200">
+              <div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200">
                 <table>
-                  <thead><tr><th>Produto</th><th>Qtd</th><th>PN</th><th>Level</th><th>Custo (USD)</th><th>Custo (BRL)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead>
+                  <thead><tr><th>Produto</th><th>Qtd</th><th>PN</th><th class="col-secondary">Level</th><th class="col-secondary">Custo (USD)</th><th>Custo (BRL)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead>
                   <tbody>${rowsHTML}</tbody>
                 </table>
               </div>
@@ -1282,7 +1445,6 @@
             data = await core.fetchSupabase('kaspersky', params);
           }
 
-          // 1. Ignorar "Successive Licence" e "Public Sector Licence"
           data = data.filter(r => {
             const nome = (r.sale_item_name || '').toLowerCase();
             const tipo = (r.tipo || '').toLowerCase();
@@ -1291,14 +1453,12 @@
             return true;
           });
 
-          // 2. Filtro de Solução (COM EDR vs SEM EDR)
           if (flags.edrFilter === 'with_edr') {
             data = data.filter(r => (r.sale_item_name || '').toLowerCase().includes('edr'));
           } else if (flags.edrFilter === 'without_edr') {
             data = data.filter(r => !(r.sale_item_name || '').toLowerCase().includes('edr'));
           }
 
-          // 3. Filtro de Tipo (Base vs Renewal) e Banda
           if (flags.tipo !== 'all') {
             data = data.filter(r => (r.tipo || '').toLowerCase() === flags.tipo.toLowerCase());
           }
@@ -1312,7 +1472,6 @@
         const resultadosPorItem = await Promise.all(promessas);
         const tipoLabel = flags.tipo === 'Renewal' ? 'Renew' : 'Base';
 
-        // Gera uma tabela para cada período marcado (1 a 5 Anos)
         for (const p of flags.periodos) {
           let rowsHTML = '';
           
@@ -1329,21 +1488,21 @@
                 const pn = r.part_number;
                 const hasEdr = (r.sale_item_name || '').toLowerCase().includes('edr');
                 const badgeEdr = hasEdr
-                  ? `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-300">COM EDR</span>`
-                  : `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">SEM EDR</span>`;
+                  ? `<span class="sec-detail ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-teal-50 text-teal-700 border border-teal-200">COM EDR</span>`
+                  : `<span class="sec-detail ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-normal bg-slate-100 text-slate-600 border border-slate-200">SEM EDR</span>`;
 
                 rowsHTML += `
                   <tr data-unit-price="${unitarioRef}" data-pn="${pn}">
-                    <td class="font-bold text-slate-900">
+                    <td class="font-medium text-slate-800">
                       ${core.escapeHTML(r.sale_item_name)}
                       ${badgeEdr}
                     </td>
                     <td>${core.renderQtyInput(item.qty)}</td>
                     <td>${core.renderPnBadge(pn)}</td>
-                    <td class="text-xs text-slate-600 font-medium whitespace-nowrap">Banda: ${r.banda}</td>
-                    <td class="font-extrabold text-slate-900 whitespace-nowrap">R$ ${core.formatBRL(revenda)}</td>
-                    ${flags.mostrarRO ? `<td class="font-extrabold theme-text-dark whitespace-nowrap">${roOficial > 0 ? 'R$ ' + core.formatBRL(roOficial) : '-'}</td>` : ''}
-                    <td class="col-subtotal font-extrabold theme-subtotal whitespace-nowrap">-</td>
+                    <td class="col-secondary text-xs text-slate-500 font-normal whitespace-nowrap">Banda: ${r.banda}</td>
+                    <td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">R$ ${core.formatBRL(revenda)}</td>
+                    ${flags.mostrarRO ? `<td class="font-medium theme-text-dark whitespace-nowrap tabular-nums">${roOficial > 0 ? 'R$ ' + core.formatBRL(roOficial) : '-'}</td>` : ''}
+                    <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
                     <td class="text-right">${core.renderRowActions()}</td>
                   </tr>`;
               });
@@ -1355,11 +1514,11 @@
           container.innerHTML += `
             <div id="${bId}" class="quote-block" data-title="### ${headerTitle}">
               ${core.renderBlockHeader(headerTitle, bId)}
-              <div class="overflow-x-auto rounded-b-lg border border-slate-200">
+              <div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200">
                 <table>
                   <thead>
                     <tr>
-                      <th>Produto</th><th>Qtd</th><th>PN</th><th>Faixa / Banda</th><th>Custo Revenda</th>
+                      <th>Produto</th><th>Qtd</th><th>PN</th><th class="col-secondary">Faixa / Banda</th><th>Custo Revenda</th>
                       ${flags.mostrarRO ? '<th>Custo com RO</th>' : ''}
                       <th class="col-subtotal">Subtotal</th><th></th>
                     </tr>
@@ -1400,9 +1559,9 @@
         });
 
         document.getElementById('resultado-container').innerHTML = `
-          <div class="text-center py-24 text-slate-500 text-xs bg-slate-50/70 rounded-xl border border-dashed border-slate-300">
-            Fabricante alterado para <b class="theme-text uppercase">${vendor}</b>.<br>
-            Insira os itens no painel esquerdo e clique em <b class="theme-text">Buscar e Montar Tabelas</b>.
+          <div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+            Fabricante alterado para <span class="theme-text font-semibold uppercase">${vendor}</span>.<br>
+            Insira os itens no painel esquerdo e clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span>.
           </div>`;
         document.getElementById('markdown-output').textContent = '';
         this.analisarInput();
@@ -1422,9 +1581,9 @@
         document.getElementById('ms-flags-mpsa').style.display = (mod === 'mpsa') ? 'block' : 'none';
 
         document.getElementById('resultado-container').innerHTML = `
-          <div class="text-center py-24 text-slate-500 text-xs bg-slate-50/70 rounded-xl border border-dashed border-slate-300">
-            Modalidade alterada para <b class="theme-text uppercase">${mod}</b>.<br>
-            Clique em <b class="theme-text">Buscar e Montar Tabelas</b> para consultar.
+          <div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+            Modalidade alterada para <span class="theme-text font-semibold uppercase">${mod}</span>.<br>
+            Clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span> para consultar.
           </div>`;
         document.getElementById('markdown-output').textContent = '';
         this.analisarInput();
@@ -1439,9 +1598,9 @@
 
         const labelSeg = seg === 'enterprise' ? 'For Enterprise' : 'For Teams';
         document.getElementById('resultado-container').innerHTML = `
-          <div class="text-center py-24 text-slate-500 text-xs bg-slate-50/70 rounded-xl border border-dashed border-slate-300">
-            Segmento Adobe alterado para <b class="theme-text uppercase">${labelSeg}</b>.<br>
-            Clique em <b class="theme-text">Buscar e Montar Tabelas</b> para consultar.
+          <div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+            Segmento Adobe alterado para <span class="theme-text font-semibold uppercase">${labelSeg}</span>.<br>
+            Clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span> para consultar.
           </div>`;
         document.getElementById('markdown-output').textContent = '';
         this.analisarInput();
@@ -1454,9 +1613,9 @@
 
         const labelTipo = tipo === 'Renewal' ? 'Renew' : 'Base';
         document.getElementById('resultado-container').innerHTML = `
-          <div class="text-center py-24 text-slate-500 text-xs bg-slate-50/70 rounded-xl border border-dashed border-slate-300">
-            Tipo de licença Kaspersky alterado para <b class="theme-text uppercase">${labelTipo}</b>.<br>
-            Clique em <b class="theme-text">Buscar e Montar Tabelas</b> para consultar.
+          <div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+            Tipo de licença Kaspersky alterado para <span class="theme-text font-semibold uppercase">${labelTipo}</span>.<br>
+            Clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span> para consultar.
           </div>`;
         document.getElementById('markdown-output').textContent = '';
         this.analisarInput();
@@ -1494,7 +1653,6 @@
         if (sum <= 24) return '20-24';
         if (sum <= 49) return '25-49';
         if (sum <= 99) return '50-99';
-        if (sum <= 100-149) return '100-149';
         if (sum <= 149) return '100-149';
         if (sum <= 249) return '150-249';
         if (sum <= 499) return '250-499';
@@ -1521,7 +1679,7 @@
         const container = document.getElementById('resultado-container');
         btn.disabled = true;
         btn.innerHTML = '<span>Consultando SKUs e montando propostas...</span>';
-        container.innerHTML = '<div class="text-center py-20 text-slate-500 text-xs font-medium animate-pulse bg-slate-50 rounded-xl border border-slate-200">Consultando banco de dados corporativo...</div>';
+        container.innerHTML = '<div class="text-center py-20 text-slate-400 text-xs font-normal animate-pulse bg-slate-50/60 rounded-xl border border-slate-200">Consultando banco de dados corporativo...</div>';
         
         try {
           if (this.currentVendor === 'microsoft') {
@@ -1534,7 +1692,7 @@
             
             const flags = {
               contratos,
-              onlyCommercial: true, // Padrão fixo comercial
+              onlyCommercial: true,
               hideNoTeams: document.getElementById('chk-hide-noteams').checked,
               hideCopilot: document.getElementById('chk-hide-copilot').checked,
               hideSA: document.getElementById('chk-mpsa-hide-sa').checked
