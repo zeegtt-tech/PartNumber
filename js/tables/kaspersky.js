@@ -1,5 +1,5 @@
 // ============================================================================
-// MODULO DE TABELAS: KASPERSKY (1 a 5 Anos, Base/Renew, Bandas, RO & EDR)
+// MÓDULO DE TABELAS: KASPERSKY (1 a 5 Anos, Base/Renew, Bandas, RO & EDR) - v5.7
 // Arquivo: js/tables/kaspersky.js
 // ============================================================================
 window.Cotador.tables.kaspersky = {
@@ -11,6 +11,7 @@ window.Cotador.tables.kaspersky = {
     const promessas = parsedItems.map(async item => {
       let data = [];
       const isFoundations = item.rawSearch.toLowerCase().includes('foundation');
+
       if (isFoundations) {
         const p1 = [['select', '*'], ['limit', '300'], ['sale_item_name', 'ilike.*Foundations*']];
         const p2 = [['select', '*'], ['limit', '300'], ['sale_item_name', 'ilike.*Endpoint Security Cloud*']];
@@ -53,25 +54,38 @@ window.Cotador.tables.kaspersky = {
 
     for (const p of flags.periodos) {
       let rowsHTML = '';
-
       for (const { item, data } of resultadosPorItem) {
         const filtrados = data.filter(r => (r.periodo || '').toUpperCase().includes(p.match));
-        if (filtrados.length === 0) {
-          rowsHTML += core.renderNotFoundRow(item, flags.mostrarRO ? 7 : 6);
-        } else {
-          filtrados.forEach(r => {
-            const revenda = core.parsePrice(r.revenda);
-            const roOficial = core.parsePrice(r.ro);
-            const unitarioRef = (flags.mostrarRO && roOficial > 0) ? roOficial : revenda;
-            const pn = r.part_number;
-            const hasEdr = (r.sale_item_name || '').toLowerCase().includes('edr');
-            const badgeEdr = hasEdr
-              ? `<span class="sec-detail ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-teal-50 text-teal-700 border border-teal-200">COM EDR</span>`
-              : `<span class="sec-detail ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-normal bg-slate-100 text-slate-600 border border-slate-200">SEM EDR</span>`;
-            rowsHTML += `<tr data-unit-price="${unitarioRef}" data-pn="${pn}"><td class="font-medium text-slate-800">${core.escapeHTML(r.sale_item_name)}${badgeEdr}</td><td>${core.renderQtyInput(item.qty)}</td><td>${core.renderPnBadge(pn)}</td><td class="col-secondary text-xs text-slate-500 font-normal whitespace-nowrap">Banda: ${r.banda}</td><td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">R$ ${core.formatBRL(revenda)}</td>${flags.mostrarRO ? `<td class="font-medium theme-text-dark whitespace-nowrap tabular-nums">${roOficial > 0 ? 'R$ ' + core.formatBRL(roOficial) : '-'}</td>` : ''}<td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td><td class="text-right">${core.renderRowActions()}</td></tr>`;
-          });
-        }
+
+        filtrados.forEach(r => {
+          const revenda = core.parsePrice(r.revenda);
+          const roOficial = core.parsePrice(r.ro);
+          const unitarioRef = (flags.mostrarRO && roOficial > 0) ? roOficial : revenda;
+          const pn = r.part_number;
+          const fmtRevenda = `R$ ${core.formatBRL(revenda)}`;
+          const fmtRO = roOficial > 0 ? `R$ ${core.formatBRL(roOficial)}` : '-';
+
+          const hasEdr = (r.sale_item_name || '').toLowerCase().includes('edr');
+          const badgeEdr = hasEdr
+            ? `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="COM EDR" data-label="EDR" title="Clique para copiar" class="copy-link sec-detail ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-teal-50 text-teal-700 border border-teal-200">COM EDR</span>`
+            : `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="SEM EDR" data-label="EDR" title="Clique para copiar" class="copy-link sec-detail ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-normal bg-slate-100 text-slate-600 border border-slate-200">SEM EDR</span>`;
+
+          const bandaTxt = `Banda: ${r.banda}`;
+
+          rowsHTML += `<tr data-unit-price="${unitarioRef}" data-pn="${core.escapeHTML(pn)}">
+            <td class="font-medium text-slate-800">${core.renderCopyLink(r.sale_item_name, r.sale_item_name, 'Produto')}${badgeEdr}</td>
+            <td>${core.renderQtyInput(item.qty)}</td>
+            <td>${core.renderPnBadge(pn)}</td>
+            <td class="col-secondary text-xs text-slate-500 font-normal whitespace-nowrap">${core.renderCopyLink(bandaTxt, r.banda, 'Faixa / Banda')}</td>
+            <td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtRevenda, fmtRevenda, 'Custo Revenda')}</td>
+            ${flags.mostrarRO ? `<td class="font-medium theme-text-dark whitespace-nowrap tabular-nums">${roOficial > 0 ? core.renderCopyLink(fmtRO, fmtRO, 'Custo com RO') : '-'}</td>` : ''}
+            <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
+            <td class="text-right">${core.renderRowActions()}</td>
+          </tr>`;
+        });
       }
+
+      if (!rowsHTML) continue;
 
       const bId = `blk-kaspersky-${p.id}`;
       const headerTitle = `Kaspersky (${tipoLabel}) | Período: ${p.label} (Banda: ${flags.targetBanda})`;

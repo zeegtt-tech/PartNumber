@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cotador Comercial de PNs & Licenciamento | v5.6 Enterprise</title>
+  <title>Cotador Comercial de PNs & Licenciamento | v5.7 Enterprise</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="./css/styles.css">
   <script defer src="./js/core.js"></script>
@@ -29,11 +29,11 @@
               Gerador Comercial de PNs &amp; Cotação
             </h1>
             <span class="text-[10px] px-2 py-0.5 rounded-full theme-badge font-medium uppercase tracking-wide transition-colors">
-              v5.6 Enterprise
+              v5.7 Enterprise
             </span>
           </div>
           <p class="text-[11px] text-slate-400">
-            Clique no PN para copiar &bull; Arraste as linhas (ou use ▲▼) para ordenar todas as tabelas &bull; <kbd class="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-slate-600 font-medium">Ctrl + Enter</kbd> para buscar
+            Clique em qualquer dado para copiar &bull; Arraste as linhas para reordenar todas as tabelas &bull; <kbd class="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-slate-600 font-medium">Ctrl + Enter</kbd> para buscar
           </p>
         </div>
       </div>
@@ -119,7 +119,7 @@
               </p>
             </div>
 
-            <!-- 3.2 SEGMENTOS DE MERCADO (BOTÕES ESPECÍFICOS) -->
+            <!-- 3.2 SEGMENTOS DE MERCADO -->
             <div>
               <div class="flex items-center justify-between mb-1">
                 <label class="section-label !mb-0">Segmento de Mercado</label>
@@ -181,7 +181,7 @@
                   </label>
                 </div>
 
-                <!-- Flags Perpétuo & MPSA (Contratos Temporários, Ciclos e CALs) -->
+                <!-- Flags Perpétuo & MPSA -->
                 <div id="ms-flags-perpetuo-mpsa" class="hidden space-y-1.5 pt-2 border-t border-slate-200/70">
                   <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Perpétuo &amp; MPSA (Duração / Escopo)</div>
                   <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900" title="Oculta todas as licenças temporárias/assinaturas (Mensal, Anual e Trienal) para exibir apenas licenças perpétuas">
@@ -233,7 +233,6 @@
 
               </div>
             </div>
-
           </div>
 
           <!-- 3. FILTROS ADOBE -->
@@ -388,26 +387,18 @@
                   <span class="w-2 h-2 rounded-sm theme-bg-solid inline-block transition-colors"></span>
                   Resultado da Cotação
                 </h2>
-                <p class="text-[11px] text-slate-400 mt-0.5">Arraste qualquer linha (ou clique em ▲▼) para reordenar todas as tabelas simultaneamente &bull; Clique na barra de título para recolher</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">
+                  Clique em qualquer produto, PN, detalhe ou valor para copiar &bull; Arraste pelo ícone lateral para ordenar &bull; Clique no título da coluna para copiar a coluna inteira
+                </p>
               </div>
-
               <div class="flex flex-wrap items-center gap-1.5">
                 <button onclick="Cotador.core.alternarTodasTabelas()" class="text-[11px] px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 font-medium transition" title="Expandir ou recolher todas as tabelas">
                   Expandir / Recolher
                 </button>
-                <button onclick="Cotador.core.copiarTabelasHTML()" class="btn-theme-primary text-xs px-3 py-1.5 rounded-lg font-medium">
-                  Copiar Tudo (Proposta / Excel)
-                </button>
-                <button onclick="Cotador.core.copiarApenasPNsGlobal()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-medium transition">
-                  Copiar Todos os PNs
-                </button>
-                <button onclick="Cotador.core.copiarMarkdown()" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 font-medium transition">
-                  Markdown
-                </button>
               </div>
             </div>
 
-            <div id="copy-toast" class="hidden mb-3 p-2 rounded-lg theme-badge text-xs text-center font-medium shadow-sm">
+            <div id="copy-toast" class="hidden mb-3 p-2 rounded-lg theme-badge text-xs text-center font-medium shadow-sm transition-all">
               Copiado com sucesso!
             </div>
 
@@ -421,7 +412,7 @@
           <div class="mt-6 pt-3 border-t border-slate-100">
             <details class="text-xs text-slate-400">
               <summary class="cursor-pointer hover:text-slate-600 font-medium select-none">Ver código Markdown bruto da proposta</summary>
-              <pre id="markdown-output" class="mt-2 p-3 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-700 overflow-x-auto font-mono text-xs"></pre>
+              <pre id="markdown-output" onclick="Cotador.core.copiarMarkdown()" title="Clique para copiar o Markdown bruto" class="mt-2 p-3 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-700 overflow-x-auto font-mono text-xs cursor-pointer hover:border-slate-300 transition"></pre>
             </details>
           </div>
         </div>

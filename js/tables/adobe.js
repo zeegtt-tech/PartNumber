@@ -1,5 +1,5 @@
 // ============================================================================
-// MODULO DE TABELAS: ADOBE (Base Padrao & Promo Novos Clientes)
+// MÓDULO DE TABELAS: ADOBE (Base Padrão & Promo Novos Clientes) - v5.7 ENTERPRISE
 // Arquivo: js/tables/adobe.js
 // ============================================================================
 function criarModuloAdobe(tableName, labelTitulo) {
@@ -7,6 +7,7 @@ function criarModuloAdobe(tableName, labelTitulo) {
     async processar(parsedItems, flags) {
       const core = window.Cotador.core;
       const container = document.getElementById('resultado-container');
+      container.innerHTML = '';
       let rowsHTML = '';
 
       const promessas = parsedItems.map(async item => {
@@ -35,17 +36,27 @@ function criarModuloAdobe(tableName, labelTitulo) {
 
       const resultados = await Promise.all(promessas);
       resultados.forEach(({ item, data }) => {
-        if (data.length === 0) {
-          rowsHTML += core.renderNotFoundRow(item, 6);
-        } else {
-          data.forEach(r => {
-            const usd = core.parsePrice(r.partner_price);
-            const brl = usd * flags.taxaDolar;
-            const pn = r.part_number;
-            rowsHTML += `<tr data-unit-price="${brl}" data-pn="${pn}"><td class="font-medium text-slate-800">${core.escapeHTML(r.product_family)}</td><td>${core.renderQtyInput(item.qty)}</td><td>${core.renderPnBadge(pn)}</td><td class="col-secondary text-xs text-slate-500 font-normal whitespace-nowrap">${r.level_detail}</td><td class="col-secondary text-slate-400 font-normal whitespace-nowrap tabular-nums">US$ ${core.formatUSD(usd)}</td><td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">R$ ${core.formatBRL(brl)}</td><td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td><td class="text-right">${core.renderRowActions()}</td></tr>`;
-          });
-        }
+        data.forEach(r => {
+          const usd = core.parsePrice(r.partner_price);
+          const brl = usd * flags.taxaDolar;
+          const pn = r.part_number;
+          const fmtUSD = `US$ ${core.formatUSD(usd)}`;
+          const fmtBRL = `R$ ${core.formatBRL(brl)}`;
+
+          rowsHTML += `<tr data-unit-price="${brl}" data-pn="${core.escapeHTML(pn)}">
+            <td class="font-medium text-slate-800">${core.renderCopyLink(r.product_family, r.product_family, 'Produto')}</td>
+            <td>${core.renderQtyInput(item.qty)}</td>
+            <td>${core.renderPnBadge(pn)}</td>
+            <td class="col-secondary text-xs text-slate-500 font-normal whitespace-nowrap">${core.renderCopyLink(r.level_detail, r.level_detail, 'Level')}</td>
+            <td class="col-secondary text-slate-400 font-normal whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtUSD, fmtUSD, 'Custo USD')}</td>
+            <td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtBRL, fmtBRL, 'Custo BRL')}</td>
+            <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
+            <td class="text-right">${core.renderRowActions()}</td>
+          </tr>`;
+        });
       });
+
+      if (!rowsHTML) return;
 
       const segLabel = flags.segmento === 'enterprise' ? 'For Enterprise' : 'For Teams';
       const bId = `blk-${tableName}`;

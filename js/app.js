@@ -1,5 +1,5 @@
 // ============================================================================
-// CONTROLADOR DA APLICACAO (APP) - COTADOR v5.6 ENTERPRISE (js/app.js)
+// CONTROLADOR DA APLICAÇÃO (APP) - COTADOR v5.7 ENTERPRISE (js/app.js)
 // ============================================================================
 window.Cotador.app = {
   currentVendor: 'microsoft',
@@ -36,7 +36,7 @@ window.Cotador.app = {
   },
 
   // ==========================================================================
-  // MODALIDADES MICROSOFT (MULTI-SELECAO v5.6)
+  // MODALIDADES MICROSOFT (MULTI-SELEÇÃO)
   // ==========================================================================
   toggleMsModalidade(mod) {
     if (this.msModalidades.has(mod)) {
@@ -88,7 +88,7 @@ window.Cotador.app = {
   },
 
   // ==========================================================================
-  // SEGMENTOS DE MERCADO MICROSOFT (v5.6)
+  // SEGMENTOS DE MERCADO MICROSOFT
   // ==========================================================================
   toggleMsSegmento(seg) {
     if (this.msSegmentos.has(seg)) {
@@ -118,7 +118,7 @@ window.Cotador.app = {
   },
 
   // ==========================================================================
-  // CONTRATOS TRIENAIS & FLAGS PERPETUO/MPSA (v5.6)
+  // CONTRATOS TRIENAIS & FLAGS PERPÉTUO/MPSA
   // ==========================================================================
   toggleTrienaisCSP() {
     this.trienaisVisiveis = !this.trienaisVisiveis;
@@ -162,6 +162,7 @@ window.Cotador.app = {
     document.getElementById('kasp-tipo').value = tipo;
     document.getElementById('btn-kasp-tipo-base').classList.toggle('active', tipo === 'Base');
     document.getElementById('btn-kasp-tipo-renewal').classList.toggle('active', tipo === 'Renewal');
+
     const labelTipo = tipo === 'Renewal' ? 'Renew' : 'Base';
     document.getElementById('resultado-container').innerHTML = `<div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">Tipo de licença Kaspersky alterado para <span class="theme-text font-semibold uppercase">${labelTipo}</span>.<br>Clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span> para consultar.</div>`;
     document.getElementById('markdown-output').textContent = '';
@@ -308,7 +309,6 @@ window.Cotador.app = {
 
         const bandaSelect = document.getElementById('kasp-banda').value;
         const roMode = document.getElementById('kasp-ro-mode').value;
-
         const flags = {
           periodos,
           targetBanda: (bandaSelect === 'auto') ? this.getKaspAutoBanda(this.totalLicenses) : bandaSelect,
@@ -321,6 +321,8 @@ window.Cotador.app = {
         await window.Cotador.tables.kaspersky.processar(this.parsedItems, flags);
       }
 
+      // Remove eventuais tabelas vazias e exibe o alerta global caso nenhuma tabela tenha retornado itens
+      window.Cotador.core.limparBlocosVazios();
       window.Cotador.core.recalcularSubtotais();
     } catch (err) {
       container.innerHTML = `<div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-900 text-xs"><b>Erro na consulta:</b> ${err.message}</div>`;

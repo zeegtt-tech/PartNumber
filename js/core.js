@@ -1,5 +1,5 @@
 // ============================================================================
-// NUCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.6 ENTERPRISE (js/core.js)
+// NÚCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.7 ENTERPRISE (js/core.js)
 // ============================================================================
 window.Cotador = { core: {}, tables: {}, app: {} };
 
@@ -11,12 +11,40 @@ window.Cotador.core = {
   _lastMouseDownTarget: null,
 
   SEARCH_KEYWORDS: {
-    "phothosop": ["Photoshop"], "photshop": ["Photoshop"], "photosop": ["Photoshop"], "photoshop": ["Photoshop"],
-    "ilustrator": ["Illustrator"], "illustrator": ["Illustrator"], "indesing": ["InDesign"], "acrobat pro": ["Acrobat", "Pro"],
-    "creative cloud pro": ["Creative Cloud"], "creative cloud": ["Creative Cloud"], "business basic": ["Business Basic"],
-    "business standard": ["Business Standard"], "business standart": ["Business Standard"], "business premium": ["Business Premium"],
-    "exchange plan 1": ["Exchange Online", "Plan 1"], "exchange plan 2": ["Exchange Online", "Plan 2"],
-    "exchange online": ["Exchange Online"], "planner": ["Planner"]
+    "phothosop": ["Photoshop"],
+    "photshop": ["Photoshop"],
+    "photosop": ["Photoshop"],
+    "photoshop": ["Photoshop"],
+    "ilustrator": ["Illustrator"],
+    "illustrator": ["Illustrator"],
+    "indesing": ["InDesign"],
+    "acrobat pro": ["Acrobat", "Pro"],
+    "creative cloud pro": ["Creative Cloud"],
+    "creative cloud": ["Creative Cloud"],
+    "business basic": ["Business Basic"],
+    "business standard": ["Business Standard"],
+    "business standart": ["Business Standard"],
+    "business standar": ["Business Standard"],
+    "business premium": ["Business Premium"],
+    "exchange plan 1": ["Exchange Online", "Plan 1"],
+    "exchange plan 2": ["Exchange Online", "Plan 2"],
+    "exchange online": ["Exchange Online"],
+    "planner": ["Planner"]
+  },
+
+  TOKEN_TYPO_MAP: {
+    "standar": "Standard",
+    "standart": "Standard",
+    "std": "Standard",
+    "entprise": "Enterprise",
+    "enterpise": "Enterprise",
+    "datacent": "Datacenter",
+    "foudation": "Foundations",
+    "foudations": "Foundations",
+    "foundation": "Foundations",
+    "bussiness": "Business",
+    "busines": "Business",
+    "exchenge": "Exchange"
   },
 
   escapeHTML(str) {
@@ -31,36 +59,141 @@ window.Cotador.core = {
     for (const [key, kwList] of Object.entries(this.SEARCH_KEYWORDS)) {
       if (lower === key || lower.includes(key)) return kwList;
     }
-    return prodName.replace(/[()]/g, ' ').split(/\s+/).filter(w => w.length > 0);
+    return prodName
+      .replace(/[()]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 0)
+      .map(w => {
+        const cleanW = w.toLowerCase();
+        return this.TOKEN_TYPO_MAP[cleanW] || w;
+      });
   },
 
-  detectarSegmentoItem(nomeProduto, segmentoRaw) {
-    const nome = (nomeProduto || '').toLowerCase();
-    const seg = (segmentoRaw || '').trim().toLowerCase();
+  // ==========================================================================
+  // DETECÇÃO E FILTRAGEM EFICIENTE DE SEGMENTO (COLUNA SEGMENT + NOME)
+  // ==========================================================================
+  extrairSegmentoRow(rowOrVal) {
+    if (!rowOrVal) return '';
+    if (typeof rowOrVal === 'string') return rowOrVal.trim();
+    if (typeof rowOrVal === 'object') {
+      const direct =
+        rowOrVal.segment ??
+        rowOrVal.Segment ??
+        rowOrVal.SEGMENT ??
+        rowOrVal.segmento ??
+        rowOrVal.Segmento ??
+        rowOrVal.sub_segment ??
+        rowOrVal.tipo_conta_compras ??
+        rowOrVal.market_segment ??
+        rowOrVal.target_segment ??
+        rowOrVal.audience;
+      if (direct !== undefined && direct !== null && String(direct).trim() !== '') {
+        return String(direct).trim();
+      }
+      for (const [k, v] of Object.entries(rowOrVal)) {
+        if (/^(segment|segmento|tipo_conta|market_seg|target_seg|audience)/i.test(k) && v !== null && v !== undefined) {
+          return String(v).trim();
+        }
+      }
+    }
+    return '';
+  },
 
-    const isEdu = ['education', 'faculty', 'student', 'academic', 'academico', 'acadêmico'].some(t => seg.includes(t) || nome.includes(t));
-    if (isEdu) return 'education';
+  construirFiltroPostgrestSegmento(columnName, allowedSegments) {
+    const activeSegs = Array.isArray(allowedSegments) && allowedSegments.length > 0
+      ? allowedSegments
+      : ['commercial'];
+    if (activeSegs.length >= 4) return null;
 
-    const isCharity = ['charity', 'non-profit', 'nonprofit', 'non profit', 'donation', 'filantropia'].some(t => seg.includes(t) || nome.includes(t));
-    if (isCharity) return 'charity';
+    const clauses = [];
+    if (activeSegs.includes('commercial')) {
+      clauses.push(
+        `${columnName}.ilike.*commercial*`,
+        `${columnName}.ilike.*comercial*`,
+        `${columnName}.ilike.*corporate*`,
+        `${columnName}.is.null`
+      );
+    }
+    if (activeSegs.includes('education')) {
+      clauses.push(
+        `${columnName}.ilike.*education*`,
+        `${columnName}.ilike.*academic*`,
+        `${columnName}.ilike.*educa*`,
+        `${columnName}.ilike.*faculty*`,
+        `${columnName}.ilike.*student*`
+      );
+    }
+    if (activeSegs.includes('charity')) {
+      clauses.push(
+        `${columnName}.ilike.*charity*`,
+        `${columnName}.ilike.*nonprofit*`,
+        `${columnName}.ilike.*non-profit*`,
+        `${columnName}.ilike.*filantrop*`
+      );
+    }
+    if (activeSegs.includes('government')) {
+      clauses.push(
+        `${columnName}.ilike.*government*`,
+        `${columnName}.ilike.*governo*`,
+        `${columnName}.ilike.*gov*`,
+        `${columnName}.ilike.*public*`
+      );
+    }
+    return clauses.length > 0 ? `(${clauses.join(',')})` : null;
+  },
 
-    const isGov = ['government', 'gov ', 'governo', 'public sector', 'setor publico', 'setor público'].some(t => seg.includes(t) || nome.includes(t));
-    if (isGov) return 'government';
+  detectarSegmentoItem(nomeProduto, rowOrSegmento) {
+    const segRaw = this.extrairSegmentoRow(rowOrSegmento).toLowerCase().trim();
+    const nome = (nomeProduto || '').toLowerCase().trim();
+
+    // 1. Checa indicadores de segmentos especiais na coluna segment
+    if (segRaw) {
+      if (/\b(charity|non-profit|nonprofit|non profit|donation|filantropia|ong|beneficente)\b/i.test(segRaw) || segRaw.includes('charity') || segRaw.includes('nonprofit')) {
+        return 'charity';
+      }
+      if (/\b(education|academic|faculty|student|school|educa|acad|ensino|edu)\b/i.test(segRaw) || segRaw.includes('education') || segRaw.includes('academic')) {
+        return 'education';
+      }
+      if (/\b(government|gov|governo|public sector|setor p|state|federal|municipal|gcc)\b/i.test(segRaw) || segRaw.includes('government') || segRaw.includes('public')) {
+        return 'government';
+      }
+    }
+
+    // 2. Checa indicadores de segmentos especiais no nome do produto (mesmo que a coluna segment esteja genérica)
+    if (/\b(charity|non-profit|nonprofit|non profit|donation|filantropia)\b/i.test(nome)) {
+      return 'charity';
+    }
+    if (/\b(education|faculty|student|academic|academico|acadêmico|school)\b/i.test(nome)) {
+      return 'education';
+    }
+    if (/\b(government|gov|governo|public sector|setor publico|setor público|gcc)\b/i.test(nome)) {
+      return 'government';
+    }
 
     return 'commercial';
   },
 
-  isItemSegmentoValido(nomeProduto, segmentoRaw, allowedSegments, precoUnitario) {
+  isItemSegmentoValido(nomeProduto, rowOrSegmento, allowedSegments, precoUnitario) {
     if (typeof precoUnitario === 'number' && precoUnitario < 0) return false;
     const activeSegs = Array.isArray(allowedSegments) && allowedSegments.length > 0
       ? allowedSegments
       : ['commercial'];
-    const itemSeg = this.detectarSegmentoItem(nomeProduto, segmentoRaw);
+    const itemSeg = this.detectarSegmentoItem(nomeProduto, rowOrSegmento);
     return activeSegs.includes(itemSeg);
   },
 
-  isItemComercialValido(nomeProduto, segmento, precoUnitario) {
-    return this.isItemSegmentoValido(nomeProduto, segmento, ['commercial'], precoUnitario);
+  renderSegmentBadge(nomeProduto, rowOrSegmento, allowedSegments) {
+    const seg = this.detectarSegmentoItem(nomeProduto, rowOrSegmento);
+    const multiOrNonComm = (Array.isArray(allowedSegments) && allowedSegments.length > 1) || seg !== 'commercial';
+    if (!multiOrNonComm) return '';
+    const map = {
+      commercial: { label: 'Comercial', cls: 'bg-slate-100 text-slate-600 border-slate-200' },
+      education: { label: 'Educação', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+      charity: { label: 'Charity', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+      government: { label: 'Governo', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+    };
+    const info = map[seg] || map.commercial;
+    return `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${info.label}" data-label="Segmento" title="Clique para copiar o segmento" class="copy-link sec-detail ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium border ${info.cls}">${info.label}</span>`;
   },
 
   parseInputLines(rawText) {
@@ -101,13 +234,11 @@ window.Cotador.core = {
   async fetchSupabase(table, paramsArray) {
     const qs = paramsArray.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
     const url = `${this.SUPABASE_URL}/${table}?${qs}`;
-
     const headers = {
       'apikey': this.SUPABASE_KEY,
       'Authorization': `Bearer ${this.SUPABASE_KEY}`,
       'Accept': 'application/json'
     };
-
     const resp = await fetch(url, { method: 'GET', headers });
     if (!resp.ok) {
       const errTxt = await resp.text();
@@ -138,9 +269,23 @@ window.Cotador.core = {
   formatBRL(num) { return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
   formatUSD(num) { return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
 
+  // ==========================================================================
+  // COMPONENTES INTERATIVOS DE CÓPIA DIRETA (CLICK-TO-COPY)
+  // ==========================================================================
+  renderCopyLink(displayText, copyValue, label = 'Valor', extraClass = '') {
+    const safeDisplay = this.escapeHTML(String(displayText ?? ''));
+    const safeCopy = this.escapeHTML(String(copyValue ?? displayText ?? ''));
+    const safeLabel = this.escapeHTML(label);
+    const isMonetary = /[R$US$]/i.test(String(copyValue ?? displayText ?? ''));
+    const hint = isMonetary
+      ? `Clique para copiar ${safeLabel.toLowerCase()} (Shift+Clique para número puro)`
+      : `Clique para copiar ${safeLabel.toLowerCase()}`;
+    return `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${safeCopy}" data-label="${safeLabel}" title="${hint}" class="copy-link ${extraClass}">${safeDisplay}</span>`;
+  },
+
   renderPnBadge(pn) {
-    const safePn = this.escapeHTML(pn);
-    return `<button type="button" onclick="Cotador.core.copiarTextoUnico('${safePn}')" title="Clique para copiar este PN" class="pn-badge" data-pn-val="${safePn}"><span>${safePn}</span><svg class="w-3.5 h-3.5 copy-icon shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>`;
+    const safePn = this.escapeHTML(String(pn ?? ''));
+    return `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${safePn}" data-pn-val="${safePn}" data-label="PN" title="Clique para copiar o PN" class="copy-link pn-mono">${safePn}</span>`;
   },
 
   renderQtyInput(qty) {
@@ -152,18 +297,41 @@ window.Cotador.core = {
     return `<div class="flex items-center justify-end gap-1 whitespace-nowrap"><button type="button" onclick="Cotador.core.removerLinhaUnica(this)" title="Remover apenas este item desta tabela" class="text-[11px] font-normal text-slate-400 hover:text-red-600 hover:bg-red-50 rounded px-1.5 py-1 transition flex items-center gap-1"><span>&#10005;</span> <span class="hidden sm:inline">Remover</span></button><button type="button" onclick="Cotador.core.removerLinhasSemelhantes(this)" title="Remover este produto de todas as tabelas e contratos" class="text-[11px] font-medium text-slate-400 hover:text-red-700 hover:bg-red-100/80 border border-transparent hover:border-red-200 rounded px-1.5 py-1 transition flex items-center gap-1"><svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg><span class="hidden sm:inline">Semelhantes</span></button></div>`;
   },
 
+  renderBlockHeader(title, blockId) {
+    const safeTitle = this.escapeHTML(title);
+    return `<div onclick="Cotador.core.toggleBlock('${blockId}')" class="block-header-bar flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none" title="Clique na barra para recolher ou expandir esta tabela"><div class="flex items-center gap-2"><svg class="w-4 h-4 text-slate-400 chevron-icon transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg><h3 onclick="Cotador.core.copiarBlocoAoClicarTitulo(event, '${blockId}')" title="Clique no título para copiar toda esta tabela" class="copy-link text-xs font-semibold text-slate-700 uppercase tracking-wide">${safeTitle}</h3></div><div class="flex items-center gap-1.5" onclick="event.stopPropagation()"><span id="total-${blockId}" onclick="Cotador.core.copiarElemento(event, this)" data-copy="" data-label="Total da Tabela" title="Clique para copiar o valor Total desta tabela (Shift+Clique para número puro)" class="copy-link block-total-badge text-xs font-semibold theme-badge px-2.5 py-0.5 rounded tabular-nums hidden"></span></div></div>`;
+  },
+
+  renderEmptyStateGlobal() {
+    return `<div class="text-center py-16 px-4 bg-amber-50/50 rounded-xl border border-amber-200/80 text-amber-900 space-y-2"><div class="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></div><p class="text-sm font-semibold">Nenhum produto encontrado</p><p class="text-xs text-amber-700/90 max-w-md mx-auto">Nenhum item correspondeu à busca nas modalidades e filtros selecionados. Verifique a grafia dos produtos ou ajuste os filtros de segmento e contrato no painel lateral.</p></div>`;
+  },
+
   obterChaveProduto(tr) {
     const firstTd = tr ? tr.querySelector('td') : null;
     if (!firstTd) return '';
     const cloneTd = firstTd.cloneNode(true);
-    cloneTd.querySelectorAll('.no-export').forEach(el => el.remove());
+    cloneTd.querySelectorAll('.no-export, .sec-detail').forEach(el => el.remove());
     return cloneTd.innerText.replace(/\s+/g, ' ').trim().toLowerCase();
+  },
+
+  limparBlocosVazios() {
+    const container = document.getElementById('resultado-container');
+    if (!container) return;
+    container.querySelectorAll('.quote-block').forEach(block => {
+      if (block.querySelectorAll('tbody tr').length === 0) {
+        block.remove();
+      }
+    });
+    if (container.querySelectorAll('.quote-block').length === 0) {
+      container.innerHTML = this.renderEmptyStateGlobal();
+    }
   },
 
   removerLinhaUnica(btn) {
     const tr = btn.closest('tr');
     if (!tr) return;
     tr.remove();
+    this.limparBlocosVazios();
     this.recalcularSubtotais();
   },
 
@@ -172,10 +340,10 @@ window.Cotador.core = {
     if (!tr) return;
     const chaveAlvo = tr.getAttribute('data-prod-key') || this.obterChaveProduto(tr);
     if (!chaveAlvo) {
-      tr.remove();
-      this.recalcularSubtotais();
+      this.removerLinhaUnica(btn);
       return;
     }
+
     let removidos = 0;
     document.querySelectorAll('.quote-block tbody tr').forEach(row => {
       const chaveRow = row.getAttribute('data-prod-key') || this.obterChaveProduto(row);
@@ -184,20 +352,14 @@ window.Cotador.core = {
         removidos++;
       }
     });
+
+    this.limparBlocosVazios();
     this.recalcularSubtotais();
     this.mostrarToast(`Produto removido em ${removidos} linha(s)/tabela(s)!`);
   },
 
-  renderNotFoundRow(item, colspan) {
-    return `<tr class="bg-amber-50/40"><td class="text-amber-900 font-medium">${item.original} <span class="text-xs font-normal text-amber-700">(Qtd: ${item.qty})</span></td><td colspan="${colspan}" class="text-amber-700 text-xs font-normal">Produto não localizado nesta modalidade com os filtros ativos.</td></tr>`;
-  },
-
-  renderBlockHeader(title, blockId) {
-    return `<div onclick="Cotador.core.toggleBlock('${blockId}')" class="block-header-bar flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none" title="Clique para recolher ou expandir esta tabela"><div class="flex items-center gap-2"><svg class="w-4 h-4 text-slate-400 chevron-icon transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg><h3 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">${title}</h3></div><div class="flex items-center gap-1.5" onclick="event.stopPropagation()"><span id="total-${blockId}" class="block-total-badge text-xs font-semibold theme-badge px-2.5 py-0.5 rounded tabular-nums mr-1 hidden"></span><button type="button" onclick="Cotador.core.copiarBlocoUnico('${blockId}', false)" class="text-[11px] font-medium px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 transition">Copiar Tabela</button><button type="button" onclick="Cotador.core.copiarBlocoUnico('${blockId}', true)" class="text-[11px] font-medium px-2.5 py-1 rounded btn-theme-primary">Copiar PNs</button></div></div>`;
-  },
-
   // ==========================================================================
-  // DRAG & DROP DE LINHAS COM SINCRONIZACAO ENTRE TABELAS DE CONTRATO/PERIODO
+  // DRAG & DROP DE LINHAS (APENAS ARRASTAR - SINCRONIZADO ENTRE TABELAS)
   // ==========================================================================
   initDragEvents() {
     if (this._dragInitialized) return;
@@ -210,7 +372,7 @@ window.Cotador.core = {
     document.addEventListener('dragstart', (e) => {
       const tr = e.target.closest('.quote-block tbody tr.draggable-row');
       if (!tr) return;
-      if (this._lastMouseDownTarget && this._lastMouseDownTarget.closest('input, button:not(.drag-handle)')) {
+      if (this._lastMouseDownTarget && this._lastMouseDownTarget.closest('input, button, .copy-link')) {
         e.preventDefault();
         return;
       }
@@ -252,6 +414,7 @@ window.Cotador.core = {
       const sourceTbody = movedRow.parentElement;
       movedRow.classList.remove('is-dragging');
       this._draggedRow = null;
+
       if (sourceTbody) {
         this.sincronizarOrdemTabelas(sourceTbody, movedRow);
         this.atualizarMarkdownBruto();
@@ -259,23 +422,18 @@ window.Cotador.core = {
     });
   },
 
-  moverLinha(btn, direcao) {
-    const tr = btn.closest('tr');
-    if (!tr || !tr.parentElement) return;
-    const tbody = tr.parentElement;
-    if (direcao < 0 && tr.previousElementSibling) {
-      tbody.insertBefore(tr, tr.previousElementSibling);
-    } else if (direcao > 0 && tr.nextElementSibling) {
-      tbody.insertBefore(tr.nextElementSibling, tr);
-    } else {
-      return;
-    }
-    this.sincronizarOrdemTabelas(tbody, tr);
-    this.atualizarMarkdownBruto();
-  },
-
   prepararLinhasDrag() {
     this.initDragEvents();
+
+    // Torna cabeçalhos de coluna clicáveis para copiar a coluna inteira
+    document.querySelectorAll('.quote-block thead th').forEach((th, idx, arr) => {
+      if (idx === arr.length - 1 || th.dataset.thReady) return;
+      th.dataset.thReady = '1';
+      th.classList.add('copyable-th');
+      th.title = `Clique para copiar todos os valores da coluna "${th.innerText.trim()}"`;
+      th.addEventListener('click', () => this.copiarColunaTabela(th, idx));
+    });
+
     document.querySelectorAll('.quote-block tbody').forEach(tbody => {
       const keyCounts = {};
       tbody.querySelectorAll('tr').forEach(tr => {
@@ -286,25 +444,24 @@ window.Cotador.core = {
         if (baseName && !tr.getAttribute('data-prod-key')) {
           tr.setAttribute('data-prod-key', baseName);
         }
+
         if (!tr.getAttribute('data-sync-key')) {
           const count = (keyCounts[baseName] || 0) + 1;
           keyCounts[baseName] = count;
           tr.setAttribute('data-sync-key', `${baseName}::#${count}`);
         }
+
         if (!tr.classList.contains('draggable-row')) {
           tr.classList.add('draggable-row');
           tr.setAttribute('draggable', 'true');
         }
+
         if (!firstTd.querySelector('.row-grip-wrap')) {
           const wrap = document.createElement('span');
           wrap.className = 'row-grip-wrap no-export';
           wrap.innerHTML = `
-            <span class="drag-handle" title="Arraste para organizar (sincroniza entre contratos)">
+            <span class="drag-handle" title="Arraste para reordenar (sincroniza entre todas as tabelas)">
               <svg class="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor"><circle cx="5.5" cy="3.5" r="1.2"/><circle cx="10.5" cy="3.5" r="1.2"/><circle cx="5.5" cy="8" r="1.2"/><circle cx="10.5" cy="8" r="1.2"/><circle cx="5.5" cy="12.5" r="1.2"/><circle cx="10.5" cy="12.5" r="1.2"/></svg>
-            </span>
-            <span class="row-move-btns">
-              <button type="button" class="row-move-btn" onclick="Cotador.core.moverLinha(this, -1)" title="Subir linha">&#9650;</button>
-              <button type="button" class="row-move-btn" onclick="Cotador.core.moverLinha(this, 1)" title="Descer linha">&#9660;</button>
             </span>`;
           firstTd.insertBefore(wrap, firstTd.firstChild);
         }
@@ -383,8 +540,10 @@ window.Cotador.core = {
     const chkSub = document.getElementById('chk-mostrar-subtotal');
     const chkDet = document.getElementById('chk-mostrar-detalhes');
     const ativarAmbos = !(chkSub.checked && chkDet.checked);
+
     chkSub.checked = ativarAmbos;
     chkDet.checked = ativarAmbos;
+
     document.getElementById('btn-toggle-subtotal').classList.toggle('active', ativarAmbos);
     this.atualizarVisibilidadeDetalhes();
     this.recalcularSubtotais();
@@ -409,6 +568,7 @@ window.Cotador.core = {
     document.querySelectorAll('.quote-block').forEach(block => {
       let somaBloco = 0;
       let temQtd = false;
+
       block.querySelectorAll('tbody tr').forEach(tr => {
         const unit = parseFloat(tr.getAttribute('data-unit-price'));
         const input = tr.querySelector('.qty-input');
@@ -420,7 +580,10 @@ window.Cotador.core = {
           const sub = unit * qty;
           somaBloco += sub;
           temQtd = true;
-          if (subTd) subTd.textContent = `R$ ${this.formatBRL(sub)}`;
+          if (subTd) {
+            const formattedSub = `R$ ${this.formatBRL(sub)}`;
+            subTd.innerHTML = this.renderCopyLink(formattedSub, formattedSub, 'Subtotal');
+          }
         } else if (subTd) {
           subTd.textContent = '-';
         }
@@ -428,18 +591,22 @@ window.Cotador.core = {
 
       const badgeTotal = document.getElementById(`total-${block.id}`);
       if (badgeTotal) {
-        badgeTotal.textContent = `Total: R$ ${this.formatBRL(somaBloco)}`;
+        const valorFormatado = `R$ ${this.formatBRL(somaBloco)}`;
+        badgeTotal.textContent = `Total: ${valorFormatado}`;
+        badgeTotal.setAttribute('data-copy', valorFormatado);
         badgeTotal.classList.toggle('hidden', !temQtd || !showSub);
       }
     });
+
     this.atualizarMarkdownBruto();
   },
 
   extrairValorCelula(td) {
     const input = td.querySelector('.qty-input');
     if (input) return input.value ? input.value : '-';
-    const badge = td.querySelector('.pn-badge');
-    if (badge) return badge.getAttribute('data-pn-val') || badge.childNodes[0].textContent.trim();
+    const pnEl = td.querySelector('[data-pn-val]');
+    if (pnEl) return pnEl.getAttribute('data-pn-val') || pnEl.innerText.trim();
+
     const clone = td.cloneNode(true);
     clone.querySelectorAll('.no-export').forEach(el => el.remove());
     if (document.body.classList.contains('hide-secondary-details')) {
@@ -465,7 +632,9 @@ window.Cotador.core = {
       const headers = Array.from(table.querySelectorAll('thead th'))
         .slice(0, -1).filter(th => this.isColunaVisivel(th))
         .map(th => th.innerText.trim());
+
       md += `| ${headers.join(' | ')} |\n|${headers.map(() => '---').join('|')}|\n`;
+
       table.querySelectorAll('tbody tr').forEach(tr => {
         const cells = Array.from(tr.querySelectorAll('td'))
           .slice(0, -1).filter(td => this.isColunaVisivel(td));
@@ -473,20 +642,62 @@ window.Cotador.core = {
       });
       md += '\n';
     });
-    document.getElementById('markdown-output').textContent = md.trim();
+    const out = document.getElementById('markdown-output');
+    if (out) out.textContent = md.trim();
   },
 
+  // ==========================================================================
+  // FUNÇÕES DE CÓPIA INTERATIVA E FEEDBACK VISUAL
+  // ==========================================================================
   mostrarToast(msg) {
     const t = document.getElementById('copy-toast');
+    if (!t) return;
     t.textContent = msg;
     t.classList.remove('hidden');
     clearTimeout(this._toastTimer);
-    this._toastTimer = setTimeout(() => t.classList.add('hidden'), 2400);
+    this._toastTimer = setTimeout(() => t.classList.add('hidden'), 2200);
   },
 
-  copiarTextoUnico(txt) {
+  copiarElemento(event, el) {
+    if (event) event.stopPropagation();
+    if (!el) return;
+    let txt = el.getAttribute('data-copy') ?? el.innerText.trim();
+    const label = el.getAttribute('data-label') || 'Item';
+
+    // Se Shift ou Alt estiver pressionado em um valor monetário, copia apenas o número puro
+    if (event && (event.shiftKey || event.altKey) && /[R$US$]/i.test(txt)) {
+      txt = txt.replace(/[R$US$\s]/gi, '').trim();
+    }
+    if (!txt || txt === '-') return;
+
     navigator.clipboard.writeText(txt);
-    this.mostrarToast(`PN copiado: ${txt}`);
+    el.classList.add('is-copied');
+    setTimeout(() => el.classList.remove('is-copied'), 450);
+    this.mostrarToast(`${label} copiado: ${txt}`);
+  },
+
+  copiarColunaTabela(th, colIndex) {
+    const table = th.closest('table');
+    if (!table) return;
+    const valores = [];
+    table.querySelectorAll('tbody tr').forEach(tr => {
+      const td = tr.children[colIndex];
+      if (td) {
+        const val = this.extrairValorCelula(td);
+        if (val && val !== '-') valores.push(val);
+      }
+    });
+    if (valores.length === 0) return;
+    navigator.clipboard.writeText(valores.join('\n'));
+    this.mostrarToast(`Coluna "${th.innerText.trim()}" copiada (${valores.length} itens)!`);
+  },
+
+  copiarBlocoAoClicarTitulo(event, blockId) {
+    if (event) event.stopPropagation();
+    const block = document.getElementById(blockId);
+    if (!block) return;
+    const { tsv, html } = this.gerarExtracaoBloco(block);
+    this.copiarRichTextOuTexto(tsv, html, 'Tabela completa copiada!');
   },
 
   gerarExtracaoBloco(block) {
@@ -507,11 +718,13 @@ window.Cotador.core = {
         .slice(0, -1)
         .filter(td => this.isColunaVisivel(td))
         .map(td => this.extrairValorCelula(td));
+
       if (cells.length > 0) {
         tsv += `${cells.join('\t')}\n`;
         html += `<tr>${cells.map(c => `<td style="border:1px solid #e2e8f0;">${c}</td>`).join('')}</tr>`;
       }
     });
+
     html += `</tbody></table><br>`;
     return { tsv, html };
   },
@@ -533,40 +746,11 @@ window.Cotador.core = {
     this.mostrarToast(msgSucesso);
   },
 
-  copiarBlocoUnico(blockId, apenasPNs) {
-    const block = document.getElementById(blockId);
-    if (!block) return;
-    if (apenasPNs) {
-      const pns = Array.from(block.querySelectorAll('tbody tr[data-pn]')).map(tr => tr.getAttribute('data-pn'));
-      navigator.clipboard.writeText(pns.join('\n'));
-      this.mostrarToast(`${pns.length} PN(s) copiados!`);
-      return;
-    }
-    const { tsv, html } = this.gerarExtracaoBloco(block);
-    this.copiarRichTextOuTexto(tsv, html, 'Tabela copiada!');
-  },
-
-  copiarApenasPNsGlobal() {
-    const pns = Array.from(document.querySelectorAll('tbody tr[data-pn]')).map(tr => tr.getAttribute('data-pn'));
-    navigator.clipboard.writeText(pns.join('\n'));
-    this.mostrarToast(`${pns.length} PNs copiados em lista!`);
-  },
-
   copiarMarkdown() {
     this.atualizarMarkdownBruto();
-    navigator.clipboard.writeText(document.getElementById('markdown-output').textContent);
+    const txt = document.getElementById('markdown-output')?.textContent || '';
+    if (!txt) return;
+    navigator.clipboard.writeText(txt);
     this.mostrarToast('Markdown copiado!');
-  },
-
-  copiarTabelasHTML() {
-    const blocks = document.querySelectorAll('.quote-block');
-    let allTsv = '';
-    let allHtml = '';
-    blocks.forEach(block => {
-      const { tsv, html } = this.gerarExtracaoBloco(block);
-      allTsv += tsv + '\n';
-      allHtml += html;
-    });
-    this.copiarRichTextOuTexto(allTsv, allHtml, 'Proposta completa copiada (Excel / Word / Teams)!');
   }
 };
