@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cotador Comercial de PNs & Licenciamento | v5.4 Enterprise</title>
+  <title>Cotador Comercial de PNs & Licenciamento | v5.5 Enterprise</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     /* Paleta Dinâmica por Fabricante */
@@ -285,7 +285,7 @@
               Gerador Comercial de PNs & Cotação
             </h1>
             <span class="text-[10px] px-2 py-0.5 rounded-full theme-badge font-bold uppercase tracking-wide transition-colors">
-              v5.4 Enterprise
+              v5.5 Enterprise
             </span>
           </div>
           <p class="text-[11px] text-slate-500">
@@ -380,10 +380,21 @@
                   </label>
                 </div>
 
+                <div id="ms-flags-perpetuo" class="hidden space-y-1.5">
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="chk-perpetuo-show-sub">
+                    <span>Exibir produtos temporários (Assinatura / Subscription)</span>
+                  </label>
+                </div>
+
                 <div id="ms-flags-mpsa" class="hidden space-y-1.5">
                   <label class="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" id="chk-mpsa-hide-sa" checked>
                     <span>Ocultar "SA Only" (Software Assurance Avulso)</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="chk-mpsa-show-sub">
+                    <span>Exibir produtos temporários (Assinatura / Subscription)</span>
                   </label>
                 </div>
               </div>
@@ -437,11 +448,13 @@
           <!-- 3. FILTROS KASPERSKY -->
           <div id="filtros-kaspersky" class="hidden space-y-3.5 pt-3 border-t border-slate-200">
             <div>
-              <label class="section-label">Períodos a Consultar (Múltipla Seleção)</label>
-              <div class="grid grid-cols-3 gap-1.5">
+              <label class="section-label">Períodos a Consultar (1 a 5 Anos)</label>
+              <div class="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
                 <label class="contract-chip"><input type="checkbox" id="chk-kasp-p1" checked> 1 Ano</label>
                 <label class="contract-chip"><input type="checkbox" id="chk-kasp-p2"> 2 Anos</label>
                 <label class="contract-chip"><input type="checkbox" id="chk-kasp-p3"> 3 Anos</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-kasp-p4"> 4 Anos</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-kasp-p5"> 5 Anos</label>
               </div>
             </div>
 
@@ -466,46 +479,22 @@
                 </select>
               </div>
               <div>
-                <label class="section-label">Filtro de Solução (EDR)</label>
-                <select id="kasp-edr-filter" class="select-input">
-                  <option value="all">Todas as Versões</option>
-                  <option value="with_edr">Apenas COM EDR</option>
-                  <option value="without_edr">Apenas SEM EDR</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-              <div>
                 <label class="section-label">Tipo de Licença</label>
                 <select id="kasp-tipo" class="select-input">
-                  <option value="all">Todos os Tipos</option>
-                  <option value="Base">Base (Novo)</option>
-                  <option value="Renewal">Renovação</option>
-                </select>
-              </div>
-              <div>
-                <label class="section-label">Exibição de RO</label>
-                <select id="kasp-ro-mode" class="select-input">
-                  <option value="auto">Automático (≥ 100 lic.)</option>
-                  <option value="always">Sempre Mostrar RO</option>
-                  <option value="never">Apenas Revenda</option>
+                  <option value="all">Base e Renovar</option>
+                  <option value="Base">Base</option>
+                  <option value="Renewal">Renovar</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <label class="section-label">Flags de Filtragem Kaspersky</label>
-              <div class="space-y-1.5 text-[11px] text-slate-700 font-medium bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" id="chk-kasp-ignore-successive" checked>
-                  <span>Ignorar "Successive Licence"</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" id="chk-kasp-ignore-public" checked>
-                  <span>Ignorar "Public Sector Licence"</span>
-                </label>
-              </div>
+              <label class="section-label">Exibição de RO</label>
+              <select id="kasp-ro-mode" class="select-input">
+                <option value="auto">Automático (≥ 100 lic.)</option>
+                <option value="always">Sempre Mostrar RO</option>
+                <option value="never">Apenas Revenda</option>
+              </select>
             </div>
           </div>
 
@@ -615,6 +604,54 @@
         if (termosRestritos.some(t => nome.includes(t))) return false;
         if (typeof precoUnitario === 'number' && precoUnitario < 0) return false;
         return true;
+      },
+
+      // Identifica produtos temporários baseados em assinatura nas tabelas CSP Perpetual e MPSA
+      isMsTemporarySubscription(row, modalidade) {
+        if (modalidade === 'perpetuo') {
+          const nome = (row.nome_produto || '').toLowerCase();
+          const termo = (row.termo_duracao || row.term_duration || row.billing_plan || '').toLowerCase();
+          if (termo && (termo.includes('p1y') || termo.includes('p3y') || termo.includes('1 year') || termo.includes('3 year') || termo.includes('sub'))) {
+            return true;
+          }
+          return /\b(subscription|assinatura|1\s*year|3\s*year|1\s*yr|3\s*yr|1\s*ano|3\s*anos|p1y|p3y|sub)\b/i.test(nome);
+        }
+        if (modalidade === 'mpsa') {
+          const nome = (row.nome_curto_peca || '').toLowerCase();
+          const uso = (row.uso_recurso || '').toLowerCase();
+          const cat = (row.categoria_precos || '').toLowerCase();
+          const unid = (row.unidade_contagem || '').toLowerCase();
+          const combined = `${nome} ${uso} ${cat} ${unid}`;
+          return /\b(sub|subscription|assinatura|1\s*yr|3\s*yr|1\s*year|3\s*year|monthly|annual|mensal|anual|1mth|12mth|mth|mo\b|sl\b)/i.test(combined);
+        }
+        return false;
+      },
+
+      // Lógica invertida de EDR para Kaspersky: padrão é COM EDR; apenas variantes específicas sem EDR recebem flag SEM EDR
+      isKasperskySemEdr(nomeProduto) {
+        const nome = (nomeProduto || '').toLowerCase();
+        if (/\b(edr|xdr)\b/i.test(nome)) return false;
+        if (
+          nome.includes('foundations') ||
+          nome.includes('endpoint security cloud') ||
+          /\b(sem|no|without)\s+edr\b/i.test(nome)
+        ) {
+          return true;
+        }
+        return false;
+      },
+
+      // Normaliza e restringe tipos de licença Kaspersky para Base e Renovar
+      normalizarTipoKaspersky(tipoRaw, nomeRaw) {
+        const t = (tipoRaw || '').trim().toLowerCase();
+        const n = (nomeRaw || '').trim().toLowerCase();
+        if (t === 'base' || t.includes('base') || t === 'new' || t === 'novo') return 'Base';
+        if (t === 'renewal' || t.includes('renew') || t.includes('renova')) return 'Renovar';
+        if (!t) {
+          if (n.includes('renewal') || n.includes('renova')) return 'Renovar';
+          return 'Base';
+        }
+        return null;
       },
 
       parseInputLines(rawText) {
@@ -1035,7 +1072,7 @@
       }
     };
 
-    // CSP Perpétuo Funcional
+    // CSP Perpétuo Funcional (Com filtro de produtos temporários baseados em assinatura)
     window.Cotador.tables.ms_perpetuo = {
       async processar(parsedItems, flags) {
         const core = window.Cotador.core;
@@ -1047,15 +1084,19 @@
           item.keywords.forEach(kw => params.push(['nome_produto', `ilike.*${kw}*`]));
           let data = await core.fetchSupabase('microsoft_perpetuo', params);
           
-          if (flags.onlyCommercial) {
-            data = data.filter(r => {
+          data = data.filter(r => {
+            if (flags.onlyCommercial) {
               const seg = (r.segment || '').toLowerCase().trim();
               if (seg && !seg.includes('commercial') && !seg.includes('comercial') && !seg.includes('corp')) return false;
               const nome = (r.nome_produto || '').toLowerCase();
               const restritos = ['education', 'academic', 'charity', 'non-profit', 'government'];
-              return !restritos.some(t => nome.includes(t));
-            });
-          }
+              if (restritos.some(t => nome.includes(t))) return false;
+            }
+            if (!flags.showSubPerpetuo && core.isMsTemporarySubscription(r, 'perpetuo')) {
+              return false;
+            }
+            return true;
+          });
           return { item, data };
         });
 
@@ -1096,7 +1137,7 @@
       }
     };
 
-    // MPSA Funcional
+    // MPSA Funcional (Com filtro de produtos temporários baseados em assinatura)
     window.Cotador.tables.ms_mpsa = {
       async processar(parsedItems, flags) {
         const core = window.Cotador.core;
@@ -1117,21 +1158,23 @@
           searchTerms.forEach(kw => params.push(['nome_curto_peca', `ilike.*${kw}*`]));
           let data = await core.fetchSupabase('microsoft_mpsa', params);
           
-          if (flags.onlyCommercial) {
-            data = data.filter(r => {
+          data = data.filter(r => {
+            if (flags.onlyCommercial) {
               const tc = (r.tipo_conta_compras || '').toLowerCase().trim();
-              if (!tc) return true;
-              return tc.includes('comercial') || tc.includes('commercial') || tc.includes('corporate');
-            });
-          }
-
-          if (flags.hideSA) {
-            data = data.filter(r => {
+              if (tc && !tc.includes('comercial') && !tc.includes('commercial') && !tc.includes('corporate')) {
+                return false;
+              }
+            }
+            if (flags.hideSA) {
               const uso = (r.uso_recurso || '').toLowerCase();
               const nome = (r.nome_curto_peca || '').toLowerCase();
-              return !uso.includes('sa only') && !nome.includes('sa only');
-            });
-          }
+              if (uso.includes('sa only') || nome.includes('sa only')) return false;
+            }
+            if (!flags.showSubMpsa && core.isMsTemporarySubscription(r, 'mpsa')) {
+              return false;
+            }
+            return true;
+          });
 
           return { item, data };
         });
@@ -1251,7 +1294,7 @@
     window.Cotador.tables.adobe_promo = criarModuloAdobe('adobe_promo', 'Adobe Promo (Novos Clientes)');
 
     // ========================================================================
-    // TABELAS KASPERSKY (COM MULTIPERÍODO, EDR TAGGING & FILTROS)
+    // TABELAS KASPERSKY (1 A 5 ANOS, ROTULAGEM EDR INVERTIDA & FILTROS DE SAÍDA)
     // ========================================================================
     window.Cotador.tables.kaspersky = {
       async processar(parsedItems, flags) {
@@ -1265,7 +1308,6 @@
           const isFoundations = item.rawSearch.toLowerCase().includes('foundation');
 
           if (isFoundations) {
-            // Busca a família moderna com EDR e a versão Endpoint Security Cloud
             const p1 = [['select', '*'], ['limit', '300'], ['sale_item_name', 'ilike.*Foundations*']];
             const p2 = [['select', '*'], ['limit', '300'], ['sale_item_name', 'ilike.*Endpoint Security Cloud*']];
             const [d1, d2] = await Promise.all([
@@ -1279,25 +1321,25 @@
             data = await core.fetchSupabase('kaspersky', params);
           }
 
-          // 1. Ignorar "Successive Licence" e "Public Sector Licence"
+          // 1. Ocultar permanentemente "Successive Licence", "Public Sector" e "PLUS" da saída
           data = data.filter(r => {
             const nome = (r.sale_item_name || '').toLowerCase();
             const tipo = (r.tipo || '').toLowerCase();
-            if (flags.ignoreSuccessive && (nome.includes('successive') || tipo.includes('successive'))) return false;
-            if (flags.ignorePublic && (nome.includes('public sector') || tipo.includes('public sector'))) return false;
+            if (nome.includes('successive') || tipo.includes('successive') || nome.includes('sucessiva') || tipo.includes('sucessiva')) return false;
+            if (nome.includes('public sector') || tipo.includes('public sector') || nome.includes('setor público') || nome.includes('setor publico') || tipo.includes('setor')) return false;
+            if (/\bplus\b/i.test(nome) || /\bplus\b/i.test(tipo)) return false;
+
+            // 2. Manter apenas "Base" e "Renovar" (Renewal) na saída
+            const tipoNorm = core.normalizarTipoKaspersky(r.tipo, r.sale_item_name);
+            if (!tipoNorm) return false;
+
             return true;
           });
 
-          // 2. Filtro de Solução (COM EDR vs SEM EDR)
-          if (flags.edrFilter === 'with_edr') {
-            data = data.filter(r => (r.sale_item_name || '').toLowerCase().includes('edr'));
-          } else if (flags.edrFilter === 'without_edr') {
-            data = data.filter(r => !(r.sale_item_name || '').toLowerCase().includes('edr'));
-          }
-
-          // 3. Filtro de Tipo e Banda
+          // 3. Filtro de Tipo selecionado pelo usuário (Base ou Renovar) e Banda
           if (flags.tipo !== 'all') {
-            data = data.filter(r => (r.tipo || '').toLowerCase() === flags.tipo.toLowerCase());
+            const alvo = flags.tipo === 'Renewal' ? 'Renovar' : 'Base';
+            data = data.filter(r => core.normalizarTipoKaspersky(r.tipo, r.sale_item_name) === alvo);
           }
           if (flags.targetBanda !== 'all') {
             data = data.filter(r => (r.banda || '').trim() === flags.targetBanda);
@@ -1308,25 +1350,29 @@
 
         const resultadosPorItem = await Promise.all(promessas);
 
-        // Gera uma tabela para cada período marcado (1 Ano, 2 Anos, 3 Anos)
+        // Gera uma tabela para cada período marcado (1 a 5 Anos)
         for (const p of flags.periodos) {
           let rowsHTML = '';
           
           for (const { item, data } of resultadosPorItem) {
-            const filtrados = data.filter(r => (r.periodo || '').toUpperCase().includes(p.match));
+            const filtrados = data.filter(r => {
+              const per = (r.periodo || '').toUpperCase().trim();
+              return p.matches.some(m => per.includes(m));
+            });
 
             if (filtrados.length === 0) {
-              rowsHTML += core.renderNotFoundRow(item, flags.mostrarRO ? 7 : 6);
+              rowsHTML += core.renderNotFoundRow(item, flags.mostrarRO ? 8 : 7);
             } else {
               filtrados.forEach(r => {
                 const revenda = core.parsePrice(r.revenda);
                 const roOficial = core.parsePrice(r.ro);
                 const unitarioRef = (flags.mostrarRO && roOficial > 0) ? roOficial : revenda;
                 const pn = r.part_number;
-                const hasEdr = (r.sale_item_name || '').toLowerCase().includes('edr');
-                const badgeEdr = hasEdr
-                  ? `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-300">COM EDR</span>`
-                  : `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">SEM EDR</span>`;
+                const isSemEdr = core.isKasperskySemEdr(r.sale_item_name);
+                const badgeEdr = isSemEdr
+                  ? `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">SEM EDR</span>`
+                  : `<span class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-300">COM EDR</span>`;
+                const tipoLabel = core.normalizarTipoKaspersky(r.tipo, r.sale_item_name) || 'Base';
 
                 rowsHTML += `
                   <tr data-unit-price="${unitarioRef}" data-pn="${pn}">
@@ -1336,6 +1382,7 @@
                     </td>
                     <td>${core.renderQtyInput(item.qty)}</td>
                     <td>${core.renderPnBadge(pn)}</td>
+                    <td class="text-xs font-bold text-slate-700 whitespace-nowrap">${tipoLabel}</td>
                     <td class="text-xs text-slate-600 font-medium whitespace-nowrap">Banda: ${r.banda}</td>
                     <td class="font-extrabold text-slate-900 whitespace-nowrap">R$ ${core.formatBRL(revenda)}</td>
                     ${flags.mostrarRO ? `<td class="font-extrabold theme-text-dark whitespace-nowrap">${roOficial > 0 ? 'R$ ' + core.formatBRL(roOficial) : '-'}</td>` : ''}
@@ -1355,7 +1402,7 @@
                 <table>
                   <thead>
                     <tr>
-                      <th>Produto</th><th>Qtd</th><th>PN</th><th>Faixa / Banda</th><th>Custo Revenda</th>
+                      <th>Produto</th><th>Qtd</th><th>PN</th><th>Tipo</th><th>Faixa / Banda</th><th>Custo Revenda</th>
                       ${flags.mostrarRO ? '<th>Custo com RO</th>' : ''}
                       <th class="col-subtotal">Subtotal</th><th></th>
                     </tr>
@@ -1417,6 +1464,7 @@
         const isSubscription = (mod === 'scan' || mod === 'solo');
         document.getElementById('ms-box-contratos').style.display = isSubscription ? 'block' : 'none';
         document.getElementById('ms-flags-csp').style.display = isSubscription ? 'block' : 'none';
+        document.getElementById('ms-flags-perpetuo').style.display = (mod === 'perpetuo') ? 'block' : 'none';
         document.getElementById('ms-flags-mpsa').style.display = (mod === 'mpsa') ? 'block' : 'none';
 
         // Limpa tabela de resultados ao mudar modalidade
@@ -1503,7 +1551,9 @@
               onlyCommercial: document.getElementById('chk-ms-commercial').checked,
               hideNoTeams: document.getElementById('chk-hide-noteams').checked,
               hideCopilot: document.getElementById('chk-hide-copilot').checked,
-              hideSA: document.getElementById('chk-mpsa-hide-sa').checked
+              hideSA: document.getElementById('chk-mpsa-hide-sa').checked,
+              showSubPerpetuo: document.getElementById('chk-perpetuo-show-sub').checked,
+              showSubMpsa: document.getElementById('chk-mpsa-show-sub').checked
             };
             await window.Cotador.tables[`ms_${target}`].processar(this.parsedItems, flags);
             
@@ -1519,14 +1569,16 @@
             await window.Cotador.tables[tabela].processar(this.parsedItems, flags);
             
           } else {
-            // Kaspersky multiperíodo e flags customizadas
+            // Kaspersky multiperíodo (1 a 5 Anos)
             const periodos = [];
-            if (document.getElementById('chk-kasp-p1').checked) periodos.push({ id: '1a', label: '1 ANO', match: '1 ANO' });
-            if (document.getElementById('chk-kasp-p2').checked) periodos.push({ id: '2a', label: '2 ANOS', match: '2 ANOS' });
-            if (document.getElementById('chk-kasp-p3').checked) periodos.push({ id: '3a', label: '3 ANOS', match: '3 ANOS' });
+            if (document.getElementById('chk-kasp-p1').checked) periodos.push({ id: '1a', label: '1 ANO', matches: ['1 ANO', '1 YEAR', '1Y'] });
+            if (document.getElementById('chk-kasp-p2').checked) periodos.push({ id: '2a', label: '2 ANOS', matches: ['2 ANOS', '2 ANO', '2 YEARS', '2Y'] });
+            if (document.getElementById('chk-kasp-p3').checked) periodos.push({ id: '3a', label: '3 ANOS', matches: ['3 ANOS', '3 ANO', '3 YEARS', '3Y'] });
+            if (document.getElementById('chk-kasp-p4').checked) periodos.push({ id: '4a', label: '4 ANOS', matches: ['4 ANOS', '4 ANO', '4 YEARS', '4Y'] });
+            if (document.getElementById('chk-kasp-p5').checked) periodos.push({ id: '5a', label: '5 ANOS', matches: ['5 ANOS', '5 ANO', '5 YEARS', '5Y'] });
 
             if (periodos.length === 0) {
-              alert('Selecione pelo menos um período para a Kaspersky (1, 2 ou 3 Anos)!');
+              alert('Selecione pelo menos um período para a Kaspersky (1 a 5 Anos)!');
               btn.disabled = false;
               btn.innerHTML = '<span>Buscar e Montar Tabelas</span>';
               return;
@@ -1538,11 +1590,8 @@
             const flags = {
               periodos,
               targetBanda: (bandaSelect === 'auto') ? this.getKaspAutoBanda(this.totalLicenses) : bandaSelect,
-              edrFilter: document.getElementById('kasp-edr-filter').value,
               tipo: document.getElementById('kasp-tipo').value,
-              mostrarRO: roMode === 'always' || (roMode === 'auto' && this.totalLicenses >= 100),
-              ignoreSuccessive: document.getElementById('chk-kasp-ignore-successive').checked,
-              ignorePublic: document.getElementById('chk-kasp-ignore-public').checked
+              mostrarRO: roMode === 'always' || (roMode === 'auto' && this.totalLicenses >= 100)
             };
             await window.Cotador.tables.kaspersky.processar(this.parsedItems, flags);
           }
