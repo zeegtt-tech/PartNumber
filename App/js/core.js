@@ -71,14 +71,17 @@ window.Cotador.core = {
   async fetchSupabase(table, paramsArray) {
     const qs = paramsArray.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
     const url = `${this.SUPABASE_URL}/${table}?${qs}`;
-    const resp = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'apikey': this.SUPABASE_KEY,
-        'Authorization': `Bearer ${this.SUPABASE_KEY}`,
-        'Accept': 'application/json'
-      }
-    });
+    
+    // Chaves sb_publishable_ devem ir APENAS no header 'apikey'
+    const headers = {
+      'apikey': this.SUPABASE_KEY,
+      'Accept': 'application/json'
+    };
+    if (this.SUPABASE_KEY.startsWith('eyJ')) {
+      headers['Authorization'] = `Bearer ${this.SUPABASE_KEY}`;
+    }
+
+    const resp = await fetch(url, { method: 'GET', headers });
     if (!resp.ok) {
       const errTxt = await resp.text();
       throw new Error(`Erro Supabase (${resp.status}) em [${table}]: ${errTxt}`);

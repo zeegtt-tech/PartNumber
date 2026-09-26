@@ -3,9 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cotador Comercial de PNs & Licenciamento | v4.0 Modular</title>
+  <title>Cotador Comercial de PNs & Licenciamento | v4.3 Modular</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    body { background-color: #0b1120; color: #f8fafc; font-family: Inter, system-ui, -apple-system, sans-serif; }
+    .card { background-color: #151f32; border: 1px solid #283548; border-radius: 0.85rem; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4); }
+    .section-label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 0.4rem; }
+    .vendor-btn { padding: 0.6rem 0.75rem; border-radius: 0.5rem; font-weight: 600; font-size: 0.75rem; background-color: #0f172a; color: #cbd5e1; border: 1px solid #334155; transition: all 0.15s ease; }
+    .vendor-btn:hover { background-color: #1e293b; }
+    .vendor-btn.active { background-color: #2563eb; color: #ffffff; border-color: #3b82f6; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
+    .select-input { width: 100%; border-radius: 0.5rem; background-color: #020617; border: 1px solid #334155; padding: 0.55rem 0.65rem; font-size: 0.75rem; color: #ffffff; font-weight: 500; }
+    .select-input:focus { outline: none; border-color: #3b82f6; }
+    .contract-chip { display: flex; align-items: center; justify-content: center; gap: 0.35rem; background-color: #020617; padding: 0.5rem; border-radius: 0.5rem; border: 1px solid #1e293b; cursor: pointer; }
+    .contract-chip:hover { border-color: #475569; }
+    .flag-chip { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; background-color: #0f172a; padding: 0.375rem 0.75rem; border-radius: 0.5rem; border: 1px solid #1e293b; color: #cbd5e1; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background-color: #0f172a; color: #94a3b8; font-weight: 600; text-align: left; padding: 0.65rem 0.85rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #283548; white-space: nowrap; }
+    td { padding: 0.6rem 0.85rem; border-bottom: 1px solid #1e293b; font-size: 0.84rem; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background-color: #1e2d45; }
+    .pn-badge { 
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; 
+      font-size: 0.78rem; background: #090e17; padding: 0.25rem 0.6rem; 
+      border-radius: 0.375rem; border: 1px solid #334155; color: #38bdf8; 
+      white-space: nowrap; cursor: pointer; transition: all 0.15s ease;
+    }
+    .pn-badge:hover { border-color: #38bdf8; background: #0f1d33; transform: translateY(-1px); }
+    .qty-input {
+      width: 3.8rem; background: #0b1120; border: 1px solid #334155; border-radius: 0.375rem;
+      padding: 0.2rem 0.4rem; text-align: center; color: #fff; font-weight: 600; font-size: 0.82rem;
+    }
+    .qty-input:focus { outline: none; border-color: #3b82f6; }
+  </style>
 </head>
 <body class="min-h-screen p-4 md:p-6 lg:p-8">
 
@@ -13,23 +43,22 @@
     <!-- CABEÇALHO -->
     <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-xl">⚡</div>
+        <div class="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-xl">⚡</div>
         <div>
           <h1 class="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-            Cotador Comercial de PNs
-            <span class="text-xs px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800 font-semibold">v4.0 Modular</span>
+            Gerador Comercial de PNs & Cotações
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-700 font-semibold">v4.3 Modular Ativo</span>
           </h1>
           <p class="text-xs text-slate-400">
-            Input bruto ➔ Output refinado • Clique no PN para copiar • <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">Ctrl + Enter</kbd> para buscar
+            Clique em qualquer PN para copiar • Atalho <kbd class="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">Ctrl + Enter</kbd> para pesquisar
           </p>
         </div>
       </div>
 
-      <!-- Flags Globais de Visualização -->
       <div class="flex flex-wrap items-center gap-2.5">
         <label class="flag-chip">
           <input type="checkbox" id="chk-mostrar-subtotal" onchange="Cotador.core.recalcularSubtotais()" class="accent-blue-500">
-          <span>Mostrar Subtotal (Qtd × Valor)</span>
+          <span>Mostrar Subtotal (Qtd × Custo)</span>
         </label>
         <span class="text-xs px-3 py-1.5 rounded-full bg-emerald-950/90 text-emerald-400 border border-emerald-700/80 font-medium">
           ● Supabase Online
@@ -40,13 +69,13 @@
     <!-- LAYOUT PRINCIPAL -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       
-      <!-- COLUNA ESQUERDA: INPUT BRUTO E FLAGS DO FABRICANTE -->
+      <!-- PAINEL ESQUERDO: CONTROLES -->
       <div class="lg:col-span-4 space-y-4 lg:sticky lg:top-6">
         <div class="card p-5 space-y-4">
           
           <!-- 1. SELETOR DE FABRICANTE -->
           <div>
-            <label class="section-label">1. Fabricante</label>
+            <label class="section-label">1. Selecionar Fabricante</label>
             <div class="grid grid-cols-3 gap-2">
               <button onclick="Cotador.app.setVendor('microsoft')" id="btn-vendor-microsoft" class="vendor-btn active">Microsoft</button>
               <button onclick="Cotador.app.setVendor('adobe')" id="btn-vendor-adobe" class="vendor-btn">Adobe</button>
@@ -54,10 +83,10 @@
             </div>
           </div>
 
-          <!-- 2. INPUT BRUTO DO VENDEDOR -->
+          <!-- 2. CAIXA DE PEDIDO -->
           <div>
             <div class="flex justify-between items-center mb-1.5">
-              <label class="section-label !mb-0">2. Pedido Bruto (1 item por linha)</label>
+              <label class="section-label !mb-0">2. Lista de Produtos (1 por linha)</label>
               <div class="flex gap-3 text-xs">
                 <button onclick="Cotador.app.preencherExemplo()" class="text-sky-400 hover:underline">Exemplo</button>
                 <button onclick="Cotador.app.limparInput()" class="text-slate-400 hover:text-red-400">Limpar</button>
@@ -67,27 +96,25 @@
               placeholder="Ex:&#10;business basic 10&#10;business standard 26&#10;Exchange plan 1 80&#10;planner 10"
               class="w-full rounded-lg bg-slate-950 border border-slate-700 p-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 leading-relaxed"></textarea>
             
-            <!-- Resumo Automático de Quantidade e Rota -->
             <div class="mt-2 p-2.5 rounded-lg bg-slate-950/90 border border-slate-800 text-xs flex items-center justify-between">
-              <span class="text-slate-400">Direcionamento:</span>
+              <span class="text-slate-400">Rota Automática:</span>
               <span id="valor-soma" class="font-bold text-amber-400">0 licenças</span>
             </div>
           </div>
 
-          <!-- 3A. OPÇÕES E FLAGS: MICROSOFT -->
+          <!-- 3A. FILTROS MICROSOFT -->
           <div id="filtros-microsoft" class="space-y-3.5 pt-3 border-t border-slate-800">
             <div>
-              <label class="section-label">Tabela / Faturamento Microsoft</label>
+              <label class="section-label">Modalidade / Tabela Microsoft</label>
               <select id="ms-modalidade" onchange="Cotador.app.toggleMsUI()" class="select-input">
                 <option value="auto">⚡ Automático pelo Range (≤34 Scan | ≥35 Solo)</option>
-                <option value="scan">Tabela 1: Microsoft CSP - Scansource (ms_scan)</option>
-                <option value="solo">Tabela 2: Microsoft CSP Assinatura - Solo (ms_solo)</option>
-                <option value="perpetuo">Tabela 3: Microsoft CSP Perpétuo - Solo (ms_perpetuo)</option>
-                <option value="mpsa">Tabela 4: Microsoft MPSA - Solo (ms_mpsa)</option>
+                <option value="scan">Tabela 1: Scansource (microsoft_scan)</option>
+                <option value="solo">Tabela 2: CSP Assinatura Solo (microsoft_solo)</option>
+                <option value="perpetuo">Tabela 3: CSP Perpétuo Solo (microsoft_perpetuo)</option>
+                <option value="mpsa">Tabela 4: Microsoft MPSA Solo (microsoft_mpsa)</option>
               </select>
             </div>
 
-            <!-- Contratos (Oculto para Perpétuo e MPSA) -->
             <div id="ms-box-contratos">
               <label class="section-label">Contratos a Exibir</label>
               <div class="grid grid-cols-3 gap-1.5 text-xs">
@@ -103,13 +130,12 @@
               </div>
             </div>
 
-            <!-- Flags de Refinamento Microsoft -->
             <div>
               <label class="section-label">Flags de Filtragem Limpa</label>
               <div class="space-y-1.5 text-xs text-slate-300">
                 <label class="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" id="chk-ms-commercial" checked class="accent-blue-500">
-                  <span>Apenas Comercial <span class="text-slate-500">(Ocultar Acadêmico/Charity/Gov)</span></span>
+                  <span>Apenas Comercial <span class="text-slate-500">(Ocultar Acadêmico/Charity)</span></span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" id="chk-hide-noteams" checked class="accent-blue-500">
@@ -123,12 +149,12 @@
             </div>
           </div>
 
-          <!-- 3B. OPÇÕES E FLAGS: ADOBE -->
+          <!-- 3B. FILTROS ADOBE -->
           <div id="filtros-adobe" class="hidden space-y-3.5 pt-3 border-t border-slate-800">
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="section-label">Tabela Adobe</label>
-                <select id="adobe-tabela" class="select-input">
+                <select id="adobe-tabela" onchange="Cotador.app.analisarInput()" class="select-input">
                   <option value="adobe_base">Tabela 5: Base (Renovação)</option>
                   <option value="adobe_promo">Tabela 6: Promo (Novo Cliente)</option>
                 </select>
@@ -145,7 +171,7 @@
 
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="section-label">Faixa (Level)</label>
+                <label class="section-label">Filtro de Level</label>
                 <select id="adobe-level" class="select-input">
                   <option value="auto">⚡ Automático pela Soma</option>
                   <option value="1">Level 1 (1-9)</option>
@@ -156,7 +182,7 @@
                 </select>
               </div>
               <div>
-                <label class="section-label">Dólar Fixo (R$)</label>
+                <label class="section-label">Câmbio Dólar (R$)</label>
                 <input type="number" id="adobe-dolar" value="4.80" step="0.05" class="select-input">
               </div>
             </div>
@@ -164,12 +190,12 @@
             <div class="space-y-1.5 text-xs text-slate-300">
               <label class="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" id="chk-adobe-hide-3y" checked class="accent-blue-500">
-                <span>Ocultar "VIP Select 3 year commit" por padrão</span>
+                <span>Ocultar "VIP Select 3 year commit"</span>
               </label>
             </div>
           </div>
 
-          <!-- 3C. OPÇÕES E FLAGS: KASPERSKY -->
+          <!-- 3C. FILTROS KASPERSKY -->
           <div id="filtros-kaspersky" class="hidden space-y-3.5 pt-3 border-t border-slate-800">
             <div class="grid grid-cols-2 gap-2">
               <div>
@@ -208,13 +234,13 @@
               <div>
                 <label class="section-label">Tipo de Licença</label>
                 <select id="kasp-tipo" class="select-input">
+                  <option value="all">Todos os Tipos</option>
                   <option value="Base">Base (Novo)</option>
                   <option value="Renewal">Renovação (Renewal)</option>
-                  <option value="all">Mostrar Todos</option>
                 </select>
               </div>
               <div>
-                <label class="section-label">Forçar Exibição RO</label>
+                <label class="section-label">Exibição de RO</label>
                 <select id="kasp-ro-mode" class="select-input">
                   <option value="auto">Automático (≥ 100 lic.)</option>
                   <option value="always">Sempre Mostrar RO</option>
@@ -224,29 +250,28 @@
             </div>
           </div>
 
-          <!-- BOTÃO DE BUSCA -->
+          <!-- BOTÃO BUSCAR -->
           <button onclick="Cotador.app.gerarCotacao()" id="btn-buscar" class="w-full py-3 px-4 rounded-xl font-bold text-sm text-white bg-emerald-600 hover:bg-emerald-500 transition shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2">
-            <span>🔍 Gerar Cotação Refinada</span>
+            <span>🔍 Buscar no Supabase e Montar Tabelas</span>
           </button>
         </div>
       </div>
 
-      <!-- COLUNA DIREITA: OUTPUT REFINADO -->
+      <!-- PAINEL DIREITO: TABELAS DE RESULTADO -->
       <div class="lg:col-span-8 space-y-4">
         <div class="card p-5 min-h-[520px] flex flex-col justify-between">
           <div>
-            <!-- Barra de Ações Rápidas -->
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3.5 mb-5">
               <div>
-                <h2 class="text-base font-bold text-white">📋 Output Refinado (Na ordem do pedido)</h2>
-                <p class="text-xs text-slate-400">PN pronto para cópia rápida e valor unitário à vista para conferência</p>
+                <h2 class="text-base font-bold text-white">📋 Resultado da Cotação</h2>
+                <p class="text-xs text-slate-400">Agrupado por contrato e ordenado exatamente conforme o pedido</p>
               </div>
               <div class="flex flex-wrap gap-2">
                 <button onclick="Cotador.core.copiarTabelasHTML()" class="text-xs px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold transition shadow">
-                  📑 Copiar Tudo (Excel / Proposta)
+                  📑 Copiar Tudo (Proposta / Excel)
                 </button>
                 <button onclick="Cotador.core.copiarApenasPNsGlobal()" class="text-xs px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 font-semibold transition">
-                  🔢 Copiar Lista de PNs
+                  🔢 Copiar Todos os PNs
                 </button>
                 <button onclick="Cotador.core.copiarMarkdown()" class="text-xs px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold transition">
                   📝 Markdown
@@ -254,20 +279,17 @@
               </div>
             </div>
 
-            <!-- Toast de Cópia -->
             <div id="copy-toast" class="hidden mb-4 p-2.5 rounded-lg bg-emerald-950 border border-emerald-600 text-emerald-300 text-xs text-center font-semibold">
               ✅ Copiado com sucesso!
             </div>
 
-            <!-- Tabelas Renderizadas -->
             <div id="resultado-container" class="space-y-6 text-slate-300">
               <div class="text-center py-24 text-slate-500 text-sm">
-                Cole os produtos ao lado e clique em <b>Gerar Cotação Refinada</b>.
+                Cole os produtos ao lado e clique em <b>Buscar no Supabase</b> (ou pressione <kbd class="px-1.5 py-0.5 bg-slate-800 rounded">Ctrl + Enter</kbd>).
               </div>
             </div>
           </div>
 
-          <!-- Preview Markdown -->
           <div class="mt-8 pt-3 border-t border-slate-800/80">
             <details class="text-xs text-slate-400">
               <summary class="cursor-pointer hover:text-slate-200 font-medium">Ver código Markdown bruto</summary>
@@ -280,15 +302,897 @@
     </div>
   </div>
 
-  <!-- SCRIPTS MODULARES (Core + 7 Tabelas Isoladas + App Controller) -->
-  <script src="js/core.js"></script>
-  <script src="js/tables/ms_scan.js"></script>
-  <script src="js/tables/ms_solo.js"></script>
-  <script src="js/tables/ms_perpetuo.js"></script>
-  <script src="js/tables/ms_mpsa.js"></script>
-  <script src="js/tables/adobe_base.js"></script>
-  <script src="js/tables/adobe_promo.js"></script>
-  <script src="js/tables/kaspersky.js"></script>
-  <script src="js/app.js"></script>
+  <script>
+    window.Cotador = window.Cotador || {};
+    window.Cotador.tables = window.Cotador.tables || {};
+
+    // ========================================================================
+    // NÚCLEO CENTRAL (CORE)
+    // ========================================================================
+    window.Cotador.core = {
+      SUPABASE_URL: "https://rftvbxlbltmiwamjhgzl.supabase.co/rest/v1",
+      SUPABASE_RPC: "https://rftvbxlbltmiwamjhgzl.supabase.co/rest/v1/rpc/buscar_cotacao",
+      SUPABASE_KEY: "sb_publishable_fN_BXmhXXod2gpeyJ8u38Q_rvgDPl7N",
+
+      SEARCH_KEYWORDS: {
+        "phothosop": ["Photoshop"],
+        "photshop": ["Photoshop"],
+        "photosop": ["Photoshop"],
+        "photoshop": ["Photoshop"],
+        "ilustrator": ["Illustrator"],
+        "illustrator": ["Illustrator"],
+        "indesing": ["InDesign"],
+        "acrobat pro": ["Acrobat", "Pro"],
+        "creative cloud pro": ["Creative Cloud"],
+        "creative cloud": ["Creative Cloud"],
+        "business basic": ["Business Basic"],
+        "business standard": ["Business Standard"],
+        "business standart": ["Business Standard"],
+        "business premium": ["Business Premium"],
+        "exchange plan 1": ["Exchange Online", "Plan 1"],
+        "exchange plan 2": ["Exchange Online", "Plan 2"],
+        "exchange online": ["Exchange Online"],
+        "planner": ["Planner"]
+      },
+
+      extrairKeywords(prodName) {
+        const lower = prodName.toLowerCase().trim();
+        for (const [key, kwList] of Object.entries(this.SEARCH_KEYWORDS)) {
+          if (lower === key || lower.includes(key)) return kwList;
+        }
+        return prodName.replace(/[()]/g, ' ').split(/\s+/).filter(w => w.length > 0);
+      },
+
+      parseInputLines(rawText) {
+        const lines = rawText.trim().split('\n').map(l => l.trim()).filter(Boolean);
+        const items = [];
+        let sumLicenses = 0;
+
+        lines.forEach(line => {
+          const clean = line.replace(/\b(unidades|unidade|licenças|licencas|lic|unid|un)\b/gi, '').trim();
+          let qty = null;
+          let prodName = clean;
+
+          const matchEnd = clean.match(/^(.*?)(?:[\s\-:]+)(\d+)\s*$/);
+          const matchStart = clean.match(/^(\d+)(?:x|\s+|\s*-\s*)(.+)$/i);
+
+          if (matchEnd) {
+            prodName = matchEnd[1].trim();
+            qty = parseInt(matchEnd[2], 10);
+          } else if (matchStart) {
+            qty = parseInt(matchStart[1], 10);
+            prodName = matchStart[2].trim();
+          }
+
+          if (qty !== null && !isNaN(qty)) sumLicenses += qty;
+
+          items.push({
+            original: prodName,
+            keywords: this.extrairKeywords(prodName),
+            qty: qty !== null ? qty : '-'
+          });
+        });
+
+        return { items, sumLicenses };
+      },
+
+      async fetchSupabase(table, paramsArray) {
+        const qs = paramsArray.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+        const url = `${this.SUPABASE_URL}/${table}?${qs}`;
+        const headers = {
+          'apikey': this.SUPABASE_KEY,
+          'Accept': 'application/json'
+        };
+        if (this.SUPABASE_KEY.startsWith('eyJ')) {
+          headers['Authorization'] = `Bearer ${this.SUPABASE_KEY}`;
+        }
+
+        const resp = await fetch(url, { method: 'GET', headers });
+        if (!resp.ok) {
+          const errTxt = await resp.text();
+          throw new Error(`Erro Supabase (${resp.status}) na tabela [${table}]: ${errTxt}`);
+        }
+        return await resp.json();
+      },
+
+      parsePrice(val) {
+        if (typeof val === 'number') return val;
+        if (!val) return 0;
+        let str = String(val).replace(/[R$US$\s]/g, '').trim();
+        if (str === '-' || str === '') return 0;
+        if (str.includes('.') && str.includes(',')) {
+          if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
+            str = str.replace(/\./g, '').replace(',', '.');
+          } else {
+            str = str.replace(/,/g, '');
+          }
+        } else if (str.includes(',')) {
+          str = str.replace(',', '.');
+        }
+        const num = parseFloat(str);
+        return isNaN(num) ? 0 : num;
+      },
+
+      formatBRL(num) {
+        return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      },
+
+      formatUSD(num) {
+        return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      },
+
+      renderPnBadge(pn) {
+        return `<span onclick="Cotador.core.copiarTextoUnico('${pn}')" title="Clique para copiar este PN" class="pn-badge">${pn} <span class="text-[10px] opacity-60">📋</span></span>`;
+      },
+
+      renderQtyInput(qty) {
+        const val = (qty === '-' || isNaN(qty)) ? '' : qty;
+        return `<input type="number" min="1" value="${val}" placeholder="-" oninput="Cotador.core.recalcularSubtotais()" class="qty-input">`;
+      },
+
+      renderNotFoundRow(item, colspan) {
+        return `
+          <tr>
+            <td class="text-red-400 font-medium">${item.original} (${item.qty})</td>
+            <td colspan="${colspan}" class="text-red-400 text-xs">Produto não localizado nesta tabela com os filtros ativos.</td>
+          </tr>`;
+      },
+
+      renderBlockHeader(title, blockId) {
+        return `
+          <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-900/90 px-3.5 py-2.5 rounded-t-lg border border-b-0 border-slate-700">
+            <h3 class="text-xs font-bold text-sky-400 uppercase tracking-wider">${title}</h3>
+            <div class="flex items-center gap-2">
+              <span id="total-${blockId}" class="text-xs font-bold text-emerald-400 mr-2 hidden"></span>
+              <button onclick="Cotador.core.copiarBlocoUnico('${blockId}', false)" class="text-[11px] px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+                📑 Copiar Tabela
+              </button>
+              <button onclick="Cotador.core.copiarBlocoUnico('${blockId}', true)" class="text-[11px] px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 transition">
+                🔢 Copiar PNs
+              </button>
+            </div>
+          </div>`;
+      },
+
+      recalcularSubtotais() {
+        const showSub = document.getElementById('chk-mostrar-subtotal').checked;
+        document.querySelectorAll('.col-subtotal').forEach(el => el.classList.toggle('hidden', !showSub));
+
+        document.querySelectorAll('.quote-block').forEach(block => {
+          let somaBloco = 0;
+          let temQtd = false;
+
+          block.querySelectorAll('tbody tr').forEach(tr => {
+            const unit = parseFloat(tr.getAttribute('data-unit-price'));
+            const input = tr.querySelector('.qty-input');
+            const subTd = tr.querySelector('.col-subtotal');
+            if (!input || isNaN(unit)) return;
+
+            const qty = parseInt(input.value, 10);
+            if (!isNaN(qty) && qty > 0) {
+              const sub = unit * qty;
+              somaBloco += sub;
+              temQtd = true;
+              if (subTd) subTd.textContent = `R$ ${this.formatBRL(sub)}`;
+            } else if (subTd) {
+              subTd.textContent = '-';
+            }
+          });
+
+          const badgeTotal = document.getElementById(`total-${block.id}`);
+          if (badgeTotal) {
+            badgeTotal.textContent = `Total: R$ ${this.formatBRL(somaBloco)}`;
+            badgeTotal.classList.toggle('hidden', !temQtd);
+          }
+        });
+
+        this.atualizarMarkdownBruto();
+      },
+
+      extrairValorCelula(td) {
+        const input = td.querySelector('.qty-input');
+        if (input) return input.value ? input.value : '-';
+        const badge = td.querySelector('.pn-badge');
+        if (badge) return badge.childNodes[0].textContent.trim();
+        return td.innerText.trim();
+      },
+
+      atualizarMarkdownBruto() {
+        const showSub = document.getElementById('chk-mostrar-subtotal').checked;
+        const blocks = document.querySelectorAll('.quote-block');
+        let md = '';
+
+        blocks.forEach(block => {
+          md += `${block.getAttribute('data-title')}\n`;
+          const table = block.querySelector('table');
+          const headers = Array.from(table.querySelectorAll('thead th'))
+            .slice(0, -1)
+            .filter(th => showSub || !th.classList.contains('col-subtotal'))
+            .map(th => th.innerText.trim());
+
+          md += `| ${headers.join(' | ')} |\n|${headers.map(() => '---').join('|')}|\n`;
+
+          table.querySelectorAll('tbody tr').forEach(tr => {
+            const cells = Array.from(tr.querySelectorAll('td'))
+              .slice(0, -1)
+              .filter(td => showSub || !td.classList.contains('col-subtotal'));
+            if (cells.length > 0) {
+              md += `| ${cells.map(td => this.extrairValorCelula(td)).join(' | ')} |\n`;
+            }
+          });
+          md += '\n';
+        });
+
+        document.getElementById('markdown-output').textContent = md.trim();
+      },
+
+      mostrarToast(msg) {
+        const t = document.getElementById('copy-toast');
+        t.textContent = msg;
+        t.classList.remove('hidden');
+        setTimeout(() => t.classList.add('hidden'), 2200);
+      },
+
+      copiarTextoUnico(txt) {
+        navigator.clipboard.writeText(txt);
+        this.mostrarToast(`✅ Part Number copiado: ${txt}`);
+      },
+
+      copiarBlocoUnico(blockId, apenasPNs) {
+        const showSub = document.getElementById('chk-mostrar-subtotal').checked;
+        const block = document.getElementById(blockId);
+        if (!block) return;
+
+        if (apenasPNs) {
+          const pns = Array.from(block.querySelectorAll('tbody tr[data-pn]')).map(tr => tr.getAttribute('data-pn'));
+          navigator.clipboard.writeText(pns.join('\n'));
+          this.mostrarToast(`✅ ${pns.length} PN(s) copiados!`);
+          return;
+        }
+
+        let out = block.getAttribute('data-title').replace('### ', '') + '\n';
+        const table = block.querySelector('table');
+        const headers = Array.from(table.querySelectorAll('thead th'))
+          .slice(0, -1)
+          .filter(th => showSub || !th.classList.contains('col-subtotal'))
+          .map(th => th.innerText.trim());
+        out += headers.join('\t') + '\n';
+
+        table.querySelectorAll('tbody tr').forEach(tr => {
+          const cells = Array.from(tr.querySelectorAll('td'))
+            .slice(0, -1)
+            .filter(td => showSub || !td.classList.contains('col-subtotal'))
+            .map(td => this.extrairValorCelula(td));
+          out += cells.join('\t') + '\n';
+        });
+
+        navigator.clipboard.writeText(out.trim());
+        this.mostrarToast('✅ Tabela do contrato copiada!');
+      },
+
+      copiarApenasPNsGlobal() {
+        const pns = Array.from(document.querySelectorAll('tbody tr[data-pn]')).map(tr => tr.getAttribute('data-pn'));
+        navigator.clipboard.writeText(pns.join('\n'));
+        this.mostrarToast(`✅ ${pns.length} PNs copiados em lista!`);
+      },
+
+      copiarMarkdown() {
+        this.atualizarMarkdownBruto();
+        navigator.clipboard.writeText(document.getElementById('markdown-output').textContent);
+        this.mostrarToast('✅ Markdown copiado!');
+      },
+
+      copiarTabelasHTML() {
+        const showSub = document.getElementById('chk-mostrar-subtotal').checked;
+        const blocks = document.querySelectorAll('.quote-block');
+        let textTab = '';
+
+        blocks.forEach(block => {
+          textTab += `${block.getAttribute('data-title').replace('### ', '')}\n`;
+          const table = block.querySelector('table');
+          const headers = Array.from(table.querySelectorAll('thead th'))
+            .slice(0, -1)
+            .filter(th => showSub || !th.classList.contains('col-subtotal'))
+            .map(th => th.innerText.trim());
+          textTab += headers.join('\t') + '\n';
+
+          table.querySelectorAll('tbody tr').forEach(tr => {
+            const cells = Array.from(tr.querySelectorAll('td'))
+              .slice(0, -1)
+              .filter(td => showSub || !td.classList.contains('col-subtotal'))
+              .map(td => this.extrairValorCelula(td));
+            textTab += cells.join('\t') + '\n';
+          });
+          textTab += '\n';
+        });
+
+        navigator.clipboard.writeText(textTab.trim());
+        this.mostrarToast('✅ Todas as tabelas copiadas para Excel/Proposta!');
+      }
+    };
+
+    // ========================================================================
+    // MÓDULOS DAS 7 TABELAS
+    // ========================================================================
+    window.Cotador.tables.ms_scan = {
+      async processar(parsedItems, flags) {
+        const core = window.Cotador.core;
+        const container = document.getElementById('resultado-container');
+        container.innerHTML = '';
+
+        const resultadosPorItem = [];
+        for (const item of parsedItems) {
+          const params = [['select', '*'], ['limit', '250']];
+          item.keywords.forEach(kw => params.push(['offer_display_name', `ilike.*${kw}*`]));
+
+          let data = await core.fetchSupabase('microsoft_scan', params);
+
+          data = data.filter(r => {
+            const nome = (r.offer_display_name || '').toLowerCase();
+            const seg = (r.segmento || '').toLowerCase();
+            if (flags.onlyCommercial && seg && seg !== 'commercial') return false;
+            if (flags.onlyCommercial && (nome.includes('education') || nome.includes('faculty') || nome.includes('student') || nome.includes('charity') || nome.includes('donation'))) return false;
+            if (flags.hideNoTeams && /\b(no|sem|without)\s+teams\b/i.test(nome)) return false;
+            if (flags.hideCopilot && (nome.includes('copilot') || nome.includes('add-on') || nome.includes('add on') || nome.includes('attach'))) return false;
+            return true;
+          });
+
+          resultadosPorItem.push({ item, data });
+        }
+
+        for (const c of flags.contratos) {
+          let rowsHTML = '';
+          for (const { item, data } of resultadosPorItem) {
+            const filtrados = data.filter(r =>
+              (r.tempo_contrato || '').trim().toLowerCase() === c.scanTempo.toLowerCase() &&
+              (r.ciclo_pagamento || '').trim().toLowerCase() === c.scanCiclo.toLowerCase()
+            );
+
+            if (filtrados.length === 0) {
+              rowsHTML += core.renderNotFoundRow(item, 6);
+            } else {
+              filtrados.forEach(r => {
+                const tabela = core.parsePrice(r.preco_unitario);
+                const finalDesc = tabela * 0.93;
+                const pn = r.sku;
+                rowsHTML += `
+                  <tr data-unit-price="${finalDesc}" data-pn="${pn}">
+                    <td class="font-medium text-white">${r.offer_display_name}</td>
+                    <td>${core.renderQtyInput(item.qty)}</td>
+                    <td>${core.renderPnBadge(pn)}</td>
+                    <td class="text-slate-400 whitespace-nowrap">R$ ${core.formatBRL(tabela)}</td>
+                    <td class="font-semibold text-emerald-400 whitespace-nowrap">R$ ${core.formatBRL(finalDesc)}</td>
+                    <td class="col-subtotal hidden font-bold text-amber-400 whitespace-nowrap">-</td>
+                    <td class="text-right"><button onclick="this.closest('tr').remove(); Cotador.core.recalcularSubtotais();" class="text-slate-500 hover:text-red-400 px-1">✕</button></td>
+                  </tr>`;
+              });
+            }
+          }
+
+          const bId = `blk-scan-${c.id}`;
+          const headerTitle = `Contrato: ${c.label} (Faturamento: Scansource -7%)`;
+          container.innerHTML += `
+            <div id="${bId}" class="quote-block" data-title="### ${headerTitle}">
+              ${core.renderBlockHeader(headerTitle, bId)}
+              <div class="overflow-x-auto rounded-b-lg border border-slate-700">
+                <table>
+                  <thead>
+                    <tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th>Custo Tabela</th><th>Custo Final (-7%)</th><th class="col-subtotal hidden">Subtotal</th><th></th></tr>
+                  </thead>
+                  <tbody>${rowsHTML}</tbody>
+                </table>
+              </div>
+            </div>`;
+        }
+      }
+    };
+
+    window.Cotador.tables.ms_solo = {
+      async processar(parsedItems, flags) {
+        const core = window.Cotador.core;
+        const container = document.getElementById('resultado-container');
+        container.innerHTML = '';
+
+        const resultadosPorItem = [];
+        for (const item of parsedItems) {
+          const params = [['select', '*'], ['limit', '250']];
+          item.keywords.forEach(kw => params.push(['titulo_sku', `ilike.*${kw}*`]));
+
+          let data = await core.fetchSupabase('microsoft_solo', params);
+
+          data = data.filter(r => {
+            const nome = (r.titulo_sku || '').toLowerCase();
+            const seg = (r.segmento || '').toLowerCase();
+            if (flags.onlyCommercial && seg && seg !== 'commercial') return false;
+            if (flags.onlyCommercial && (nome.includes('education') || nome.includes('faculty') || nome.includes('student') || nome.includes('charity') || nome.includes('donation'))) return false;
+            if (flags.hideNoTeams && /\b(no|sem|without)\s+teams\b/i.test(nome)) return false;
+            if (flags.hideCopilot && (nome.includes('copilot') || nome.includes('add-on') || nome.includes('add on') || nome.includes('attach'))) return false;
+            return true;
+          });
+
+          resultadosPorItem.push({ item, data });
+        }
+
+        for (const c of flags.contratos) {
+          let rowsHTML = '';
+          for (const { item, data } of resultadosPorItem) {
+            const filtrados = data.filter(r =>
+              (r.termo_duracao || '').trim().toUpperCase() === c.soloTermo &&
+              (r.plano_pagamento || '').trim().toLowerCase() === c.soloPlano.toLowerCase()
+            );
+
+            if (filtrados.length === 0) {
+              rowsHTML += core.renderNotFoundRow(item, 5);
+            } else {
+              filtrados.forEach(r => {
+                const skuId = String(r.sku_id || '').padStart(4, '0');
+                const pn = `${r.id_produto}-${skuId}-${r.termo_duracao}-${r.plano_pagamento}`;
+                const custo = core.parsePrice(r.fob_impostos);
+                rowsHTML += `
+                  <tr data-unit-price="${custo}" data-pn="${pn}">
+                    <td class="font-medium text-white">${r.titulo_sku}</td>
+                    <td>${core.renderQtyInput(item.qty)}</td>
+                    <td>${core.renderPnBadge(pn)}</td>
+                    <td class="font-semibold text-emerald-400 whitespace-nowrap">R$ ${core.formatBRL(custo)}</td>
+                    <td class="col-subtotal hidden font-bold text-amber-400 whitespace-nowrap">-</td>
+                    <td class="text-right"><button onclick="this.closest('tr').remove(); Cotador.core.recalcularSubtotais();" class="text-slate-500 hover:text-red-400 px-1">✕</button></td>
+                  </tr>`;
+              });
+            }
+          }
+
+          const bId = `blk-solo-${c.id}`;
+          const headerTitle = `Contrato: ${c.label} (Faturamento: Solo CSP)`;
+          container.innerHTML += `
+            <div id="${bId}" class="quote-block" data-title="### ${headerTitle}">
+              ${core.renderBlockHeader(headerTitle, bId)}
+              <div class="overflow-x-auto rounded-b-lg border border-slate-700">
+                <table>
+                  <thead>
+                    <tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th>Custo Final (FOB+Impostos)</th><th class="col-subtotal hidden">Subtotal</th><th></th></tr>
+                  </thead>
+                  <tbody>${rowsHTML}</tbody>
+                </table>
+              </div>
+            </div>`;
+        }
+      }
+    };
+
+    window.Cotador.tables.ms_perpetuo = {
+      async processar(parsedItems, flags) {
+        const core = window.Cotador.core;
+        const container = document.getElementById('resultado-container');
+        let rowsHTML = '';
+
+        for (const item of parsedItems) {
+          const params = [['select', '*'], ['limit', '100']];
+          item.keywords.forEach(kw => params.push(['nome_produto', `ilike.*${kw}*`]));
+
+          let data = await core.fetchSupabase('microsoft_perpetuo', params);
+          if (flags.onlyCommercial) {
+            data = data.filter(r => {
+              const seg = (r.segment || '').toLowerCase();
+              return !seg || seg === 'commercial';
+            });
+          }
+
+          if (data.length === 0) {
+            rowsHTML += core.renderNotFoundRow(item, 5);
+          } else {
+            data.forEach(row => {
+              const skuId = String(row.sku_id || '').padStart(4, '0');
+              const pn = `${row.product_id}-${skuId}`;
+              const preco = core.parsePrice(row.fob_impostos);
+              rowsHTML += `
+                <tr data-unit-price="${preco}" data-pn="${pn}">
+                  <td class="font-medium text-white">${row.nome_produto}</td>
+                  <td>${core.renderQtyInput(item.qty)}</td>
+                  <td>${core.renderPnBadge(pn)}</td>
+                  <td class="font-semibold text-emerald-400 whitespace-nowrap">R$ ${core.formatBRL(preco)}</td>
+                  <td class="col-subtotal hidden font-bold text-amber-400 whitespace-nowrap">-</td>
+                  <td class="text-right"><button onclick="this.closest('tr').remove(); Cotador.core.recalcularSubtotais();" class="text-slate-500 hover:text-red-400 px-1">✕</button></td>
+                </tr>`;
+            });
+          }
+        }
+
+        const bId = 'blk-perpetuo';
+        const title = 'Licenciamento Perpétuo (Faturamento: Solo)';
+        container.innerHTML = `
+          <div id="${bId}" class="quote-block" data-title="### ${title}">
+            ${core.renderBlockHeader(title, bId)}
+            <div class="overflow-x-auto rounded-b-lg border border-slate-700">
+              <table>
+                <thead>
+                  <tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th>Custo Final (FOB+Impostos)</th><th class="col-subtotal hidden">Subtotal</th><th></th></tr>
+                </thead>
+                <tbody>${rowsHTML}</tbody>
+              </table>
+            </div>
+          </div>`;
+      }
+    };
+
+    window.Cotador.tables.ms_mpsa = {
+      async processar(parsedItems, flags) {
+        const core = window.Cotador.core;
+        const container = document.getElementById('resultado-container');
+        let rowsHTML = '';
+
+        for (const item of parsedItems) {
+          const params = [['select', '*'], ['limit', '100']];
+          item.keywords.forEach(kw => params.push(['nome_curto_peca', `ilike.*${kw}*`]));
+
+          let data = await core.fetchSupabase('microsoft_mpsa', params);
+          if (flags.onlyCommercial) {
+            data = data.filter(r => !r.tipo_conta_compras || r.tipo_conta_compras.toLowerCase() === 'commercial');
+          }
+
+          if (data.length === 0) {
+            rowsHTML += core.renderNotFoundRow(item, 6);
+          } else {
+            data.forEach(r => {
+              const pn = r.numero_item || '';
+              const custoImp = core.parsePrice(r.custo_com_imposto);
+              rowsHTML += `
+                <tr data-unit-price="${custoImp}" data-pn="${pn}">
+                  <td class="font-medium text-white">${r.nome_curto_peca} <span class="text-xs text-slate-400">(${r.uso_recurso || ''})</span></td>
+                  <td>${core.renderQtyInput(item.qty)}</td>
+                  <td>${core.renderPnBadge(pn)}</td>
+                  <td class="text-xs text-slate-300">Pool: ${r.pool || '-'} (Cat. ${r.categoria_precos || '-'})</td>
+                  <td class="font-semibold text-emerald-400 whitespace-nowrap">R$ ${core.formatBRL(custoImp)}</td>
+                  <td class="col-subtotal hidden font-bold text-amber-400 whitespace-nowrap">-</td>
+                  <td class="text-right"><button onclick="this.closest('tr').remove(); Cotador.core.recalcularSubtotais();" class="text-slate-500 hover:text-red-400 px-1">✕</button></td>
+                </tr>`;
+            });
+          }
+        }
+
+        const bId = 'blk-mpsa';
+        const title = 'Microsoft MPSA (Faturamento: Solo)';
+        container.innerHTML = `
+          <div id="${bId}" class="quote-block" data-title="### ${title}">
+            ${core.renderBlockHeader(title, bId)}
+            <div class="overflow-x-auto rounded-b-lg border border-slate-700">
+              <table>
+                <thead>
+                  <tr><th>Produto</th><th>Qtd</th><th>PN (Item)</th><th>Pool / Cat.</th><th>Custo c/ Imposto</th><th class="col-subtotal hidden">Subtotal</th><th></th></tr>
+                </thead>
+                <tbody>${rowsHTML}</tbody>
+              </table>
+            </div>
+          </div>`;
+      }
+    };
+
+    function criarModuloAdobe(tableName, labelTitulo) {
+      return {
+        async processar(parsedItems, flags) {
+          const core = window.Cotador.core;
+          const container = document.getElementById('resultado-container');
+          let rowsHTML = '';
+
+          for (const item of parsedItems) {
+            const params = [['select', '*'], ['limit', '150']];
+            item.keywords.forEach(kw => params.push(['product_family', `ilike.*${kw}*`]));
+
+            let data = await core.fetchSupabase(tableName, params);
+
+            if (flags.segmento !== 'all') {
+              data = data.filter(r => (r.product_family || '').toLowerCase().includes(flags.segmento));
+            }
+            if (flags.hide3YCommit) {
+              data = data.filter(r => !(r.level_detail || '').toLowerCase().includes('3 year commit'));
+            }
+            if (flags.targetLevel !== 'all') {
+              data = data.filter(r => {
+                const ld = (r.level_detail || '').toLowerCase();
+                if (flags.targetLevel === '1') return ld.includes('level 1 ') || ld.includes('1 - 9') || ld.includes('1-9');
+                if (flags.targetLevel === '2') return ld.includes('level 2 ') || ld.includes('level 12') || ld.includes('10 - 49') || ld.includes('10-49');
+                if (flags.targetLevel === '3') return ld.includes('level 3 ') || ld.includes('level 13') || ld.includes('50 - 99') || ld.includes('50-99');
+                if (flags.targetLevel === '4') return ld.includes('level 4 ') || ld.includes('level 14') || ld.includes('100+');
+                return true;
+              });
+            }
+
+            if (data.length === 0) {
+              rowsHTML += core.renderNotFoundRow(item, 6);
+            } else {
+              data.forEach(r => {
+                const usd = core.parsePrice(r.partner_price);
+                const brl = usd * flags.taxaDolar;
+                const pn = r.part_number;
+                rowsHTML += `
+                  <tr data-unit-price="${brl}" data-pn="${pn}">
+                    <td class="font-medium text-white">${r.product_family}</td>
+                    <td>${core.renderQtyInput(item.qty)}</td>
+                    <td>${core.renderPnBadge(pn)}</td>
+                    <td class="text-xs text-slate-300 whitespace-nowrap">${r.level_detail}</td>
+                    <td class="text-slate-400 whitespace-nowrap">US$ ${core.formatUSD(usd)}</td>
+                    <td class="font-semibold text-emerald-400 whitespace-nowrap">R$ ${core.formatBRL(brl)}</td>
+                    <td class="col-subtotal hidden font-bold text-amber-400 whitespace-nowrap">-</td>
+                    <td class="text-right"><button onclick="this.closest('tr').remove(); Cotador.core.recalcularSubtotais();" class="text-slate-500 hover:text-red-400 px-1">✕</button></td>
+                  </tr>`;
+              });
+            }
+          }
+
+          const bId = `blk-${tableName}`;
+          const headerTitle = `${labelTitulo} | Câmbio: R$ ${core.formatBRL(flags.taxaDolar)}`;
+          container.innerHTML = `
+            <div id="${bId}" class="quote-block" data-title="### ${headerTitle}">
+              ${core.renderBlockHeader(headerTitle, bId)}
+              <div class="overflow-x-auto rounded-b-lg border border-slate-700">
+                <table>
+                  <thead>
+                    <tr><th>Produto</th><th>Qtd</th><th>PN</th><th>Level</th><th>Custo (USD)</th><th>Custo (BRL)</th><th class="col-subtotal hidden">Subtotal</th><th></th></tr>
+                  </thead>
+                  <tbody>${rowsHTML}</tbody>
+                </table>
+              </div>
+            </div>`;
+        }
+      };
+    }
+
+    window.Cotador.tables.adobe_base = criarModuloAdobe('adobe_base', 'Adobe Base (Renovação)');
+    window.Cotador.tables.adobe_promo = criarModuloAdobe('adobe_promo', 'Adobe Promo (Novos Clientes)');
+
+    window.Cotador.tables.kaspersky = {
+      async processar(parsedItems, flags) {
+        const core = window.Cotador.core;
+        const container = document.getElementById('resultado-container');
+        let rowsHTML = '';
+
+        for (const item of parsedItems) {
+          const params = [['select', '*'], ['limit', '200']];
+          item.keywords.forEach(kw => params.push(['sale_item_name', `ilike.*${kw}*`]));
+
+          let data = await core.fetchSupabase('kaspersky', params);
+
+          if (flags.targetBanda !== 'all') {
+            data = data.filter(r => (r.banda || '').trim() === flags.targetBanda);
+          }
+          if (flags.periodo !== 'all') {
+            data = data.filter(r => (r.periodo || '').toUpperCase().includes(flags.periodo));
+          }
+          if (flags.tipo !== 'all') {
+            data = data.filter(r => (r.tipo || '').toLowerCase() === flags.tipo.toLowerCase());
+          }
+
+          if (data.length === 0) {
+            rowsHTML += core.renderNotFoundRow(item, flags.mostrarRO ? 7 : 6);
+          } else {
+            data.forEach(r => {
+              const revenda = core.parsePrice(r.revenda);
+              const roOficial = core.parsePrice(r.ro);
+              const unitarioRef = (flags.mostrarRO && roOficial > 0) ? roOficial : revenda;
+              const pn = r.part_number;
+              rowsHTML += `
+                <tr data-unit-price="${unitarioRef}" data-pn="${pn}">
+                  <td class="font-medium text-white">${r.sale_item_name}</td>
+                  <td>${core.renderQtyInput(item.qty)}</td>
+                  <td>${core.renderPnBadge(pn)}</td>
+                  <td class="text-xs text-slate-300 whitespace-nowrap">${r.banda} (${r.periodo})</td>
+                  <td class="font-semibold text-emerald-400 whitespace-nowrap">R$ ${core.formatBRL(revenda)}</td>
+                  ${flags.mostrarRO ? `<td class="font-semibold text-amber-400 whitespace-nowrap">${roOficial > 0 ? 'R$ ' + core.formatBRL(roOficial) : '-'}</td>` : ''}
+                  <td class="col-subtotal hidden font-bold text-amber-400 whitespace-nowrap">-</td>
+                  <td class="text-right"><button onclick="this.closest('tr').remove(); Cotador.core.recalcularSubtotais();" class="text-slate-500 hover:text-red-400 px-1">✕</button></td>
+                </tr>`;
+            });
+          }
+        }
+
+        const bId = 'blk-kaspersky';
+        const headerTitle = `Kaspersky | Banda: ${flags.targetBanda}`;
+        container.innerHTML = `
+          <div id="${bId}" class="quote-block" data-title="### ${headerTitle}">
+            ${core.renderBlockHeader(headerTitle, bId)}
+            <div class="overflow-x-auto rounded-b-lg border border-slate-700">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Produto</th><th>Qtd</th><th>PN</th><th>Banda / Período</th><th>Custo Revenda</th>
+                    ${flags.mostrarRO ? '<th>Custo Oficial c/ RO</th>' : ''}
+                    <th class="col-subtotal hidden">Subtotal</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>${rowsHTML}</tbody>
+              </table>
+            </div>
+          </div>`;
+      }
+    };
+
+    // ========================================================================
+    // CONTROLADOR DA APLICAÇÃO
+    // ========================================================================
+    window.Cotador.app = {
+      currentVendor: 'microsoft',
+      parsedItems: [],
+      totalLicenses: 0,
+
+      init() {
+        document.getElementById('input-itens').addEventListener('keydown', (e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            this.gerarCotacao();
+          }
+        });
+        this.preencherExemplo();
+      },
+
+      setVendor(vendor) {
+        this.currentVendor = vendor;
+        ['microsoft', 'adobe', 'kaspersky'].forEach(v => {
+          const btn = document.getElementById(`btn-vendor-${v}`);
+          const box = document.getElementById(`filtros-${v}`);
+          btn.classList.toggle('active', v === vendor);
+          box.classList.toggle('hidden', v !== vendor);
+        });
+        this.analisarInput();
+      },
+
+      toggleMsUI() {
+        const mod = document.getElementById('ms-modalidade').value;
+        const box = document.getElementById('ms-box-contratos');
+        box.style.display = (mod === 'perpetuo' || mod === 'mpsa') ? 'none' : 'block';
+        this.analisarInput();
+      },
+
+      limparInput() {
+        document.getElementById('input-itens').value = '';
+        this.analisarInput();
+        document.getElementById('input-itens').focus();
+      },
+
+      preencherExemplo() {
+        const area = document.getElementById('input-itens');
+        if (this.currentVendor === 'microsoft') {
+          area.value = "business basic 10\nbusiness standard 26\nExchange plan 1 80\nplanner 10";
+        } else if (this.currentVendor === 'adobe') {
+          area.value = "Illustrator - 02 unidades\nphothosop - 06 unidades\nCreative cloud Pro - 03 unidades";
+        } else {
+          area.value = "Foundations 120";
+        }
+        this.analisarInput();
+      },
+
+      getAdobeAutoLevel(sum) {
+        if (sum <= 9) return '1';
+        if (sum <= 49) return '2';
+        if (sum <= 99) return '3';
+        return '4';
+      },
+
+      getKaspAutoBanda(sum) {
+        if (sum <= 9) return '5-9';
+        if (sum <= 14) return '10-14';
+        if (sum <= 19) return '15-19';
+        if (sum <= 24) return '20-24';
+        if (sum <= 49) return '25-49';
+        if (sum <= 99) return '50-99';
+        if (sum <= 149) return '100-149';
+        if (sum <= 249) return '150-249';
+        if (sum <= 499) return '250-499';
+        if (sum <= 999) return '500-999';
+        if (sum <= 1499) return '1000-1499';
+        return '1500-2499';
+      },
+
+      analisarInput() {
+        const raw = document.getElementById('input-itens').value;
+        const { items, sumLicenses } = window.Cotador.core.parseInputLines(raw);
+        this.parsedItems = items;
+        this.totalLicenses = sumLicenses;
+
+        const badge = document.getElementById('valor-soma');
+        if (this.currentVendor === 'microsoft') {
+          const mod = document.getElementById('ms-modalidade').value;
+          const rota = mod === 'auto'
+            ? (sumLicenses >= 35 ? 'ms_solo.js (≥35)' : 'ms_scan.js (≤34)')
+            : `ms_${mod}.js`;
+          badge.textContent = `${sumLicenses} licenças • ${rota}`;
+        } else if (this.currentVendor === 'adobe') {
+          const tab = document.getElementById('adobe-tabela').value;
+          const lvl = this.getAdobeAutoLevel(sumLicenses);
+          badge.textContent = `${sumLicenses} licenças • Level ${lvl} (${tab}.js)`;
+        } else {
+          const banda = this.getKaspAutoBanda(sumLicenses);
+          badge.textContent = `${sumLicenses} licenças • Banda ${banda} (kaspersky.js)`;
+        }
+      },
+
+      async gerarCotacao() {
+        this.analisarInput();
+        if (this.parsedItems.length === 0) {
+          alert('Digite pelo menos um produto na lista!');
+          return;
+        }
+
+        const btn = document.getElementById('btn-buscar');
+        const container = document.getElementById('resultado-container');
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳ Consultando Supabase...</span>';
+        container.innerHTML = '<div class="text-center py-20 text-slate-400 animate-pulse">Consultando SKUs no Supabase e aplicando regras da tabela...</div>';
+
+        try {
+          if (this.currentVendor === 'microsoft') {
+            const modSelect = document.getElementById('ms-modalidade').value;
+            const target = (modSelect === 'auto') ? (this.totalLicenses >= 35 ? 'solo' : 'scan') : modSelect;
+
+            const contratos = [];
+            if (document.getElementById('chk-anual-anual').checked) {
+              contratos.push({ id: 'aa', label: 'Anual / Anual', scanTempo: 'Anual', scanCiclo: 'Anual', soloTermo: 'P1Y', soloPlano: 'Annual' });
+            }
+            if (document.getElementById('chk-anual-mensal').checked) {
+              contratos.push({ id: 'am', label: 'Anual / Mensal', scanTempo: 'Anual', scanCiclo: 'Mensal', soloTermo: 'P1Y', soloPlano: 'Monthly' });
+            }
+            if (document.getElementById('chk-mensal-mensal').checked) {
+              contratos.push({ id: 'mm', label: 'Mensal / Mensal', scanTempo: 'Mensal', scanCiclo: 'Mensal', soloTermo: 'P1M', soloPlano: 'Monthly' });
+            }
+
+            const flags = {
+              contratos,
+              onlyCommercial: document.getElementById('chk-ms-commercial').checked,
+              hideNoTeams: document.getElementById('chk-hide-noteams').checked,
+              hideCopilot: document.getElementById('chk-hide-copilot').checked
+            };
+
+            await window.Cotador.tables[`ms_${target}`].processar(this.parsedItems, flags);
+
+          } else if (this.currentVendor === 'adobe') {
+            const tabela = document.getElementById('adobe-tabela').value;
+            const lvlSelect = document.getElementById('adobe-level').value;
+            const flags = {
+              segmento: document.getElementById('adobe-segmento').value,
+              targetLevel: (lvlSelect === 'auto') ? this.getAdobeAutoLevel(this.totalLicenses) : lvlSelect,
+              taxaDolar: parseFloat(document.getElementById('adobe-dolar').value) || 4.80,
+              hide3YCommit: document.getElementById('chk-adobe-hide-3y').checked
+            };
+
+            await window.Cotador.tables[tabela].processar(this.parsedItems, flags);
+
+          } else {
+            const bandaSelect = document.getElementById('kasp-banda').value;
+            const roMode = document.getElementById('kasp-ro-mode').value;
+            const flags = {
+              targetBanda: (bandaSelect === 'auto') ? this.getKaspAutoBanda(this.totalLicenses) : bandaSelect,
+              periodo: document.getElementById('kasp-periodo').value,
+              tipo: document.getElementById('kasp-tipo').value,
+              mostrarRO: roMode === 'always' || (roMode === 'auto' && this.totalLicenses >= 100)
+            };
+
+            await window.Cotador.tables.kaspersky.processar(this.parsedItems, flags);
+          }
+
+          window.Cotador.core.recalcularSubtotais();
+        } catch (err) {
+          container.innerHTML = `<div class="p-4 rounded-lg bg-red-950/70 border border-red-700 text-red-300 text-sm">
+            <b>Erro na consulta:</b> ${err.message}
+          </div>`;
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<span>🔍 Buscar no Supabase e Montar Tabelas</span>';
+        }
+      }
+    };
+  </script>
+
+  <!-- ======================================================================== -->
+  <!-- OVERRIDES MODULARES EXTERNOS (COLOCADOS NA MESMA PASTA DO INDEX.HTML)    -->
+  <!-- ======================================================================== -->
+  <script src="ms_scan.js" onerror=""></script>
+  <script src="ms_solo.js" onerror=""></script>
+  <script src="ms_perpetuo.js" onerror=""></script>
+  <script src="ms_mpsa.js" onerror=""></script>
+  <script src="adobe_base.js" onerror=""></script>
+  <script src="adobe_promo.js" onerror=""></script>
+  <script src="kaspersky.js" onerror=""></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => window.Cotador.app.init());
+  </script>
 </body>
 </html>
