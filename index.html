@@ -37,6 +37,7 @@
           </p>
         </div>
       </div>
+
       <div class="flex flex-wrap items-center gap-2.5">
         <input type="checkbox" id="chk-mostrar-subtotal" class="sr-only" checked onchange="Cotador.core.recalcularSubtotais()">
         <input type="checkbox" id="chk-mostrar-detalhes" class="sr-only" checked onchange="Cotador.core.atualizarVisibilidadeDetalhes()">
@@ -57,6 +58,7 @@
             <span>Subtotais</span>
           </button>
         </div>
+
         <span class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-medium flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
           Online
@@ -92,6 +94,11 @@
               placeholder="Ex:&#10;business basic 10&#10;business standard 26&#10;Exchange plan 1 80"
               class="textarea-input w-full rounded-lg bg-slate-50/70 border border-slate-200 p-2.5 text-xs text-slate-800 font-normal placeholder-slate-400 leading-relaxed transition"></textarea>
           </div>
+
+          <!-- BOTÃO DE BUSCA LOGO ABAIXO DA LISTA DE PRODUTOS -->
+          <button onclick="Cotador.app.gerarCotacao()" id="btn-buscar" class="btn-theme-primary w-full py-2.5 px-4 rounded-lg font-medium text-xs flex items-center justify-center gap-2">
+            <span>Buscar e Montar Tabelas</span>
+          </button>
 
           <!-- 3. FILTROS MICROSOFT -->
           <div id="filtros-microsoft" class="space-y-3.5 pt-3 border-t border-slate-100">
@@ -239,6 +246,7 @@
                     </label>
                   </div>
                 </details>
+
               </div>
             </div>
           </div>
@@ -372,9 +380,6 @@
             </div>
           </div>
 
-          <button onclick="Cotador.app.gerarCotacao()" id="btn-buscar" class="btn-theme-primary w-full py-2.5 px-4 rounded-lg font-medium text-xs flex items-center justify-center gap-2">
-            <span>Buscar e Montar Tabelas</span>
-          </button>
         </div>
       </div>
 
