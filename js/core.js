@@ -1,5 +1,5 @@
 // ============================================================================
-// NÚCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.8 ENTERPRISE (js/core.js)
+// NÚCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.8.1 ENTERPRISE (js/core.js)
 // ============================================================================
 window.Cotador = { core: {}, tables: {}, app: {} };
 
@@ -384,7 +384,7 @@ window.Cotador.core = {
   formatUSD(num) { return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
 
   // ==========================================================================
-  // BARRA DE PRODUTIVIDADE COMERCIAL: MODO CLIENTE & MARKUP (%)
+  // BARRA DE PRODUTIVIDADE COMERCIAL: MODO CLIENTE & MARGEM (%)
   // ==========================================================================
   injetarControlesComerciaisHeader() {
     if (document.getElementById('commercial-mode-bar')) return;
@@ -395,11 +395,11 @@ window.Cotador.core = {
     bar.id = 'commercial-mode-bar';
     bar.className = 'unified-view-control';
     bar.innerHTML = `
-      <button type="button" id="btn-modo-cliente" onclick="Cotador.core.toggleModoCliente()" title="Alternar entre Visão Interna (Custos) e Modo Proposta Cliente (Valor Unitário)" class="mini-toggle-btn">
+      <button type="button" id="btn-modo-cliente" onclick="Cotador.core.toggleModoCliente()" title="Quando ativo: oculta PN, oculta colunas de Custo Normal e exibe apenas o Valor Unitário já com Margem" class="mini-toggle-btn">
         <span class="dot"></span>
         <span>Modo Cliente</span>
       </button>
-      <div class="flex items-center gap-1 px-2 border-l border-slate-200/80 text-[11px] text-slate-600" title="Aplicar margem/markup percentual sobre os preços unitários e subtotais">
+      <div class="flex items-center gap-1 px-2 border-l border-slate-200/80 text-[11px] text-slate-600" title="Aplica margem percentual na coluna 'Valor c/ Margem' e nos Subtotais (mantendo o Custo Normal intacto para comparativo)">
         <span class="font-medium text-slate-500">Margem:</span>
         <input type="number" id="input-markup-pct" value="0" step="1" min="-50" max="500"
           oninput="Cotador.core.setMarkupPercent(this.value)"
@@ -422,10 +422,14 @@ window.Cotador.core = {
   setMarkupPercent(val) {
     const parsed = parseFloat(val);
     this.markupPercent = isNaN(parsed) ? 0 : parsed;
+    this.atualizarTitulosColunasModoCliente();
     this.recalcularSubtotais();
   },
 
   atualizarTitulosColunasModoCliente() {
+    const pct = parseFloat(this.markupPercent) || 0;
+    const sufixoPct = pct !== 0 ? ` (${pct > 0 ? '+' : ''}${pct}%)` : '';
+
     document.querySelectorAll('.quote-block thead th').forEach(th => {
       if (!th.dataset.originalHeader) {
         th.dataset.originalHeader = th.innerText.trim();
@@ -433,10 +437,16 @@ window.Cotador.core = {
       const orig = th.dataset.originalHeader;
       if (!orig) return;
 
-      if (this.modoCliente) {
-        if (/custo.*\(usd\)/i.test(orig)) th.innerText = 'Valor Unit. (USD)';
-        else if (/custo.*\(brl\)/i.test(orig)) th.innerText = 'Valor Unit. (BRL)';
-        else if (/custo|valor com 5%/i.test(orig)) th.innerText = 'Valor Unitário';
+      if (th.classList.contains('col-margin-price')) {
+        if (this.modoCliente) {
+          if (/usd/i.test(orig)) th.innerText = 'Valor Unit. (USD)';
+          else if (/brl/i.test(orig)) th.innerText = 'Valor Unit. (BRL)';
+          else th.innerText = 'Valor Unitário';
+        } else {
+          if (/usd/i.test(orig)) th.innerText = `Valor c/ Margem (USD)${sufixoPct}`;
+          else if (/brl/i.test(orig)) th.innerText = `Valor c/ Margem (BRL)${sufixoPct}`;
+          else th.innerText = `Valor c/ Margem${sufixoPct}`;
+        }
       } else {
         th.innerText = orig;
       }
@@ -488,6 +498,55 @@ window.Cotador.core = {
       });
     }
     this.recalcularSubtotais();
+  },
+
+  // ==========================================================================
+  // RENDERIZADORES DE DETALHES MENSAIS (12x COM 5% E SEM 5%) E MARGEM
+  // ==========================================================================
+  renderDetalhesSoloCSP(contratoId, custoCom5, mensalSem5, anualSem5, fator = 1, isMarginCol = false) {
+    const c5 = custoCom5 * fator;
+    const mSem5 = mensalSem5 * fator;
+    const aSem5 = anualSem5 * fator;
+
+    // Contratos com ciclo mensal (Anual/Mensal 'am' ou Mensal/Mensal 'mm')
+    if (contratoId === 'am' || contratoId === 'mm') {
+      const anualCom5 = c5 * 12;
+      const fmtAnualCom5 = `R$ ${this.formatBRL(anualCom5)}`;
+      const fmtMensalSem5 = `R$ ${this.formatBRL(mSem5)}`;
+      const fmtAnualSem5 = `R$ ${this.formatBRL(aSem5 > 0 ? aSem5 : mSem5 * 12)}`;
+
+      // Linha 1: Valor Total multiplicado por 12 JÁ COM O 5% (visível na visão interna e no Modo Cliente)
+      const label12xInterno = `12x c/ 5%: ${fmtAnualCom5}`;
+      const label12xCliente = `Total 12x: ${fmtAnualCom5}`;
+
+      const linhaCom5 = isMarginCol
+        ? `<div class="sec-detail text-[11px] font-medium text-slate-600 mt-0.5">
+             <span class="internal-only-text">${this.renderCopyLink(label12xInterno, fmtAnualCom5, 'Total 12x c/ 5%')}</span>
+             <span class="client-only-text">${this.renderCopyLink(label12xCliente, fmtAnualCom5, 'Total 12 meses')}</span>
+           </div>`
+        : `<div class="sec-detail text-[11px] font-medium text-slate-600 mt-0.5">${this.renderCopyLink(label12xInterno, fmtAnualCom5, 'Total 12x c/ 5%')}</div>`;
+
+      // Linha 2: Valor SEM o 5% (Mensal e 12x) junto aos detalhes (oculto automaticamente no Modo Cliente)
+      const linhaSem5 = mSem5 > 0
+        ? `<div class="sec-detail internal-only-detail text-[10.5px] font-normal text-slate-400 mt-0.5">${this.renderCopyLink(`Sem 5%: ${fmtMensalSem5}/mês`, fmtMensalSem5, 'Mensal sem 5%')} &bull; ${this.renderCopyLink(`12x s/ 5%: ${fmtAnualSem5}`, fmtAnualSem5, 'Total 12x sem 5%')}</div>`
+        : '';
+
+      return `${linhaCom5}${linhaSem5}`;
+    }
+
+    // Contratos Anual/Anual ou Trienais: exibe o valor Sem 5% nos detalhes internos
+    if (aSem5 > 0) {
+      const fmtSem5 = `R$ ${this.formatBRL(aSem5)}`;
+      return `<div class="sec-detail internal-only-detail text-[10.5px] font-normal text-slate-400 mt-0.5">${this.renderCopyLink(`Sem 5%: ${fmtSem5}`, fmtSem5, 'Valor sem 5%')}</div>`;
+    }
+    return '';
+  },
+
+  renderDetalhesScanCSP(contratoId, valorUnitario, fator = 1) {
+    if (contratoId !== 'am' && contratoId !== 'mm') return '';
+    const total12x = valorUnitario * fator * 12;
+    const fmt12x = `R$ ${this.formatBRL(total12x)}`;
+    return `<div class="sec-detail text-[11px] font-normal text-slate-500 mt-0.5">${this.renderCopyLink(`Total 12x: ${fmt12x}`, fmt12x, 'Total 12 meses')}</div>`;
   },
 
   renderRowActions() {
@@ -793,7 +852,13 @@ window.Cotador.core = {
         if (isNaN(baseUsd)) return;
         const novoBrlBase = baseUsd * taxa;
         tr.setAttribute('data-base-unit-price-brl', String(novoBrlBase));
-        tr.setAttribute('data-unit-price-brl', String(novoBrlBase));
+
+        // Atualiza también a célula de Custo Normal (BRL) sem margem
+        const costBrlTd = tr.querySelector('td.col-cost-brl');
+        if (costBrlTd) {
+          const fmtCostBrl = `R$ ${this.formatBRL(novoBrlBase)}`;
+          costBrlTd.innerHTML = this.renderCopyLink(fmtCostBrl, fmtCostBrl, 'Custo BRL');
+        }
       });
     });
 
@@ -829,50 +894,58 @@ window.Cotador.core = {
 
         const baseUnit = parseFloat(tr.getAttribute('data-base-unit-price'));
         const baseUnitBrl = parseFloat(tr.getAttribute('data-base-unit-price-brl'));
-        const unit = baseUnit * fatorMarkup;
-        const unitBrl = (!isNaN(baseUnitBrl) ? baseUnitBrl : 0) * fatorMarkup;
+        const unitComMargem = baseUnit * fatorMarkup;
+        const unitBrlComMargem = (!isNaN(baseUnitBrl) ? baseUnitBrl : 0) * fatorMarkup;
 
-        tr.setAttribute('data-unit-price', String(unit));
-        if (isUSD) tr.setAttribute('data-unit-price-brl', String(unitBrl));
+        tr.setAttribute('data-unit-price', String(unitComMargem));
+        if (isUSD) tr.setAttribute('data-unit-price-brl', String(unitBrlComMargem));
 
-        // Atualiza exibição da célula de preço unitário quando há Markup ou mudança de Câmbio
-        const priceLinks = tr.querySelectorAll('td .copy-link[data-label*="Custo"], td .copy-link[data-label*="Valor"]');
-        priceLinks.forEach(link => {
-          const lbl = (link.getAttribute('data-label') || '').toLowerCase();
-          if (lbl.includes('tabela')) return;
-          if (!link.hasAttribute('data-base-raw')) {
-            link.setAttribute('data-base-raw', String(this.parsePrice(link.getAttribute('data-copy'))));
+        // Atualiza a coluna dedicada de "Valor c/ Margem" (mantendo a coluna de Custo Normal intacta!)
+        if (isUSD) {
+          const tdMarginUsd = tr.querySelector('td.col-margin-usd');
+          const tdMarginBrl = tr.querySelector('td.col-margin-brl');
+          if (tdMarginUsd && !isNaN(unitComMargem)) {
+            const fmtUsd = `US$ ${this.formatUSD(unitComMargem)}`;
+            tdMarginUsd.innerHTML = this.renderCopyLink(fmtUsd, fmtUsd, 'Valor Unit. USD');
           }
-          const rawVal = parseFloat(link.getAttribute('data-base-raw'));
-          if (!isNaN(rawVal) && rawVal > 0) {
-            if (lbl.includes('brl') && isUSD) {
-              const updatedBrl = `R$ ${this.formatBRL(unitBrl)}`;
-              link.textContent = updatedBrl;
-              link.setAttribute('data-copy', updatedBrl);
-            } else if (lbl.includes('usd') || isUSD) {
-              const updatedUsd = `US$ ${this.formatUSD(rawVal * fatorMarkup)}`;
-              link.textContent = updatedUsd;
-              link.setAttribute('data-copy', updatedUsd);
-            } else {
-              const updatedBrl = `R$ ${this.formatBRL(rawVal * fatorMarkup)}`;
-              link.textContent = updatedBrl;
-              link.setAttribute('data-copy', updatedBrl);
+          if (tdMarginBrl && !isNaN(unitBrlComMargem)) {
+            const fmtBrl = `R$ ${this.formatBRL(unitBrlComMargem)}`;
+            tdMarginBrl.innerHTML = this.renderCopyLink(fmtBrl, fmtBrl, 'Valor Unit. BRL');
+          }
+        } else {
+          const tdMargin = tr.querySelector('td.col-margin-price');
+          if (tdMargin && !isNaN(unitComMargem) && unitComMargem > 0) {
+            const fmtMargin = `R$ ${this.formatBRL(unitComMargem)}`;
+            let detalhesMarginHTML = '';
+
+            const rowKind = tr.getAttribute('data-row-kind');
+            const contratoId = tr.getAttribute('data-contract-id') || '';
+            if (rowKind === 'ms_solo') {
+              const mensalSem5 = parseFloat(tr.getAttribute('data-mensal-sem5') || '0');
+              const anualSem5 = parseFloat(tr.getAttribute('data-anual-sem5') || '0');
+              detalhesMarginHTML = this.renderDetalhesSoloCSP(contratoId, baseUnit, mensalSem5, anualSem5, fatorMarkup, true);
+            } else if (rowKind === 'ms_scan') {
+              detalhesMarginHTML = this.renderDetalhesScanCSP(contratoId, baseUnit, fatorMarkup);
             }
+
+            tdMargin.innerHTML = `${this.renderCopyLink(fmtMargin, fmtMargin, 'Valor Unitário')}${detalhesMarginHTML}`;
+          } else if (tdMargin && (isNaN(unitComMargem) || unitComMargem <= 0)) {
+            tdMargin.textContent = '-';
           }
-        });
+        }
 
         const input = tr.querySelector('.qty-input');
         const subTd = tr.querySelector('.col-subtotal');
-        if (!input || isNaN(unit)) return;
+        if (!input || isNaN(unitComMargem)) return;
 
         const qty = parseInt(input.value, 10);
         if (!isNaN(qty) && qty > 0) {
-          const sub = unit * qty;
+          const sub = unitComMargem * qty;
           somaBloco += sub;
           temQtd = true;
 
           if (isUSD) {
-            const subBrl = unitBrl * qty;
+            const subBrl = unitBrlComMargem * qty;
             somaBlocoBrl += subBrl;
             if (subTd) {
               const formattedUSD = `US$ ${this.formatUSD(sub)}`;
@@ -918,7 +991,14 @@ window.Cotador.core = {
 
     const clone = td.cloneNode(true);
     clone.querySelectorAll('.no-export').forEach(el => el.remove());
-    if (document.body.classList.contains('hide-secondary-details') || this.modoCliente) {
+
+    if (this.modoCliente) {
+      clone.querySelectorAll('.internal-only-detail, .internal-only-text').forEach(el => el.remove());
+    } else {
+      clone.querySelectorAll('.client-only-text').forEach(el => el.remove());
+    }
+
+    if (document.body.classList.contains('hide-secondary-details')) {
       clone.querySelectorAll('.sec-detail').forEach(el => el.remove());
     }
     return clone.innerText.replace(/\s+/g, ' ').trim();
@@ -929,7 +1009,11 @@ window.Cotador.core = {
     const showDet = !document.body.classList.contains('hide-secondary-details');
     if (!showSub && cell.classList.contains('col-subtotal')) return false;
     if (!showDet && cell.classList.contains('col-secondary')) return false;
-    if (this.modoCliente && cell.classList.contains('col-internal-cost')) return false;
+    if (this.modoCliente) {
+      if (cell.classList.contains('col-pn')) return false;
+      if (cell.classList.contains('col-cost-normal')) return false;
+      if (cell.classList.contains('col-internal-cost')) return false;
+    }
     return true;
   },
 
