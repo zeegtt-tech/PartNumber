@@ -6,7 +6,7 @@ window.Cotador.app = {
   currentVendor: 'microsoft',
   parsedItems: [],
   totalLicenses: 0,
-  msModalidades: new Set(['scan']),
+  msModalidades: new Set(),
   msSegmentos: new Set(['commercial']),
   trienaisVisiveis: false,
 

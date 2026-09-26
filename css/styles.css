@@ -138,29 +138,12 @@ body {
 /* ============================================================================
  * DESTAQUE EXCLUSIVO: MODALIDADE E TABELA SCAN (ÂMBAR / LARANJA)
  * ============================================================================ */
-.modality-chip-scan .scan-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 9999px;
-  background-color: #cbd5e1;
-  transition: background-color 0.15s ease, transform 0.15s ease;
-}
-
-.modality-chip-scan:hover .scan-dot {
-  background-color: #94a3b8;
-}
-
 .modality-chip-scan.active {
   background-color: #fef3c7 !important;
   border-color: #d97706 !important;
   color: #92400e !important;
   font-weight: 600;
   box-shadow: 0 1px 4px rgba(217, 119, 6, 0.16);
-}
-
-.modality-chip-scan.active .scan-dot {
-  background-color: #d97706;
-  transform: scale(1.15);
 }
 
 .quote-block-scan {

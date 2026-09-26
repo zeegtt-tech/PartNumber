@@ -107,10 +107,7 @@
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-1.5">
-                <button type="button" onclick="Cotador.app.toggleMsModalidade('scan')" id="btn-ms-mod-scan" class="modality-chip modality-chip-scan active" title="Faturamento via Scansource">
-                  <span class="scan-dot"></span>
-                  <span>Scan</span>
-                </button>
+                <button type="button" onclick="Cotador.app.toggleMsModalidade('scan')" id="btn-ms-mod-scan" class="modality-chip modality-chip-scan" title="Faturamento via Scansource">Scan</button>
                 <button type="button" onclick="Cotador.app.toggleMsModalidade('solo')" id="btn-ms-mod-solo" class="modality-chip">CSP Solo</button>
                 <button type="button" onclick="Cotador.app.toggleMsModalidade('perpetuo')" id="btn-ms-mod-perpetuo" class="modality-chip">CSP Perpetual</button>
                 <button type="button" onclick="Cotador.app.toggleMsModalidade('mpsa')" id="btn-ms-mod-mpsa" class="modality-chip">MPSA</button>
@@ -152,6 +149,7 @@
               </div>
             </div>
 
+            <!-- 3.4 FLAGS DE EXIBIÇÃO CONTEXTUAL MICROSOFT (OCULTAS POR PADRÃO, EXCETO FRONTLINE E CALS) -->
             <!-- 3.4 FLAGS DE EXIBIÇÃO CONTEXTUAL MICROSOFT (OCULTAS POR PADRÃO, EXCETO FRONTLINE E CALS) -->
             <div id="ms-box-flags">
               <label class="section-label">Flags de Exibição &amp; Refinamento</label>
@@ -227,10 +225,8 @@
                     <span>Exibir "License Only" (Licença Pura)</span>
                   </label>
                 </div>
-
               </div>
             </div>
-          </div>
 
           <!-- 3. FILTROS ADOBE -->
           <div id="filtros-adobe" class="hidden space-y-3.5 pt-3 border-t border-slate-100">
