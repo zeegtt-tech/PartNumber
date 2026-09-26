@@ -722,6 +722,11 @@ window.Cotador.core = {
         }
       });
 
+      const baseName = tr.getAttribute('data-prod-key') || this.obterChaveProduto(tr);
+        if (baseName && !tr.getAttribute('data-prod-key')) {
+          tr.setAttribute('data-prod-key', baseName);
+        }
+
       const badgeTotal = document.getElementById(`total-${block.id}`);
       if (badgeTotal) {
         if (isUSD) {

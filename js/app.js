@@ -314,6 +314,7 @@ window.Cotador.app = {
             ? (this.totalLicenses > 0 ? this.getAdobeAutoLevel(this.totalLicenses) : 'all')
             : lvlSelect,
           taxaDolar: parseFloat(document.getElementById('adobe-dolar').value) || 4.80,
+          showAdobeStock: document.getElementById('chk-adobe-show-stock')?.checked ?? false,
           hide3YCommit: document.getElementById('chk-adobe-hide-3y').checked
         };
         await window.Cotador.tables[tabela].processar(this.parsedItems, flags);
@@ -339,13 +340,14 @@ window.Cotador.app = {
             ? (this.totalLicenses > 0 ? this.getKaspAutoBanda(this.totalLicenses) : 'all')
             : bandaSelect,
           tipo: document.getElementById('kasp-tipo').value || 'Base',
+          roMode,
+          totalLicenses: this.totalLicenses,
           mostrarRO: roMode === 'always' || (roMode === 'auto' && this.totalLicenses >= 100),
+          showBasePlus: document.getElementById('chk-kasp-show-baseplus')?.checked ?? false,
           showSuccessive: document.getElementById('chk-kasp-show-successive')?.checked ?? false,
-          showPublic: document.getElementById('chk-kasp-show-public')?.checked ?? false,
-          showBasePlus: document.getElementById('chk-kasp-show-baseplus')?.checked ?? false
+          showPublic: document.getElementById('chk-kasp-show-public')?.checked ?? false
         };
         await window.Cotador.tables.kaspersky.processar(this.parsedItems, flags);
-      }
 
       window.Cotador.core.limparBlocosVazios();
       window.Cotador.core.recalcularSubtotais();
