@@ -666,26 +666,14 @@
         return `<input type="number" min="1" value="${val}" placeholder="-" oninput="Cotador.core.recalcularSubtotais()" class="qty-input">`;
       },
 
-      renderRowActions(itemGroupKey, hasMultipleMatches) {
-        const keepOnlyBtn = hasMultipleMatches
-          ? `<button onclick="Cotador.core.manterApenasEstaLinha(this, '${itemGroupKey}')" title="Múltiplos SKUs encontrados para este item. Clique para manter apenas este e remover os demais." class="text-[10px] font-bold theme-badge rounded px-1.5 py-0.5 mr-1 hover:opacity-80 transition">★ Manter</button>`
-          : '';
+      // Botão direto e individual para remover apenas a linha clicada
+      renderRowActions() {
         return `
           <div class="flex items-center justify-end whitespace-nowrap">
-            ${keepOnlyBtn}
-            <button onclick="this.closest('tr').remove(); Cotador.core.recalcularSubtotais();" title="Remover linha" class="text-slate-400 hover:text-slate-800 font-bold px-1.5 py-0.5 rounded hover:bg-slate-100 transition">✕</button>
+            <button onclick="this.closest('tr').remove(); Cotador.core.recalcularSubtotais();" title="Remover apenas esta linha da cotação" class="text-[11px] font-semibold text-slate-500 hover:text-red-700 bg-slate-100 hover:bg-red-50 border border-slate-200 hover:border-red-200 rounded px-2 py-0.5 transition flex items-center gap-1">
+              <span>✕</span> <span>Remover</span>
+            </button>
           </div>`;
-      },
-
-      manterApenasEstaLinha(btnEl, groupKey) {
-        const currentTr = btnEl.closest('tr');
-        const tbody = currentTr.closest('tbody');
-        tbody.querySelectorAll(`tr[data-item-group="${groupKey}"]`).forEach(tr => {
-          if (tr !== currentTr) tr.remove();
-        });
-        btnEl.remove();
-        this.recalcularSubtotais();
-        this.mostrarToast('Variações extras removidas!');
       },
 
       renderNotFoundRow(item, colspan) {
@@ -905,21 +893,19 @@
             if (filtrados.length === 0) {
               rowsHTML += core.renderNotFoundRow(item, 6);
             } else {
-              const groupKey = `scan-${c.id}-item-${item.itemIndex}`;
-              const multi = filtrados.length > 1;
               filtrados.forEach(r => {
                 const tabela = core.parsePrice(r.preco_unitario);
                 const finalDesc = tabela * 0.93;
                 const pn = r.sku;
                 rowsHTML += `
-                  <tr data-unit-price="${finalDesc}" data-pn="${pn}" data-item-group="${groupKey}">
+                  <tr data-unit-price="${finalDesc}" data-pn="${pn}">
                     <td class="font-bold text-slate-900">${core.escapeHTML(r.offer_display_name)}</td>
                     <td>${core.renderQtyInput(item.qty)}</td>
                     <td>${core.renderPnBadge(pn)}</td>
                     <td class="text-slate-500 whitespace-nowrap">R$ ${core.formatBRL(tabela)}</td>
                     <td class="font-extrabold text-slate-900 whitespace-nowrap">R$ ${core.formatBRL(finalDesc)}</td>
                     <td class="col-subtotal font-extrabold theme-subtotal whitespace-nowrap">-</td>
-                    <td class="text-right">${core.renderRowActions(groupKey, multi)}</td>
+                    <td class="text-right">${core.renderRowActions()}</td>
                   </tr>`;
               });
             }
@@ -974,8 +960,6 @@
             if (filtrados.length === 0) {
               rowsHTML += core.renderNotFoundRow(item, 5);
             } else {
-              const groupKey = `solo-${c.id}-item-${item.itemIndex}`;
-              const multi = filtrados.length > 1;
               filtrados.forEach(r => {
                 const skuId = String(r.sku_id || '').padStart(4, '0');
                 const pn = `${r.id_produto}-${skuId}-${r.termo_duracao}-${r.plano_pagamento}`;
@@ -986,7 +970,7 @@
                   : '';
 
                 rowsHTML += `
-                  <tr data-unit-price="${custo}" data-pn="${pn}" data-item-group="${groupKey}">
+                  <tr data-unit-price="${custo}" data-pn="${pn}">
                     <td class="font-bold text-slate-900">${core.escapeHTML(r.titulo_sku)}</td>
                     <td>${core.renderQtyInput(item.qty)}</td>
                     <td>${core.renderPnBadge(pn)}</td>
@@ -995,7 +979,7 @@
                       ${infoMensal}
                     </td>
                     <td class="col-subtotal font-extrabold theme-subtotal whitespace-nowrap">-</td>
-                    <td class="text-right">${core.renderRowActions(groupKey, multi)}</td>
+                    <td class="text-right">${core.renderRowActions()}</td>
                   </tr>`;
               });
             }
@@ -1037,20 +1021,18 @@
           if (data.length === 0) {
             rowsHTML += core.renderNotFoundRow(item, 5);
           } else {
-            const groupKey = `perpetuo-item-${item.itemIndex}`;
-            const multi = data.length > 1;
             data.forEach(row => {
               const skuId = String(row.sku_id || '').padStart(4, '0');
               const pn = `${row.product_id}-${skuId}`;
               const preco = core.parsePrice(row.fob_impostos);
               rowsHTML += `
-                <tr data-unit-price="${preco}" data-pn="${pn}" data-item-group="${groupKey}">
+                <tr data-unit-price="${preco}" data-pn="${pn}">
                   <td class="font-bold text-slate-900">${core.escapeHTML(row.nome_produto)}</td>
                   <td>${core.renderQtyInput(item.qty)}</td>
                   <td>${core.renderPnBadge(pn)}</td>
                   <td class="font-extrabold text-slate-900 whitespace-nowrap">R$ ${core.formatBRL(preco)}</td>
                   <td class="col-subtotal font-extrabold theme-subtotal whitespace-nowrap">-</td>
-                  <td class="text-right">${core.renderRowActions(groupKey, multi)}</td>
+                  <td class="text-right">${core.renderRowActions()}</td>
                 </tr>`;
             });
           }
@@ -1092,20 +1074,18 @@
           if (data.length === 0) {
             rowsHTML += core.renderNotFoundRow(item, 6);
           } else {
-            const groupKey = `mpsa-item-${item.itemIndex}`;
-            const multi = data.length > 1;
             data.forEach(r => {
               const pn = r.numero_item || '';
               const custoImp = core.parsePrice(r.custo_com_imposto);
               rowsHTML += `
-                <tr data-unit-price="${custoImp}" data-pn="${pn}" data-item-group="${groupKey}">
+                <tr data-unit-price="${custoImp}" data-pn="${pn}">
                   <td class="font-bold text-slate-900">${core.escapeHTML(r.nome_curto_peca)} <span class="text-xs text-slate-500 font-normal">(${r.uso_recurso || ''})</span></td>
                   <td>${core.renderQtyInput(item.qty)}</td>
                   <td>${core.renderPnBadge(pn)}</td>
                   <td class="text-xs text-slate-600 font-medium">Pool: ${r.pool || '-'} (Cat. ${r.categoria_precos || '-'})</td>
                   <td class="font-extrabold text-slate-900 whitespace-nowrap">R$ ${core.formatBRL(custoImp)}</td>
                   <td class="col-subtotal font-extrabold theme-subtotal whitespace-nowrap">-</td>
-                  <td class="text-right">${core.renderRowActions(groupKey, multi)}</td>
+                  <td class="text-right">${core.renderRowActions()}</td>
                 </tr>`;
             });
           }
@@ -1162,14 +1142,12 @@
             if (data.length === 0) {
               rowsHTML += core.renderNotFoundRow(item, 6);
             } else {
-              const groupKey = `adobe-${tableName}-item-${item.itemIndex}`;
-              const multi = data.length > 1;
               data.forEach(r => {
                 const usd = core.parsePrice(r.partner_price);
                 const brl = usd * flags.taxaDolar;
                 const pn = r.part_number;
                 rowsHTML += `
-                  <tr data-unit-price="${brl}" data-pn="${pn}" data-item-group="${groupKey}">
+                  <tr data-unit-price="${brl}" data-pn="${pn}">
                     <td class="font-bold text-slate-900">${core.escapeHTML(r.product_family)}</td>
                     <td>${core.renderQtyInput(item.qty)}</td>
                     <td>${core.renderPnBadge(pn)}</td>
@@ -1177,7 +1155,7 @@
                     <td class="text-slate-500 whitespace-nowrap">US$ ${core.formatUSD(usd)}</td>
                     <td class="font-extrabold text-slate-900 whitespace-nowrap">R$ ${core.formatBRL(brl)}</td>
                     <td class="col-subtotal font-extrabold theme-subtotal whitespace-nowrap">-</td>
-                    <td class="text-right">${core.renderRowActions(groupKey, multi)}</td>
+                    <td class="text-right">${core.renderRowActions()}</td>
                   </tr>`;
               });
             }
@@ -1225,15 +1203,13 @@
           if (data.length === 0) {
             rowsHTML += core.renderNotFoundRow(item, flags.mostrarRO ? 7 : 6);
           } else {
-            const groupKey = `kasp-item-${item.itemIndex}`;
-            const multi = data.length > 1;
             data.forEach(r => {
               const revenda = core.parsePrice(r.revenda);
               const roOficial = core.parsePrice(r.ro);
               const unitarioRef = (flags.mostrarRO && roOficial > 0) ? roOficial : revenda;
               const pn = r.part_number;
               rowsHTML += `
-                <tr data-unit-price="${unitarioRef}" data-pn="${pn}" data-item-group="${groupKey}">
+                <tr data-unit-price="${unitarioRef}" data-pn="${pn}">
                   <td class="font-bold text-slate-900">${core.escapeHTML(r.sale_item_name)}</td>
                   <td>${core.renderQtyInput(item.qty)}</td>
                   <td>${core.renderPnBadge(pn)}</td>
@@ -1241,11 +1217,11 @@
                   <td class="font-extrabold text-slate-900 whitespace-nowrap">R$ ${core.formatBRL(revenda)}</td>
                   ${flags.mostrarRO ? `<td class="font-extrabold theme-text-dark whitespace-nowrap">${roOficial > 0 ? 'R$ ' + core.formatBRL(roOficial) : '-'}</td>` : ''}
                   <td class="col-subtotal font-extrabold theme-subtotal whitespace-nowrap">-</td>
-                  <td class="text-right">${core.renderRowActions(groupKey, multi)}</td>
+                  <td class="text-right">${core.renderRowActions()}</td>
                 </tr>`;
-              });
-            }
-          });
+            });
+          }
+        });
 
         const bId = 'blk-kaspersky';
         const headerTitle = `Kaspersky | Banda: ${flags.targetBanda}`;
