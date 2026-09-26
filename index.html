@@ -149,84 +149,99 @@
               </div>
             </div>
 
-            <!-- 3.4 FLAGS DE EXIBIÇÃO CONTEXTUAL MICROSOFT (OCULTAS POR PADRÃO, EXCETO FRONTLINE E CALS) -->
-            <!-- 3.4 FLAGS DE EXIBIÇÃO CONTEXTUAL MICROSOFT (OCULTAS POR PADRÃO, EXCETO FRONTLINE E CALS) -->
+            <!-- 3.4 FLAGS DE EXIBIÇÃO CONTEXTUAL MICROSOFT -->
             <div id="ms-box-flags">
               <label class="section-label">Flags de Exibição &amp; Refinamento</label>
-              <div class="space-y-2.5 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
+              <div class="space-y-2 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
                 
                 <!-- Flags CSP & Geral -->
-                <div id="ms-flags-csp" class="space-y-1.5">
-                  <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Geral &amp; CSP (Scan / Solo)</div>
-                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-show-noteams">
-                    <span>Exibir variantes "Sem Teams" (No Teams)</span>
-                  </label>
-                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-show-copilot">
-                    <span>Exibir "Copilot / Add-on / Attach"</span>
-                  </label>
-                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-show-trial">
-                    <span>Exibir "Trial / Gratuito / Promo"</span>
-                  </label>
-                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-show-frontline" checked>
-                    <span>Exibir linha "Frontline / Kiosk (F1/F3)"</span>
-                  </label>
-                </div>
-
-                <!-- Flags Perpétuo & MPSA -->
-                <div id="ms-flags-perpetuo-mpsa" class="hidden space-y-1.5 pt-2 border-t border-slate-200/70">
-                  <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Perpétuo &amp; MPSA (Duração / Escopo)</div>
-                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900" title="Exibe licenças temporárias/assinaturas (Mensal, Anual e Trienal) além das licenças perpétuas">
-                    <input type="checkbox" id="chk-pm-show-temp" onchange="Cotador.app.syncTempFlagsFromMaster(this.checked)">
-                    <span>Exibir Contratos Temporários / Assinaturas</span>
-                  </label>
-                  
-                  <div class="grid grid-cols-3 gap-1 pt-0.5 pb-0.5">
-                    <label class="flag-mini-pill" title="Exibir itens com vigência Mensal no Perpétuo/MPSA">
-                      <input type="checkbox" id="chk-pm-show-mensal" onchange="Cotador.app.syncMasterFromTempPills()">
-                      <span>Exibir Mensal</span>
+                <details id="ms-flags-csp" class="group" open>
+                  <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[10px] font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600">
+                    <span>Geral &amp; CSP (Scan / Solo)</span>
+                    <svg class="w-3.5 h-3.5 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  </summary>
+                  <div class="space-y-1.5 pt-1.5">
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                      <input type="checkbox" id="chk-show-noteams">
+                      <span>Exibir variantes "Sem Teams" (No Teams)</span>
                     </label>
-                    <label class="flag-mini-pill" title="Exibir itens com vigência Anual (1 Ano) no Perpétuo/MPSA">
-                      <input type="checkbox" id="chk-pm-show-anual" onchange="Cotador.app.syncMasterFromTempPills()">
-                      <span>Exibir Anual</span>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                      <input type="checkbox" id="chk-show-copilot">
+                      <span>Exibir "Copilot / Add-on / Attach"</span>
                     </label>
-                    <label class="flag-mini-pill" title="Exibir itens com vigência Trienal (3 Anos) no Perpétuo/MPSA">
-                      <input type="checkbox" id="chk-pm-show-trienal" onchange="Cotador.app.syncMasterFromTempPills()">
-                      <span>Exibir Trienal</span>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                      <input type="checkbox" id="chk-show-trial">
+                      <span>Exibir "Trial / Gratuito / Promo"</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                      <input type="checkbox" id="chk-show-frontline" checked>
+                      <span>Exibir linha "Frontline / Kiosk (F1/F3)"</span>
                     </label>
                   </div>
+                </details>
 
-                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-pm-show-stepup">
-                    <span>Exibir "Step-Up / Upgrade / Migration"</span>
-                  </label>
-                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-pm-show-cals" checked>
-                    <span>Exibir "CALs de Acesso" (User / Device / RDS CAL)</span>
-                  </label>
-                </div>
+                <!-- Flags Perpétuo & MPSA -->
+                <details id="ms-flags-perpetuo-mpsa" class="hidden group pt-2 border-t border-slate-200/70" open>
+                  <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[10px] font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600">
+                    <span>Perpétuo &amp; MPSA (Duração / Escopo)</span>
+                    <svg class="w-3.5 h-3.5 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  </summary>
+                  <div class="space-y-1.5 pt-1.5">
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900" title="Exibe licenças temporárias/assinaturas (Mensal, Anual e Trienal) além das licenças perpétuas">
+                      <input type="checkbox" id="chk-pm-show-temp" onchange="Cotador.app.syncTempFlagsFromMaster(this.checked)">
+                      <span>Exibir Contratos Temporários / Assinaturas</span>
+                    </label>
+                    
+                    <div class="grid grid-cols-3 gap-1 pt-0.5 pb-0.5">
+                      <label class="flag-mini-pill" title="Exibir itens com vigência Mensal no Perpétuo/MPSA">
+                        <input type="checkbox" id="chk-pm-show-mensal" onchange="Cotador.app.syncMasterFromTempPills()">
+                        <span>Exibir Mensal</span>
+                      </label>
+                      <label class="flag-mini-pill" title="Exibir itens com vigência Anual (1 Ano) no Perpétuo/MPSA">
+                        <input type="checkbox" id="chk-pm-show-anual" onchange="Cotador.app.syncMasterFromTempPills()">
+                        <span>Exibir Anual</span>
+                      </label>
+                      <label class="flag-mini-pill" title="Exibir itens com vigência Trienal (3 Anos) no Perpétuo/MPSA">
+                        <input type="checkbox" id="chk-pm-show-trienal" onchange="Cotador.app.syncMasterFromTempPills()">
+                        <span>Exibir Trienal</span>
+                      </label>
+                    </div>
+
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                      <input type="checkbox" id="chk-pm-show-stepup">
+                      <span>Exibir "Step-Up / Upgrade / Migration"</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                      <input type="checkbox" id="chk-pm-show-cals" checked>
+                      <span>Exibir "CALs de Acesso" (User / Device / RDS CAL)</span>
+                    </label>
+                  </div>
+                </details>
 
                 <!-- Flags Exclusivas MPSA -->
-                <div id="ms-flags-mpsa" class="hidden space-y-1.5 pt-2 border-t border-slate-200/70">
-                  <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Opções de Uso MPSA</div>
-                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-mpsa-show-sa">
-                    <span>Exibir "SA Only" (Software Assurance Avulso)</span>
-                  </label>
-                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-mpsa-show-licsa">
-                    <span>Exibir "Licença + SA"</span>
-                  </label>
-                  <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                    <input type="checkbox" id="chk-mpsa-show-liconly">
-                    <span>Exibir "License Only" (Licença Pura)</span>
-                  </label>
-                </div>
+                <details id="ms-flags-mpsa" class="hidden group pt-2 border-t border-slate-200/70" open>
+                  <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[10px] font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600">
+                    <span>Opções de Uso MPSA</span>
+                    <svg class="w-3.5 h-3.5 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                  </summary>
+                  <div class="space-y-1.5 pt-1.5">
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                      <input type="checkbox" id="chk-mpsa-show-sa">
+                      <span>Exibir "SA Only" (Software Assurance Avulso)</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                      <input type="checkbox" id="chk-mpsa-show-licsa">
+                      <span>Exibir "Licença + SA"</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                      <input type="checkbox" id="chk-mpsa-show-liconly">
+                      <span>Exibir "License Only" (Licença Pura)</span>
+                    </label>
+                  </div>
+                </details>
               </div>
             </div>
+          </div>
 
           <!-- 3. FILTROS ADOBE -->
           <div id="filtros-adobe" class="hidden space-y-3.5 pt-3 border-t border-slate-100">
