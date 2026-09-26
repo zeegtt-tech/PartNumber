@@ -4,14 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cotador Comercial de PNs & Licenciamento | v5.5 Enterprise</title>
-  
-  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Design System e Estilos Modulares -->
   <link rel="stylesheet" href="./css/styles.css">
-
-  <!-- Arquitetura Modular (Ordem de Carregamento Garantida via defer) -->
   <script defer src="./js/core.js"></script>
   <script defer src="./js/tables/microsoft.js"></script>
   <script defer src="./js/tables/adobe.js"></script>
@@ -32,24 +26,22 @@
         <div>
           <div class="flex items-center gap-2 flex-wrap">
             <h1 class="text-sm md:text-base font-semibold text-slate-900 tracking-tight">
-              Gerador Comercial de PNs & Cotação
+              Gerador Comercial de PNs &amp; Cotação
             </h1>
             <span class="text-[10px] px-2 py-0.5 rounded-full theme-badge font-medium uppercase tracking-wide transition-colors">
               v5.5 Enterprise
             </span>
           </div>
           <p class="text-[11px] text-slate-400">
-            Clique em qualquer PN para copiar • Pressione <kbd class="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-slate-600 font-medium">Ctrl + Enter</kbd> para buscar
+            Clique em qualquer PN para copiar &bull; Pressione <kbd class="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-slate-600 font-medium">Ctrl + Enter</kbd> para buscar
           </p>
         </div>
       </div>
 
       <div class="flex flex-wrap items-center gap-2.5">
-        <!-- Checkboxes nativos ocultos preservados para total compatibilidade de estado -->
         <input type="checkbox" id="chk-mostrar-subtotal" class="sr-only" checked onchange="Cotador.core.recalcularSubtotais()">
         <input type="checkbox" id="chk-mostrar-detalhes" class="sr-only" checked onchange="Cotador.core.atualizarVisibilidadeDetalhes()">
 
-        <!-- MINI CONTROLE UNIFICADO DE DETALHES E SUBTOTAIS -->
         <div class="unified-view-control" role="group" aria-label="Controle de exibição da tabela">
           <button type="button" id="btn-toggle-all-view" onclick="Cotador.core.alternarVisaoUnificada()" title="Alternar visão completa ou enxuta (Detalhes + Subtotais)" class="mini-toggle-btn text-slate-500 hover:text-slate-800 px-2 border-r border-slate-200/80 rounded-none">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
@@ -57,7 +49,7 @@
             </svg>
             <span>Visão</span>
           </button>
-          <button type="button" id="btn-toggle-detalhes" onclick="Cotador.core.toggleDetalhesSecundarios()" title="Habilitar/desabilitar colunas e informações secundárias (Custo Tabela, USD, Faixa, Tags)" class="mini-toggle-btn active">
+          <button type="button" id="btn-toggle-detalhes" onclick="Cotador.core.toggleDetalhesSecundarios()" title="Habilitar/desabilitar colunas e informações secundárias" class="mini-toggle-btn active">
             <span class="dot"></span>
             <span>Detalhes</span>
           </button>
@@ -77,11 +69,10 @@
     <!-- LAYOUT PRINCIPAL -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
       
-      <!-- PAINEL ESQUERDO: CONTROLES E FILTROS -->
+      <!-- PAINEL ESQUERDO -->
       <div class="lg:col-span-4 xl:col-span-3 lg:sticky lg:top-4">
         <div class="card card-accent-top p-4 space-y-4">
           
-          <!-- 1. FABRICANTE -->
           <div>
             <label class="section-label">1. Selecionar Fabricante</label>
             <div class="grid grid-cols-3 gap-1.5">
@@ -91,7 +82,6 @@
             </div>
           </div>
 
-          <!-- 2. LISTA DE PRODUTOS -->
           <div>
             <div class="flex justify-between items-center mb-1">
               <label class="section-label !mb-0">2. Lista de Produtos</label>
@@ -118,7 +108,6 @@
               </div>
             </div>
 
-            <!-- Seleção de Contratos (Exclusivo Scan e CSP Solo) -->
             <div id="ms-box-contratos">
               <label class="section-label">Contratos a Exibir</label>
               <div class="grid grid-cols-3 gap-1.5">
@@ -128,7 +117,6 @@
               </div>
             </div>
 
-            <!-- Flags Dinâmicas Microsoft -->
             <div id="ms-box-flags">
               <label class="section-label">Flags de Filtragem Microsoft</label>
               <div class="space-y-1.5 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
@@ -257,7 +245,7 @@
               <div>
                 <label class="section-label">Exibição de RO</label>
                 <select id="kasp-ro-mode" class="select-input">
-                  <option value="auto">Automático (≥ 100 lic.)</option>
+                  <option value="auto">Automático (&ge; 100 lic.)</option>
                   <option value="always">Sempre Mostrar RO</option>
                   <option value="never">Apenas Revenda</option>
                 </select>
@@ -288,18 +276,16 @@
             </div>
           </div>
 
-          <!-- BOTÃO DE AÇÃO -->
           <button onclick="Cotador.app.gerarCotacao()" id="btn-buscar" class="btn-theme-primary w-full py-2.5 px-4 rounded-lg font-medium text-xs flex items-center justify-center gap-2">
             <span>Buscar e Montar Tabelas</span>
           </button>
         </div>
       </div>
 
-      <!-- PAINEL DIREITO: TABELAS DE RESULTADO -->
+      <!-- PAINEL DIREITO -->
       <div class="lg:col-span-8 xl:col-span-9">
         <div class="card p-4 md:p-5 min-h-[560px] flex flex-col justify-between">
           <div>
-            <!-- BARRA DE AÇÕES -->
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3.5 mb-4">
               <div>
                 <h2 class="text-sm md:text-base font-semibold text-slate-800 flex items-center gap-2">
@@ -324,12 +310,10 @@
               </div>
             </div>
 
-            <!-- TOAST FEEDBACK -->
             <div id="copy-toast" class="hidden mb-3 p-2 rounded-lg theme-badge text-xs text-center font-medium shadow-sm">
               Copiado com sucesso!
             </div>
 
-            <!-- CONTAINER DAS TABELAS -->
             <div id="resultado-container" class="space-y-4 text-slate-800">
               <div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
                 Cole os produtos no painel esquerdo e clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span> (ou <kbd class="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-600 font-medium">Ctrl + Enter</kbd>).
@@ -337,7 +321,6 @@
             </div>
           </div>
 
-          <!-- MARKDOWN BRUTO -->
           <div class="mt-6 pt-3 border-t border-slate-100">
             <details class="text-xs text-slate-400">
               <summary class="cursor-pointer hover:text-slate-600 font-medium select-none">Ver código Markdown bruto da proposta</summary>
