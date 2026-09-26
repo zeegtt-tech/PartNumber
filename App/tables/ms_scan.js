@@ -6,7 +6,7 @@ window.Cotador.tables.ms_solo = {
     const resultadosPorItem = [];
 
     for (const item of parsedItems) {
-      const params = [['select', '*'], ['limit', '250']];
+      const params = [['select', '*'], ['limit', '3000']];
       item.keywords.forEach(kw => params.push(['titulo_sku', `ilike.*${kw}*`]));
       let data = await core.fetchSupabase('microsoft_solo', params);
       console.log(`[Supabase microsoft_solo] Retorno bruto para "${item.original}":`, data);

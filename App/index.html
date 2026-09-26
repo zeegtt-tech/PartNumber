@@ -383,8 +383,23 @@
           'apikey': this.SUPABASE_KEY,
           'Accept': 'application/json'
         };
-        if (this.SUPABASE_KEY.startsWith('eyJ')) {
-          headers['Authorization'] = `Bearer ${this.SUPABASE_KEY}`;
+        async fetchSupabase(table, paramsArray) {
+          const qs = paramsArray.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+          const url = `${this.SUPABASE_URL}/${table}?${qs}`;
+          
+          // CORREÇÃO: Enviar a chave sempre, independentemente do formato
+          const headers = {
+            'apikey': this.SUPABASE_KEY,
+            'Authorization': `Bearer ${this.SUPABASE_KEY}`,
+            'Accept': 'application/json'
+          };
+          
+          const resp = await fetch(url, { method: 'GET', headers });
+          if (!resp.ok) {
+            const errTxt = await resp.text();
+            throw new Error(`Erro Supabase (${resp.status}) na tabela [${table}]: ${errTxt}`);
+          }
+          return await resp.json();
         }
 
         const resp = await fetch(url, { method: 'GET', headers });
@@ -643,10 +658,20 @@
         for (const c of flags.contratos) {
           let rowsHTML = '';
           for (const { item, data } of resultadosPorItem) {
-            const filtrados = data.filter(r =>
-              (r.tempo_contrato || '').trim().toLowerCase() === c.scanTempo.toLowerCase() &&
-              (r.ciclo_pagamento || '').trim().toLowerCase() === c.scanCiclo.toLowerCase()
-            );
+            const filtrados = data.filter(r => {
+              const termo = (r.termo_duracao || '').trim().toUpperCase();
+              const plano = (r.plano_pagamento || '').trim().toLowerCase();
+              
+              const matchTermo = c.soloTermo === 'P1Y' 
+                ? ['P1Y', 'ANUAL', 'ANNUAL', '1 ANO', '1 YEAR', '12M'].includes(termo)
+                : ['P1M', 'MENSAL', 'MONTHLY', '1 MES', '1 MONTH', '1M'].includes(termo);
+                
+              const matchPlano = c.soloPlano.toLowerCase() === 'annual'
+                ? ['annual', 'anual', 'p1y', 'ano'].includes(plano)
+                : ['monthly', 'mensal', 'p1m', 'mes', 'mês'].includes(plano);
+
+              return matchTermo && matchPlano;
+            });
 
             if (filtrados.length === 0) {
               rowsHTML += core.renderNotFoundRow(item, 6);
