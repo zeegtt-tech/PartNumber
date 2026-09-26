@@ -1,13 +1,13 @@
 // ============================================================================
 // CONTROLADOR DA APLICAÇÃO (APP) - COTADOR v5.7 ENTERPRISE (js/app.js)
 // ============================================================================
-
 window.Cotador.app = {
   currentVendor: 'microsoft',
   parsedItems: [],
   totalLicenses: 0,
   msModalidades: new Set(),
   msSegmentos: new Set(['commercial']),
+  adobeSegmentos: new Set(['teams']),
   trienaisVisiveis: false,
 
   init() {
@@ -19,13 +19,14 @@ window.Cotador.app = {
     });
     this.atualizarUIMsModalidades();
     this.atualizarUIMsSegmentos();
+    this.atualizarUIAdobeSegmentos();
     this.preencherExemplo();
   },
 
   setVendor(vendor) {
     this.currentVendor = vendor;
     document.body.setAttribute('data-vendor', vendor);
-    
+
     ['microsoft', 'adobe', 'kaspersky'].forEach(v => {
       document.getElementById(`btn-vendor-${v}`).classList.toggle('active', v === vendor);
       document.getElementById(`filtros-${v}`).classList.toggle('hidden', v !== vendor);
@@ -138,18 +139,44 @@ window.Cotador.app = {
   },
 
   // ==========================================================================
-  // CONTROLES ADOBE & KASPERSKY
+  // CONTROLES ADOBE (MULTI-SELEÇÃO TEAMS & ENTERPRISE) & KASPERSKY
   // ==========================================================================
+  toggleAdobeSegmento(seg) {
+    if (this.adobeSegmentos.has(seg)) {
+      if (this.adobeSegmentos.size > 1) {
+        this.adobeSegmentos.delete(seg);
+      }
+    } else {
+      this.adobeSegmentos.add(seg);
+    }
+    this.atualizarUIAdobeSegmentos();
+  },
+
   setAdobeSegmento(seg) {
-    document.getElementById('adobe-segmento').value = seg;
+    this.toggleAdobeSegmento(seg);
+  },
+
+  selecionarTodosAdobeSegmentos() {
+    this.adobeSegmentos = new Set(['teams', 'enterprise']);
+    this.atualizarUIAdobeSegmentos();
+  },
+
+  obterAdobeSegmentosAtivos() {
+    const ordem = ['teams', 'enterprise'];
+    return this.adobeSegmentos.size > 0
+      ? ordem.filter(s => this.adobeSegmentos.has(s))
+      : ['teams'];
+  },
+
+  atualizarUIAdobeSegmentos() {
+    const ativos = this.obterAdobeSegmentosAtivos();
+    const hiddenInput = document.getElementById('adobe-segmento');
+    if (hiddenInput) hiddenInput.value = ativos.join(',');
+
     ['teams', 'enterprise'].forEach(s => {
       const btn = document.getElementById(`btn-adobe-seg-${s}`);
-      if (btn) btn.classList.toggle('active', s === seg);
+      if (btn) btn.classList.toggle('active', this.adobeSegmentos.has(s));
     });
-    const labelSeg = seg === 'enterprise' ? 'For Enterprise' : 'For Teams';
-    document.getElementById('resultado-container').innerHTML = `<div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">Segmento Adobe alterado para <span class="theme-text font-semibold uppercase">${labelSeg}</span>.<br>Clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span> para consultar.</div>`;
-    document.getElementById('markdown-output').textContent = '';
-    this.analisarInput();
   },
 
   setKaspTipo(tipo) {
@@ -226,7 +253,6 @@ window.Cotador.app = {
       if (this.currentVendor === 'microsoft') {
         const modalidades = this.obterModalidadesAtivas();
         const contratos = [];
-
         if (document.getElementById('chk-anual-anual')?.checked) {
           contratos.push({ id: 'aa', label: 'Anual / Anual', scanTempo: 'Anual', scanCiclo: 'Anual', soloTermo: 'P1Y', soloPlano: 'Annual' });
         }
@@ -278,9 +304,15 @@ window.Cotador.app = {
         const usarPromo = document.getElementById('chk-adobe-promo').checked;
         const tabela = usarPromo ? 'adobe_promo' : 'adobe_base';
         const lvlSelect = document.getElementById('adobe-level').value;
+        const segmentos = this.obterAdobeSegmentosAtivos();
+
         const flags = {
-          segmento: document.getElementById('adobe-segmento').value || 'teams',
-          targetLevel: (lvlSelect === 'auto') ? this.getAdobeAutoLevel(this.totalLicenses) : lvlSelect,
+          segmentos,
+          segmento: segmentos[0] || 'teams',
+          levelSelect: lvlSelect,
+          targetLevel: (lvlSelect === 'auto')
+            ? (this.totalLicenses > 0 ? this.getAdobeAutoLevel(this.totalLicenses) : 'all')
+            : lvlSelect,
           taxaDolar: parseFloat(document.getElementById('adobe-dolar').value) || 4.80,
           hide3YCommit: document.getElementById('chk-adobe-hide-3y').checked
         };
@@ -302,17 +334,19 @@ window.Cotador.app = {
         const roMode = document.getElementById('kasp-ro-mode').value;
         const flags = {
           periodos,
-          targetBanda: (bandaSelect === 'auto') ? this.getKaspAutoBanda(this.totalLicenses) : bandaSelect,
-          edrFilter: document.getElementById('kasp-edr-filter').value,
+          bandaSelect,
+          targetBanda: (bandaSelect === 'auto')
+            ? (this.totalLicenses > 0 ? this.getKaspAutoBanda(this.totalLicenses) : 'all')
+            : bandaSelect,
           tipo: document.getElementById('kasp-tipo').value || 'Base',
           mostrarRO: roMode === 'always' || (roMode === 'auto' && this.totalLicenses >= 100),
-          ignoreSuccessive: document.getElementById('chk-kasp-ignore-successive').checked,
-          ignorePublic: document.getElementById('chk-kasp-ignore-public').checked
+          showSuccessive: document.getElementById('chk-kasp-show-successive')?.checked ?? false,
+          showPublic: document.getElementById('chk-kasp-show-public')?.checked ?? false,
+          showBasePlus: document.getElementById('chk-kasp-show-baseplus')?.checked ?? false
         };
         await window.Cotador.tables.kaspersky.processar(this.parsedItems, flags);
       }
 
-      // Remove eventuais tabelas vazias e exibe o alerta global caso nenhuma tabela tenha retornado itens
       window.Cotador.core.limparBlocosVazios();
       window.Cotador.core.recalcularSubtotais();
     } catch (err) {

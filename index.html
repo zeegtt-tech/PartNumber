@@ -254,12 +254,20 @@
           <!-- 3. FILTROS ADOBE -->
           <div id="filtros-adobe" class="hidden space-y-3.5 pt-3 border-t border-slate-100">
             <div>
-              <label class="section-label">Segmento Adobe</label>
+              <div class="flex items-center justify-between mb-1">
+                <label class="section-label !mb-0">Segmento Adobe</label>
+                <div class="flex items-center gap-2 text-[10px] font-medium">
+                  <button type="button" onclick="Cotador.app.selecionarTodosAdobeSegmentos()" class="theme-text hover:underline" title="Selecionar For Teams e For Enterprise juntos para comparativo">Ambos</button>
+                </div>
+              </div>
               <input type="hidden" id="adobe-segmento" value="teams">
               <div class="grid grid-cols-2 gap-1.5">
-                <button type="button" onclick="Cotador.app.setAdobeSegmento('teams')" id="btn-adobe-seg-teams" class="modality-chip active">For Teams</button>
-                <button type="button" onclick="Cotador.app.setAdobeSegmento('enterprise')" id="btn-adobe-seg-enterprise" class="modality-chip">For Enterprise</button>
+                <button type="button" onclick="Cotador.app.toggleAdobeSegmento('teams')" id="btn-adobe-seg-teams" class="modality-chip active">For Teams</button>
+                <button type="button" onclick="Cotador.app.toggleAdobeSegmento('enterprise')" id="btn-adobe-seg-enterprise" class="modality-chip">For Enterprise</button>
               </div>
+              <p class="text-[10px] text-slate-400 mt-1 leading-tight">
+                Dica: selecione as duas opções juntas caso precise de um comparativo.
+              </p>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
@@ -358,30 +366,23 @@
               </div>
             </div>
             <div>
-              <label class="section-label">Filtro de Solução (EDR)</label>
-              <select id="kasp-edr-filter" class="select-input">
-                <option value="all">Todas as Versões (Com e Sem EDR)</option>
-                <option value="with_edr">Apenas COM EDR</option>
-                <option value="without_edr">Apenas SEM EDR</option>
-              </select>
-            </div>
-            <div>
-              <label class="section-label">Flags de Filtragem Kaspersky</label>
+              <label class="section-label">Flags de Exibição Kaspersky</label>
               <div class="space-y-1.5 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
                 <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                  <input type="checkbox" id="chk-kasp-ignore-successive" checked>
-                  <span>Ignorar "Successive Licence"</span>
+                  <input type="checkbox" id="chk-kasp-show-successive">
+                  <span>Exibir "Successive Licence"</span>
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                  <input type="checkbox" id="chk-kasp-ignore-public" checked>
-                  <span>Ignorar "Public Sector Licence"</span>
+                  <input type="checkbox" id="chk-kasp-show-public">
+                  <span>Exibir "Public Sector Licence"</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
+                  <input type="checkbox" id="chk-kasp-show-baseplus">
+                  <span>Exibir "Base Plus"</span>
                 </label>
               </div>
             </div>
           </div>
-
-        </div>
-      </div>
 
       <!-- PAINEL DIREITO -->
       <div class="lg:col-span-8 xl:col-span-9">

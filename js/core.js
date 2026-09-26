@@ -680,14 +680,18 @@ window.Cotador.core = {
     document.body.classList.toggle('hide-subtotals', !showSub);
     const btnSub = document.getElementById('btn-toggle-subtotal');
     if (btnSub) btnSub.classList.toggle('active', showSub);
+
     document.querySelectorAll('.col-subtotal').forEach(el => el.classList.toggle('hidden', !showSub));
 
     document.querySelectorAll('.quote-block').forEach(block => {
+      const isUSD = block.getAttribute('data-currency') === 'USD';
       let somaBloco = 0;
+      let somaBlocoBrl = 0;
       let temQtd = false;
 
       block.querySelectorAll('tbody tr').forEach(tr => {
         const unit = parseFloat(tr.getAttribute('data-unit-price'));
+        const unitBrl = parseFloat(tr.getAttribute('data-unit-price-brl'));
         const input = tr.querySelector('.qty-input');
         const subTd = tr.querySelector('.col-subtotal');
         if (!input || isNaN(unit)) return;
@@ -697,7 +701,19 @@ window.Cotador.core = {
           const sub = unit * qty;
           somaBloco += sub;
           temQtd = true;
-          if (subTd) {
+
+          if (isUSD) {
+            const subBrl = (!isNaN(unitBrl) ? unitBrl : 0) * qty;
+            somaBlocoBrl += subBrl;
+            if (subTd) {
+              const formattedUSD = `US$ ${this.formatUSD(sub)}`;
+              const formattedBRL = `R$ ${this.formatBRL(subBrl)}`;
+              const detailBrl = subBrl > 0
+                ? `<div class="sec-detail text-[11px] font-normal text-slate-400 mt-0.5">${this.renderCopyLink(formattedBRL, formattedBRL, 'Subtotal BRL')}</div>`
+                : '';
+              subTd.innerHTML = `${this.renderCopyLink(formattedUSD, formattedUSD, 'Subtotal USD')}${detailBrl}`;
+            }
+          } else if (subTd) {
             const formattedSub = `R$ ${this.formatBRL(sub)}`;
             subTd.innerHTML = this.renderCopyLink(formattedSub, formattedSub, 'Subtotal');
           }
@@ -708,9 +724,16 @@ window.Cotador.core = {
 
       const badgeTotal = document.getElementById(`total-${block.id}`);
       if (badgeTotal) {
-        const valorFormatado = `R$ ${this.formatBRL(somaBloco)}`;
-        badgeTotal.textContent = `Total: ${valorFormatado}`;
-        badgeTotal.setAttribute('data-copy', valorFormatado);
+        if (isUSD) {
+          const valorUSD = `US$ ${this.formatUSD(somaBloco)}`;
+          const valorBRL = `R$ ${this.formatBRL(somaBlocoBrl)}`;
+          badgeTotal.innerHTML = `Total: ${valorUSD}<span class="sec-detail font-normal opacity-80 ml-1.5">(${valorBRL})</span>`;
+          badgeTotal.setAttribute('data-copy', valorUSD);
+        } else {
+          const valorFormatado = `R$ ${this.formatBRL(somaBloco)}`;
+          badgeTotal.textContent = `Total: ${valorFormatado}`;
+          badgeTotal.setAttribute('data-copy', valorFormatado);
+        }
         badgeTotal.classList.toggle('hidden', !temQtd || !showSub);
       }
     });
