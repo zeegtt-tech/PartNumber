@@ -1,6 +1,6 @@
 // ============================================================================
-// MÓDULO DE TABELAS: ADOBE (Base Padrão & Promo Novos Clientes) - v5.7 ENTERPRISE
-// Arquivo: js/tables/adobe.js
+// MÓDULO DE TABELAS: ADOBE (Base Padrão & Promo Novos Clientes) - v5.8 ENTERPRISE
+// Ficheiro: js/tables/adobe.js
 // ============================================================================
 
 function obterInfoLevelAdobe(levelDetail) {
@@ -76,6 +76,53 @@ function obterInfoLevelAdobe(levelDetail) {
   };
 }
 
+function extrairQualificadorAdobe(row) {
+  const add = String(row.additional_detail || '').trim();
+  const pType = String(row.product_type || '').trim();
+  const badges = [];
+  let isPackOrSpecial = false;
+
+  const packMatch = add.match(/\b(\d+\s*Pack)\b/i);
+  if (packMatch) {
+    badges.push(packMatch[1]);
+    isPackOrSpecial = true;
+  }
+
+  const moqMatch = add.match(/\b(High Growth Offer\s*\d+\s*MOQ)\b/i);
+  if (moqMatch) {
+    badges.push(moqMatch[1]);
+    isPackOrSpecial = true;
+  }
+
+  const creditMatch = add.match(/\b(\d+[K]?\s*(?:CREDIT PACK|Credits))\b/i);
+  if (creditMatch) {
+    badges.push(creditMatch[1]);
+    isPackOrSpecial = true;
+  }
+
+  const assetsMatch = add.match(/\b((?:Team\s+)?\d+\s*assets\s*per\s*month)\b/i);
+  if (assetsMatch) {
+    badges.push(assetsMatch[1]);
+  }
+
+  if (/\bMICROSOFT AZURE\b/i.test(add)) badges.push('Azure');
+  else if (/\bAWS\b/i.test(add)) badges.push('AWS');
+
+  if (/Feature Restricted/i.test(pType) || /Feature Restricted/i.test(add)) {
+    badges.push('FRL 36M');
+    isPackOrSpecial = true;
+  } else if (/Term License/i.test(pType)) {
+    badges.push('Term License');
+    isPackOrSpecial = true;
+  }
+
+  return {
+    badges,
+    fullDetail: add,
+    isPackOrSpecial
+  };
+}
+
 function criarModuloAdobe(tableName, labelTitulo) {
   return {
     async processar(parsedItems, flags) {
@@ -87,7 +134,6 @@ function criarModuloAdobe(tableName, labelTitulo) {
         ? flags.segmentos
         : [flags.segmento || 'teams'];
 
-      // Se algum item não tiver quantidade definida e o filtro estiver em 'auto', exibe todas as tabelas de range
       const algumSemQuantidade = parsedItems.some(
         item => item.qty === '-' || item.qty === null || item.qty === '' || isNaN(item.qty)
       );
@@ -96,8 +142,14 @@ function criarModuloAdobe(tableName, labelTitulo) {
         : flags.targetLevel;
 
       const promessas = parsedItems.map(async item => {
-        const params = [['select', '*'], ['limit', '500']];
-        item.keywords.forEach(kw => params.push(['product_family', `ilike.*${kw}*`]));
+        const params = [['select', '*'], ['limit', '800']];
+        const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z]{10,18}$/i.test(item.keywords[0]);
+
+        if (isPnQuery) {
+          params.push(['part_number', `ilike.*${item.keywords[0]}*`]);
+        } else {
+          item.keywords.forEach(kw => params.push(['product_family', `ilike.*${kw}*`]));
+        }
 
         let data = await core.fetchSupabase(tableName, params);
         const buscouStockExplicito = (item.rawSearch || '').toLowerCase().includes('stock');
@@ -105,13 +157,13 @@ function criarModuloAdobe(tableName, labelTitulo) {
         data = data.filter(r => {
           const prodName = (r.product_family || '').toLowerCase();
           const ld = (r.level_detail || '').toLowerCase();
+          const preco = core.parsePrice(r.partner_price);
+          if (preco <= 0) return false;
 
-          // Filtra "VIP Select 3 year commit" se a flag de ocultar estiver ativa
           if (flags.hide3YCommit && ld.includes('3 year commit')) {
             return false;
           }
 
-          // Filtra opções "with Adobe Stock" a menos que a flag esteja marcada ou o usuário tenha buscado por "stock"
           if (!flags.showAdobeStock && !buscouStockExplicito && prodName.includes('with adobe stock')) {
             return false;
           }
@@ -127,8 +179,8 @@ function criarModuloAdobe(tableName, labelTitulo) {
       });
 
       const resultados = await Promise.all(promessas);
+      const matchedItemIndices = new Set();
 
-      // Separa as tabelas por Segmento (For Teams / For Enterprise) e por Range (Level 1, Level 2, Level 3, Level 4...) em ordem crescente
       for (const seg of segmentosAtivos) {
         const levelsMap = new Map();
 
@@ -157,15 +209,22 @@ function criarModuloAdobe(tableName, labelTitulo) {
               return matchSeg && info.id === lvl.id;
             });
 
-            // Ordena alfabeticamente variantes do mesmo item dentro daquele range
+            // Ordena priorizando licença padrão (sem Pack/MOQ restrito) antes de Packs promocionais
             filtrados.sort((a, b) => {
               const prodA = (a.product_family || '').toLowerCase().trim();
               const prodB = (b.product_family || '').toLowerCase().trim();
               if (prodA !== prodB) return prodA.localeCompare(prodB);
+
+              const qualA = extrairQualificadorAdobe(a);
+              const qualB = extrairQualificadorAdobe(b);
+              if (qualA.isPackOrSpecial !== qualB.isPackOrSpecial) {
+                return qualA.isPackOrSpecial ? 1 : -1;
+              }
               return core.parsePrice(a.partner_price) - core.parsePrice(b.partner_price);
             });
 
             filtrados.forEach(r => {
+              matchedItemIndices.add(item.itemIndex);
               const usd = core.parsePrice(r.partner_price);
               const brl = usd * flags.taxaDolar;
               const pn = r.part_number;
@@ -174,16 +233,21 @@ function criarModuloAdobe(tableName, labelTitulo) {
 
               const nomeBase = (r.product_family || '').trim();
               const infoLvl = obterInfoLevelAdobe(r.level_detail);
-              const nomeComLevel = infoLvl.label ? `${nomeBase} - ${infoLvl.label}` : nomeBase;
+              const qual = extrairQualificadorAdobe(r);
+              const sufixoQual = qual.badges.length > 0 ? ` [${qual.badges.join(' • ')}]` : '';
+              const nomeComLevel = infoLvl.label ? `${nomeBase}${sufixoQual} - ${infoLvl.label}` : `${nomeBase}${sufixoQual}`;
 
-              // Chave normalizada sem o sufixo de level para sincronizar Drag & Drop e "Remover Semelhantes" entre todas as tabelas de range
-              const prodKey = nomeBase
+              const prodKey = `${nomeBase}${sufixoQual}`
                 .toLowerCase()
                 .replace(/\bfor\s+(teams|enterprise)\b/gi, '')
                 .replace(/\s+/g, ' ')
                 .trim();
 
-              const produtoDisplayHTML = `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${core.escapeHTML(nomeComLevel)}" data-label="Produto" title="Clique para copiar produto com level" class="copy-link"><span>${core.escapeHTML(nomeBase)}</span>${infoLvl.label ? ` <span class="theme-text font-semibold">- ${core.escapeHTML(infoLvl.label)}</span>` : ''}</span>`;
+              const badgesHTML = qual.badges
+                .map(b => `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${core.escapeHTML(b)}" data-label="Detalhe SKU" title="${core.escapeHTML(qual.fullDetail || b)}" class="copy-link sec-detail ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200">${core.escapeHTML(b)}</span>`)
+                .join('');
+
+              const produtoDisplayHTML = `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${core.escapeHTML(nomeComLevel)}" data-label="Produto" title="Clique para copiar produto com level" class="copy-link"><span>${core.escapeHTML(nomeBase)}</span>${infoLvl.label ? ` <span class="theme-text font-semibold">- ${core.escapeHTML(infoLvl.label)}</span>` : ''}</span>${badgesHTML}`;
 
               rowsHTML += `<tr data-unit-price="${usd}" data-unit-price-brl="${brl}" data-currency="USD" data-pn="${core.escapeHTML(pn)}" data-prod-key="${core.escapeHTML(prodKey)}">
                 <td class="font-medium text-slate-800">${produtoDisplayHTML}</td>
@@ -207,6 +271,10 @@ function criarModuloAdobe(tableName, labelTitulo) {
           container.insertAdjacentHTML('beforeend', `<div id="${bId}" class="quote-block" data-currency="USD" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN</th><th class="col-secondary">Level</th><th>Custo (USD)</th><th class="col-secondary">Custo (BRL)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`);
         }
       }
+
+      const missingItems = parsedItems.filter(it => !matchedItemIndices.has(it.itemIndex));
+      queueMicrotask(() => core.renderUnmatchedWarning(missingItems));
+      return { matchedItemIndices };
     }
   };
 }

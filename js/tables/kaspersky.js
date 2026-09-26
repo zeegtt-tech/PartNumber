@@ -1,6 +1,6 @@
 // ============================================================================
-// MÓDULO DE TABELAS: KASPERSKY (Separado por Produto, Período e Faixa) - v5.7
-// Arquivo: js/tables/kaspersky.js
+// MÓDULO DE TABELAS: KASPERSKY (Separado por Produto, Período e Faixa) - v5.8
+// Ficheiro: js/tables/kaspersky.js
 // ============================================================================
 
 function extrairOrdemBandaKaspersky(bandaStr) {
@@ -33,7 +33,7 @@ function extrairOrdemTipoKaspersky(row) {
   const tipo = (row.tipo || '').toLowerCase();
   if (nome.includes('base plus') || tipo.includes('base plus')) return 2;
   if (nome.includes('successive') || tipo.includes('successive')) return 3;
-  if (nome.includes('public sector') || tipo.includes('public sector')) return 4;
+  if (nome.includes('public sector') || tipo.includes('public sector') || tipo.includes('gov')) return 4;
   return 1;
 }
 
@@ -118,15 +118,24 @@ window.Cotador.tables.kaspersky = {
       showRevenda = true;
     }
 
+    // Inclui período "1 MÊS" automaticamente caso "Successive Licence" esteja ativo
+    const periodosAtivos = [...(flags.periodos || [])];
+    if (flags.showSuccessive && !periodosAtivos.some(p => p.match === '1 MÊS')) {
+      periodosAtivos.unshift({ id: '1m', label: '1 MÊS', match: '1 MÊS' });
+    }
+
     const promessas = parsedItems.map(async item => {
       let data = [];
       const hasFoundationKw = item.keywords.some(kw => kw.toLowerCase().includes('foundation'));
       const hasEdrKw = item.keywords.some(kw => kw.toLowerCase() === 'edr');
+      const isPnQuery = item.keywords.length === 1 && /^KL[0-9A-Z]{5,}$/i.test(item.keywords[0]);
 
-      // Se buscar por "Foundations" sem especificar "EDR", traz ambas as versões (Com e Sem EDR)
-      if (hasFoundationKw && !hasEdrKw) {
-        const p1 = [['select', '*'], ['limit', '1000'], ['sale_item_name', 'ilike.*Foundations*']];
-        const p2 = [['select', '*'], ['limit', '1000'], ['sale_item_name', 'ilike.*Endpoint Security Cloud*']];
+      if (isPnQuery) {
+        const params = [['select', '*'], ['limit', '500'], ['part_number', `ilike.*${item.keywords[0]}*`]];
+        data = await core.fetchSupabase('kaspersky', params);
+      } else if (hasFoundationKw && !hasEdrKw) {
+        const p1 = [['select', '*'], ['limit', '1200'], ['sale_item_name', 'ilike.*Foundations*']];
+        const p2 = [['select', '*'], ['limit', '1200'], ['sale_item_name', 'ilike.*Endpoint Security Cloud*']];
         const [d1, d2] = await Promise.all([
           core.fetchSupabase('kaspersky', p1),
           core.fetchSupabase('kaspersky', p2)
@@ -140,34 +149,34 @@ window.Cotador.tables.kaspersky = {
           }
         });
       } else {
-        const params = [['select', '*'], ['limit', '1000']];
+        const params = [['select', '*'], ['limit', '1200']];
         item.keywords.forEach(kw => params.push(['sale_item_name', `ilike.*${kw}*`]));
         data = await core.fetchSupabase('kaspersky', params);
       }
 
-      // Licenças ocultas por padrão: só aparecem se o usuário marcar as caixas correspondentes
       data = data.filter(r => {
         const nome = (r.sale_item_name || '').toLowerCase();
-        const tipo = (r.tipo || '').toLowerCase();
+        const tipo = (r.tipo || '').toLowerCase().trim();
 
         const isBasePlus = nome.includes('base plus') || tipo.includes('base plus');
         const isSuccessive = nome.includes('successive') || tipo.includes('successive');
-        const isPublic = nome.includes('public sector') || tipo.includes('public sector');
+        const isPublic = nome.includes('public sector') || tipo.includes('public sector') || tipo.includes('gov');
+        const isServiceOrTraining = tipo === '-' || nome.startsWith('kaspersky atc training');
 
         if (!flags.showBasePlus && isBasePlus) return false;
         if (!flags.showSuccessive && isSuccessive) return false;
         if (!flags.showPublic && isPublic) return false;
 
-        if (flags.tipo !== 'all') {
+        if (flags.tipo !== 'all' && !isServiceOrTraining) {
           const targetTipo = flags.tipo.toLowerCase();
           if (targetTipo === 'base') {
             const matchBase = tipo === 'base' ||
-              (flags.showBasePlus && isBasePlus && !tipo.includes('renew')) ||
-              (flags.showSuccessive && isSuccessive && !tipo.includes('renew')) ||
-              (flags.showPublic && isPublic && !tipo.includes('renew'));
+              (flags.showBasePlus && isBasePlus && !tipo.includes('renew') && !tipo.includes('renov') && !nome.includes('renewal')) ||
+              (flags.showSuccessive && isSuccessive && !tipo.includes('renew') && !tipo.includes('renov')) ||
+              (flags.showPublic && isPublic && !tipo.includes('renew') && !tipo.includes('renov') && !nome.includes('renewal'));
             if (!matchBase) return false;
           } else if (targetTipo === 'renewal') {
-            const matchRenew = tipo === 'renewal' || tipo.includes('renew');
+            const matchRenew = tipo === 'renewal' || tipo.includes('renew') || tipo.includes('renov') || nome.includes('renewal');
             if (!matchRenew) return false;
           }
         }
@@ -175,23 +184,25 @@ window.Cotador.tables.kaspersky = {
         return true;
       });
 
-      // Define a faixa (banda) individualmente por item pesquisado quando em modo 'auto'
       const semQuantidade = item.qty === '-' || item.qty === null || item.qty === '' || isNaN(item.qty);
       const effectiveBanda = (flags.bandaSelect === 'auto')
         ? (semQuantidade ? 'all' : obterBandaAutoPorQtdKaspersky(item.qty))
         : flags.targetBanda;
 
       if (effectiveBanda !== 'all') {
-        data = data.filter(r => (r.banda || '').trim() === effectiveBanda);
+        data = data.filter(r => {
+          const b = (r.banda || '').trim();
+          return b === effectiveBanda || b === '-';
+        });
       }
 
       return { item, data };
     });
 
     const resultadosPorItem = await Promise.all(promessas);
+    const matchedItemIndices = new Set();
     const tipoLabel = flags.tipo === 'Renewal' ? 'Renew' : 'Base';
 
-    // Identifica todos os produtos distintos retornados na busca
     const produtosMap = new Map();
     resultadosPorItem.forEach(({ item, data }) => {
       data.forEach(r => {
@@ -211,9 +222,8 @@ window.Cotador.tables.kaspersky = {
       return a.titulo.localeCompare(b.titulo);
     });
 
-    // Separa as tabelas por Produto -> Período -> Faixa (Banda em ordem crescente)
     for (const prodInfo of produtosOrdenados) {
-      for (const p of flags.periodos) {
+      for (const p of periodosAtivos) {
         const bandasSet = new Set();
 
         resultadosPorItem.forEach(({ data }) => {
@@ -243,10 +253,10 @@ window.Cotador.tables.kaspersky = {
               );
             });
 
-            // Ordena variantes do mesmo produto pelo tipo (Base -> Base Plus -> Successive -> Public Sector)
             filtrados.sort((a, b) => extrairOrdemTipoKaspersky(a) - extrairOrdemTipoKaspersky(b));
 
             filtrados.forEach(r => {
+              matchedItemIndices.add(item.itemIndex);
               const revenda = core.parsePrice(r.revenda);
               const roOficial = core.parsePrice(r.ro);
               const naoPrime = extrairPrecoNaoPrimeKaspersky(r, core);
@@ -265,14 +275,13 @@ window.Cotador.tables.kaspersky = {
               const fmtRO = roOficial > 0 ? `R$ ${core.formatBRL(roOficial)}` : '-';
               const fmtNaoPrime = naoPrime > 0 ? `R$ ${core.formatBRL(naoPrime)}` : '-';
 
-              // Mantém o aviso "SEM EDR" apenas no item Foundations que não possui EDR
               const nomeLower = (r.sale_item_name || '').toLowerCase();
               const isFoundationsSemEdr = nomeLower.includes('foundation') && !nomeLower.includes('edr');
               const badgeSemEdr = isFoundationsSemEdr
                 ? `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="SEM EDR" data-label="EDR" title="Clique para copiar" class="copy-link sec-detail ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-normal bg-slate-100 text-slate-600 border border-slate-200">SEM EDR</span>`
                 : '';
 
-              const bandaTxt = `Banda: ${bandaAtual}`;
+              const bandaTxt = bandaAtual === '-' ? 'Único / Serviço' : `Banda: ${bandaAtual}`;
               const prodKey = normalizarChaveProdutoKaspersky(r.sale_item_name, bandaAtual);
 
               rowsHTML += `<tr data-unit-price="${unitarioRef}" data-pn="${core.escapeHTML(pn)}" data-prod-key="${core.escapeHTML(prodKey)}">
@@ -291,7 +300,7 @@ window.Cotador.tables.kaspersky = {
 
           if (!rowsHTML) continue;
 
-          const bandaSlug = bandaAtual.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+          const bandaSlug = bandaAtual.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'unico';
           const bId = `blk-kaspersky-${prodInfo.id}-${p.id}-${bandaSlug}`;
           const headerTitle = `${prodInfo.titulo} (${tipoLabel}) | Período: ${p.label} | Faixa: ${bandaAtual}`;
 
@@ -299,5 +308,9 @@ window.Cotador.tables.kaspersky = {
         }
       }
     }
+
+    const missingItems = parsedItems.filter(it => !matchedItemIndices.has(it.itemIndex));
+    queueMicrotask(() => core.renderUnmatchedWarning(missingItems));
+    return { matchedItemIndices };
   }
 };

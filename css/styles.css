@@ -1,6 +1,6 @@
 /* ============================================================================
- * DESIGN SYSTEM & TEMAS POR FABRICANTE - COTADOR v5.8.1 ENTERPRISE
- * Arquivo: css/styles.css
+ * DESIGN SYSTEM & TEMAS POR FABRICANTE - COTADOR v5.8 ENTERPRISE
+ * Ficheiro: css/styles.css
  * ============================================================================ */
 
 /* Paleta Dinâmica por Fabricante */
@@ -313,10 +313,6 @@ body {
   background-color: rgba(248, 250, 252, 0.6);
 }
 
-.col-margin-price {
-  background-color: rgba(240, 249, 255, 0.35);
-}
-
 table {
   width: 100%;
   border-collapse: collapse;
@@ -394,7 +390,7 @@ tbody tr:hover td { background-color: var(--accent-row-hover); }
 }
 
 /* ============================================================================
- * DRAG AND DROP (SINCRONIZADO ENTRE TABELAS)
+ * DRAG AND DROP (APENAS ARRASTAR - SINCRONIZADO ENTRE TABELAS)
  * ============================================================================ */
 .row-grip-wrap {
   display: inline-flex;
@@ -477,19 +473,7 @@ body.hide-subtotals .block-total-badge {
   display: none !important;
 }
 
-/* No Modo Cliente: Oculta PN, oculta colunas de Custo Normal e oculta detalhes internos (Sem 5%) */
-body.client-proposal-mode .col-pn,
-body.client-proposal-mode .col-cost-normal,
-body.client-proposal-mode .col-internal-cost,
-body.client-proposal-mode .internal-only-detail {
-  display: none !important;
-}
-
-body:not(.client-proposal-mode) .client-only-text {
-  display: none !important;
-}
-
-body.client-proposal-mode .internal-only-text {
+body.client-proposal-mode .col-internal-cost {
   display: none !important;
 }
 
