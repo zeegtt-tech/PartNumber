@@ -15,7 +15,6 @@ window.Cotador.core = {
   markupPercent: 0,
   markupEnabled: false,
   calcMode: 'markup', // 'markup' = Custo * (1 + pct/100) | 'margin' = Custo / (1 - pct/100)
-  ultimasAtualizacoes: {},
 
   iniciarNovaSessaoBusca() {
     if (this._searchAbortController) {
@@ -51,62 +50,145 @@ window.Cotador.core = {
     });
   },
 
+  ultimasAtualizacoes: {},
+  _popoverListenerInitialized: false,
+  CATALOGO_TABELAS: [
+    { id: 'microsoft_scan', fab: 'microsoft', nome: 'Microsoft CSP - Scan' },
+    { id: 'microsoft_solo', fab: 'microsoft', nome: 'Microsoft CSP - Solo' },
+    { id: 'microsoft_perpetuo', fab: 'microsoft', nome: 'Microsoft CSP Perpétuo' },
+    { id: 'microsoft_mpsa', fab: 'microsoft', nome: 'Microsoft MPSA' },
+    { id: 'adobe_base', fab: 'adobe', nome: 'Adobe VIP - Base' },
+    { id: 'adobe_promo', fab: 'adobe', nome: 'Adobe VIP - Promo' },
+    { id: 'kaspersky', fab: 'kaspersky', nome: 'Kaspersky B2B' }
+  ],
+
   async carregarDatasAtualizacao() {
     try {
       const rows = await this.fetchSupabase('catalogo_atualizacoes', [['select', '*']], { useAbort: false });
       if (Array.isArray(rows)) {
         rows.forEach(r => {
           if (r.tabela && r.atualizado_em) {
+            const meta = this.CATALOGO_TABELAS.find(t => t.id === r.tabela);
             this.ultimasAtualizacoes[r.tabela] = {
               iso: r.atualizado_em,
-              fabricante: r.fabricante,
-              nome: r.nome_exibicao || r.tabela
+              fabricante: r.fabricante || meta?.fab || '',
+              nome: meta?.nome || r.nome_exibicao || r.tabela
             };
           }
         });
       }
-    } catch (_) {
-      const tabelas = [
-        { id: 'microsoft_scan', fab: 'microsoft', nome: 'Scan' },
-        { id: 'microsoft_solo', fab: 'microsoft', nome: 'CSP Solo' },
-        { id: 'microsoft_perpetuo', fab: 'microsoft', nome: 'CSP Perpétuo' },
-        { id: 'microsoft_mpsa', fab: 'microsoft', nome: 'MPSA' },
-        { id: 'adobe_base', fab: 'adobe', nome: 'Adobe Base' },
-        { id: 'adobe_promo', fab: 'adobe', nome: 'Adobe Promo' },
-        { id: 'kaspersky', fab: 'kaspersky', nome: 'Kaspersky' }
-      ];
-      await Promise.allSettled(tabelas.map(async t => {
-        const res = await this.fetchSupabase(t.id, [['select', 'updated_at'], ['order', 'updated_at.desc'], ['limit', '1']], { useAbort: false });
-        if (res && res[0] && res[0].updated_at) {
-          this.ultimasAtualizacoes[t.id] = { iso: res[0].updated_at, fabricante: t.fab, nome: t.nome };
-        }
+    } catch (_) {}
+
+    // Garante consulta individual para qualquer planilha que não tenha vindo de catalogo_atualizacoes
+    const pendentes = this.CATALOGO_TABELAS.filter(t => !this.ultimasAtualizacoes[t.id]);
+    if (pendentes.length > 0) {
+      await Promise.allSettled(pendentes.map(async t => {
+        try {
+          const res = await this.fetchSupabase(t.id, [['select', 'updated_at'], ['order', 'updated_at.desc'], ['limit', '1']], { useAbort: false });
+          if (res && res[0] && res[0].updated_at) {
+            this.ultimasAtualizacoes[t.id] = { iso: res[0].updated_at, fabricante: t.fab, nome: t.nome };
+            return;
+          }
+        } catch (_) {}
+        try {
+          const resCreated = await this.fetchSupabase(t.id, [['select', 'created_at'], ['order', 'created_at.desc'], ['limit', '1']], { useAbort: false });
+          if (resCreated && resCreated[0] && resCreated[0].created_at) {
+            this.ultimasAtualizacoes[t.id] = { iso: resCreated[0].created_at, fabricante: t.fab, nome: t.nome };
+          }
+        } catch (_) {}
       }));
     }
+
     this.atualizarBadgeDataFabricante(window.Cotador.app?.currentVendor || 'microsoft');
   },
 
   atualizarBadgeDataFabricante(vendor) {
     const txtEl = document.getElementById('badge-last-update-text');
-    const badgeEl = document.getElementById('badge-last-update');
-    if (!txtEl || !badgeEl) return;
+    if (!txtEl) return;
 
-    const entradas = Object.values(this.ultimasAtualizacoes).filter(x => x.fabricante === vendor);
+    const entradas = Object.values(this.ultimasAtualizacoes).filter(x => x.fabricante === vendor && x.iso);
     if (entradas.length === 0) {
-      txtEl.textContent = 'Tabela s/ registro';
-      return;
+      txtEl.textContent = 'Base: s/ registro';
+    } else {
+      entradas.sort((a, b) => new Date(b.iso) - new Date(a.iso));
+      const maisRecente = this.formatarDataCurta(entradas[0].iso);
+      txtEl.textContent = `Base: ${maisRecente}`;
     }
 
-    entradas.sort((a, b) => new Date(b.iso) - new Date(a.iso));
-    const maisRecente = this.formatarDataCurta(entradas[0].iso);
-    txtEl.textContent = `Base: ${maisRecente}`;
+    this.renderizarListaAtualizacoesPopover(vendor);
+  },
 
-    badgeEl.title = entradas
-      .map(e => `${e.nome}: ${this.formatarDataHoraCompleta(e.iso)}`)
-      .join('\n');
+  renderizarListaAtualizacoesPopover(vendorAtivo) {
+    const listEl = document.getElementById('popover-last-update-list');
+    if (!listEl) return;
+
+    const vendor = vendorAtivo || window.Cotador.app?.currentVendor || 'microsoft';
+    // Ordena destacando primeiro as tabelas do fabricante selecionado na tela
+    const tabelasOrdenadas = [...this.CATALOGO_TABELAS].sort((a, b) => {
+      const aAtivo = a.fab === vendor ? 0 : 1;
+      const bAtivo = b.fab === vendor ? 0 : 1;
+      return aAtivo - bAtivo;
+    });
+
+    listEl.innerHTML = tabelasOrdenadas.map(t => {
+      const info = this.ultimasAtualizacoes[t.id];
+      const dataHora = info?.iso ? this.formatarDataHoraCompleta(info.iso) : 'Sem registro';
+      const isFabAtivo = t.fab === vendor;
+      const rowBg = isFabAtivo ? 'bg-slate-50 border-slate-200/90' : 'bg-white border-transparent opacity-75';
+      const dotCls = info?.iso
+        ? (isFabAtivo ? 'bg-emerald-500' : 'bg-slate-300')
+        : 'bg-amber-400';
+
+      return `
+        <div class="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg border ${rowBg}">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="w-1.5 h-1.5 rounded-full ${dotCls} shrink-0"></span>
+            <span class="font-medium text-slate-700 truncate">${this.escapeHTML(t.nome)}</span>
+          </div>
+          <span class="text-[11px] font-mono text-slate-500 tabular-nums whitespace-nowrap">${this.escapeHTML(dataHora)}</span>
+        </div>
+      `;
+    }).join('');
+  },
+
+  togglePainelAtualizacoes(event) {
+    if (event) event.stopPropagation();
+    const pop = document.getElementById('popover-last-update');
+    if (!pop) return;
+
+    if (!this._popoverListenerInitialized) {
+      this._popoverListenerInitialized = true;
+      document.addEventListener('click', (e) => {
+        const wrapper = document.getElementById('update-popover-wrapper');
+        if (wrapper && !wrapper.contains(e.target)) {
+          this.fecharPainelAtualizacoes();
+        }
+      });
+    }
+
+    const vaiAbrir = pop.classList.contains('hidden');
+    if (vaiAbrir) {
+      this.renderizarListaAtualizacoesPopover(window.Cotador.app?.currentVendor || 'microsoft');
+      pop.classList.remove('hidden');
+    } else {
+      pop.classList.add('hidden');
+    }
+  },
+
+  fecharPainelAtualizacoes() {
+    const pop = document.getElementById('popover-last-update');
+    if (pop) pop.classList.add('hidden');
   },
 
   SEARCH_KEYWORDS: {
     // Adobe VIP MP
+    "adobe acrobat pro": ["Acrobat", "Pro"],
+    "adobe acrobat standard": ["Acrobat", "Standard"],
+    "adobe creative cloud": ["Creative Cloud"],
+    "adobe illustrator": ["Illustrator"],
+    "adobe photoshop": ["Photoshop"],
+    "adobe indesign": ["InDesign"],
+    "adobe premiere": ["Premiere"],
     "phothosop": ["Photoshop"],
     "photshop": ["Photoshop"],
     "photosop": ["Photoshop"],
@@ -272,6 +354,8 @@ window.Cotador.core = {
     "foudations": "Foundations",
     "foudantions": "Foundations",
     "foundation": "Foundations",
+    "optmium": "Optimum",
+    "optimun": "Optimum",
     "bussiness": "Business",
     "busines": "Business",
     "bussines": "Business",

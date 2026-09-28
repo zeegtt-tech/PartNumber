@@ -20,6 +20,18 @@ window.Cotador.app = {
     'cotador_enterprise_prefs_v58'
   ],
 
+  VENDOR_PLACEHOLDERS: {
+    microsoft: "Ex:\nbusiness basic 10\nbusiness standard 26\nExchange plan 1 80",
+    adobe: "Ex:\nCreative Cloud 5\nAdobe Acrobat Pro 12\nIllustrator 3",
+    kaspersky: "Ex:\nEDR Optimum 50\nNext EDR Foundations 30\nSmall Office Security 10"
+  },
+
+  atualizarPlaceholderFabricante(vendor) {
+    const inputItens = document.getElementById('input-itens');
+    if (!inputItens) return;
+    inputItens.placeholder = this.VENDOR_PLACEHOLDERS[vendor] || this.VENDOR_PLACEHOLDERS.microsoft;
+  },
+
   sanitizarCacheEEstadoInicial() {
     try {
       this.LEGACY_STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
@@ -59,6 +71,7 @@ window.Cotador.app = {
     if (chkMpsaLicOnly) chkMpsaLicOnly.checked = true;
 
     this.carregarPreferencias();
+    this.atualizarPlaceholderFabricante(this.currentVendor);
     this.atualizarUIMsModalidades();
     this.atualizarUIMsSegmentos();
     this.atualizarUIAdobeSegmentos();
@@ -117,6 +130,7 @@ window.Cotador.app = {
       document.getElementById(`filtros-${v}`).classList.toggle('hidden', v !== vendor);
     });
 
+    this.atualizarPlaceholderFabricante(vendor);
     window.Cotador.core.atualizarBadgeDataFabricante(vendor);
 
     document.getElementById('resultado-container').innerHTML = `<div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">Fabricante alterado para <span class="theme-text font-semibold uppercase">${vendor}</span>.<br>Insira os itens no painel esquerdo e clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span>.</div>`;
@@ -152,17 +166,20 @@ window.Cotador.app = {
 
     const efetivas = this.obterModalidadesAtivas();
     const isScan = efetivas.includes('scan');
-    const hasCSP = isScan || efetivas.includes('solo');
+    const isSolo = efetivas.includes('solo');
+    const hasCSP = isScan || isSolo;
     const hasPM = efetivas.includes('perpetuo') || efetivas.includes('mpsa');
     const hasMPSA = efetivas.includes('mpsa');
 
     const boxScanDiscount = document.getElementById('ms-box-scan-discount');
+    const boxSoloService = document.getElementById('ms-box-solo-service');
     const boxContratos = document.getElementById('ms-box-contratos');
     const flagsCSP = document.getElementById('ms-flags-csp');
     const flagsPM = document.getElementById('ms-flags-perpetuo-mpsa');
     const flagsMPSA = document.getElementById('ms-flags-mpsa');
 
     if (boxScanDiscount) boxScanDiscount.classList.toggle('hidden', !isScan);
+    if (boxSoloService) boxSoloService.classList.toggle('hidden', !isSolo);
     if (boxContratos) boxContratos.classList.toggle('hidden', !hasCSP);
     if (flagsCSP) flagsCSP.classList.toggle('hidden', !hasCSP);
     if (flagsPM) flagsPM.classList.toggle('hidden', !hasPM);
