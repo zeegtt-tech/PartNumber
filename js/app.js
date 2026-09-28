@@ -1,6 +1,7 @@
 // ============================================================================
 // CONTROLADOR DA APLICAÇÃO (APP) - COTADOR v5.9 (Arquivo: js/app.js)
 // ============================================================================
+
 window.Cotador.app = {
   currentVendor: 'microsoft',
   parsedItems: [],
@@ -36,13 +37,13 @@ window.Cotador.app = {
     try {
       this.LEGACY_STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
     } catch (_) {}
-
+    
     // Força o estado padrão das flags Microsoft mesmo se o navegador fizer autofill de formulário (bfcache)
     const chkCopilot = document.getElementById('chk-show-copilot');
     const chkNoTeams = document.getElementById('chk-show-noteams');
     const chkTrial = document.getElementById('chk-show-trial');
     const chkFrontline = document.getElementById('chk-show-frontline');
-
+    
     if (chkCopilot) chkCopilot.checked = false;
     if (chkNoTeams) chkNoTeams.checked = false;
     if (chkTrial) chkTrial.checked = false;
@@ -52,8 +53,8 @@ window.Cotador.app = {
   init() {
     this.sanitizarCacheEEstadoInicial();
     window.Cotador.core.injetarControlesComerciaisHeader();
-
     const inputItens = document.getElementById('input-itens');
+    
     if (inputItens) {
       inputItens.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -75,24 +76,21 @@ window.Cotador.app = {
     this.atualizarUIMsModalidades();
     this.atualizarUIMsSegmentos();
     this.atualizarUIAdobeSegmentos();
-
+    
     if (inputItens && inputItens.value.trim()) {
       this.analisarInput();
     }
-
+    
     window.Cotador.core.carregarDatasAtualizacao();
     this.carregarPainelPtaxHeader();
   },
 
   salvarPreferencias() {
     try {
-      const calcModeAtual = window.Cotador.core?.calcMode === 'margin' ? 'margin' : 'markup';
       const prefs = {
         vendor: this.currentVendor,
         scanDiscount: document.getElementById('ms-scan-discount')?.value ?? '7',
-        msModalidades: Array.from(this.msModalidades),
-        calcMode: calcModeAtual
-        // Segurança: nunca salvar modoCliente no localStorage
+        msModalidades: Array.from(this.msModalidades)
       };
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(prefs));
     } catch (_) {}
@@ -103,48 +101,58 @@ window.Cotador.app = {
       const raw = localStorage.getItem(this.STORAGE_KEY);
       if (!raw) return;
       const prefs = JSON.parse(raw);
+      
       if (prefs.scanDiscount !== undefined && document.getElementById('ms-scan-discount')) {
         document.getElementById('ms-scan-discount').value = prefs.scanDiscount;
       }
       if (Array.isArray(prefs.msModalidades) && prefs.msModalidades.length > 0) {
         this.msModalidades = new Set([prefs.msModalidades[0] || 'scan']);
       }
-      if (prefs.calcMode === 'margin' || prefs.calcMode === 'markup') {
-        if (typeof window.Cotador.core?.setCalcMode === 'function') {
-          window.Cotador.core.setCalcMode(prefs.calcMode, true);
-        } else if (window.Cotador.core) {
-          window.Cotador.core.calcMode = prefs.calcMode;
-        }
-      }
     } catch (_) {}
   },
 
-  setVendor(vendor) {
-    window.Cotador.core.cancelarBuscasEmAndamento();
+  limparOutputPorSeguranca(motivo, valor) {
+    const container = document.getElementById('resultado-container');
+    if (container) {
+      container.innerHTML = `
+        <div class="text-center py-24 text-gray-500 text-xs bg-[#faf9f8] rounded border border-dashed border-[#c8c6c4] flex flex-col items-center justify-center gap-3">
+          <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+          <div>
+            ${motivo} alterado para <span class="theme-text font-semibold uppercase">${valor}</span>.<br>
+            <span class="text-[#a4262c] font-medium">Os resultados anteriores foram limpos para evitar confusão entre ofertas.</span>
+          </div>
+          <button onclick="Cotador.app.gerarCotacao()" class="mt-2 text-[11px] px-3 py-1.5 rounded bg-white hover:bg-[#edebe9] text-[#323130] border border-[#edebe9] font-semibold transition shadow-sm">
+            Buscar Novamente
+          </button>
+        </div>`;
+    }
+  },
 
+  setVendor(vendor) {
+    if (this.currentVendor === vendor) return;
+    window.Cotador.core.cancelarBuscasEmAndamento();
     this.currentVendor = vendor;
     document.body.setAttribute('data-vendor', vendor);
-
+    
     ['microsoft', 'adobe', 'kaspersky'].forEach(v => {
       document.getElementById(`btn-vendor-${v}`).classList.toggle('active', v === vendor);
       document.getElementById(`filtros-${v}`).classList.toggle('hidden', v !== vendor);
     });
-
+    
     this.atualizarPlaceholderFabricante(vendor);
     window.Cotador.core.atualizarBadgeDataFabricante(vendor);
-
-    document.getElementById('resultado-container').innerHTML = `<div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">Fabricante alterado para <span class="theme-text font-semibold uppercase">${vendor}</span>.<br>Insira os itens no painel esquerdo e clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span>.</div>`;
+    this.limparOutputPorSeguranca('Fabricante', vendor);
+    
     this.salvarPreferencias();
     this.analisarInput();
   },
 
-  // ==========================================================================
-  // MODALIDADES MICROSOFT (SELEÇÃO ÚNICA - 1 POR VEZ)
-  // ==========================================================================
   setMsModalidade(mod) {
+    if (this.msModalidades.has(mod)) return;
     this.msModalidades = new Set([mod || 'scan']);
     this.salvarPreferencias();
     this.atualizarUIMsModalidades();
+    this.limparOutputPorSeguranca('Modo de Tabela', mod);
   },
 
   toggleMsModalidade(mod) {
@@ -186,12 +194,11 @@ window.Cotador.app = {
     if (flagsMPSA) flagsMPSA.classList.toggle('hidden', !hasMPSA);
   },
 
-  // ==========================================================================
-  // SEGMENTO DE MERCADO MICROSOFT (SELEÇÃO ÚNICA - 1 POR VEZ)
-  // ==========================================================================
   setMsSegmento(seg) {
+    if (this.msSegmentos.has(seg)) return;
     this.msSegmentos = new Set([seg || 'commercial']);
     this.atualizarUIMsSegmentos();
+    this.limparOutputPorSeguranca('Segmento de Mercado', seg);
   },
 
   toggleMsSegmento(seg) {
@@ -209,13 +216,11 @@ window.Cotador.app = {
     });
   },
 
-  // ==========================================================================
-  // CONTRATOS TRIENAIS & FLAGS PERPÉTUO/MPSA ("EXIBIR...")
-  // ==========================================================================
   toggleTrienaisCSP() {
     this.trienaisVisiveis = !this.trienaisVisiveis;
     const box = document.getElementById('ms-contratos-trienais');
     const btn = document.getElementById('btn-toggle-trienais');
+    
     if (box) box.classList.toggle('hidden', !this.trienaisVisiveis);
     if (btn) btn.textContent = this.trienaisVisiveis ? '- Trienais' : '+ Trienais';
   },
@@ -235,12 +240,11 @@ window.Cotador.app = {
     if (master) master.checked = Boolean(m && a && t);
   },
 
-  // ==========================================================================
-  // CONTROLES ADOBE (SELEÇÃO ÚNICA - 1 POR VEZ) & KASPERSKY
-  // ==========================================================================
   setAdobeSegmento(seg) {
+    if (this.adobeSegmentos.has(seg)) return;
     this.adobeSegmentos = new Set([seg || 'teams']);
     this.atualizarUIAdobeSegmentos();
+    this.limparOutputPorSeguranca('Segmento Adobe', seg);
   },
 
   toggleAdobeSegmento(seg) {
@@ -268,14 +272,16 @@ window.Cotador.app = {
     const valEl = document.getElementById('header-ptax-value');
     const panelEl = document.getElementById('header-ptax-panel');
     const dotEl = document.getElementById('header-ptax-dot');
+    
     try {
       const { rate, dateStr } = await this.obterCotacaoPtaxDia();
       const fmtCurto = `R$ ${Number(rate).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       const fmtCompleto = Number(rate).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+      
       if (valEl) valEl.textContent = fmtCurto;
       if (panelEl) {
         panelEl.setAttribute('data-copy', fmtCurto);
-        panelEl.title = `Dólar PTAX Oficial BCB${dateStr ? ` (${dateStr})` : ''}: R$ ${fmtCompleto} • Clique para copiar`;
+        panelEl.title = `Dólar PTAX Oficial BCB${dateStr ? ` (${dateStr})` : ''}: R$ ${fmtCompleto} — Clique para copiar`;
       }
       if (dotEl) {
         dotEl.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0';
@@ -322,7 +328,6 @@ window.Cotador.app = {
       return;
     }
 
-    // Modo PTAX (Destravado): busca cotação oficial sem permitir digitação manual
     if (btnToggle) {
       btnToggle.classList.remove('is-locked');
       btnToggle.setAttribute('aria-checked', 'false');
@@ -335,20 +340,20 @@ window.Cotador.app = {
       const { rate, dateStr } = await this.obterCotacaoPtaxDia();
       const rateFixed = Number(rate).toFixed(4);
       const rateShort = Number(rate).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
+      
       if (inputDolar) inputDolar.value = rateFixed;
       if (btnLabel) btnLabel.textContent = `PTAX: R$ ${rateShort}`;
       if (statusEl) statusEl.textContent = dateStr ? `PTAX (${dateStr})` : 'PTAX Atual';
+      
       if (iconLock) {
-        // Ícone de cadeado aberto indicando que saiu da trava de 4,80 para o PTAX do dia
         iconLock.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/>';
       }
-
-      // Sincroniza também o painel visual do topo caso ainda não estivesse preenchido
+      
       this.carregarPainelPtaxHeader();
       window.Cotador.core.atualizarCambioAdobeEmTempoReal(rate);
+      
     } catch (err) {
-      aplicarEstadoFixo('Erro PTAX • Fixo');
+      aplicarEstadoFixo('Erro PTAX — Fixo');
       window.Cotador.core.mostrarToast('Não foi possível obter o PTAX agora. Mantido R$ 4,80.');
     } finally {
       if (btnToggle) btnToggle.disabled = false;
@@ -360,19 +365,21 @@ window.Cotador.app = {
       return { rate: this.ptaxRateCache, dateStr: this.ptaxDateCache };
     }
 
-    // 1ª Tentativa: API Oficial Olinda do Banco Central do Brasil (últimos 7 dias para cobrir fins de semana/feriados)
     try {
       const hoje = new Date();
       const inicio = new Date(hoje);
       inicio.setDate(hoje.getDate() - 7);
+      
       const fmtMDY = (d) => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}-${d.getFullYear()}`;
+      
       const urlBcb = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@dataInicial='${fmtMDY(inicio)}'&@dataFinalCotacao='${fmtMDY(hoje)}'&$orderby=dataHoraCotacao%20desc&$top=1&$format=json`;
-
+      
       const resp = await fetch(urlBcb, { cache: 'no-store' });
       if (resp.ok) {
         const json = await resp.json();
         const ultimo = json?.value?.[0];
         const cotacaoVenda = parseFloat(ultimo?.cotacaoVenda);
+        
         if (!isNaN(cotacaoVenda) && cotacaoVenda > 0) {
           this.ptaxRateCache = cotacaoVenda;
           const rawDate = String(ultimo.dataHoraCotacao || '').split(' ')[0];
@@ -383,30 +390,40 @@ window.Cotador.app = {
       }
     } catch (_) {}
 
-    // 2ª Tentativa (Contingência): AwesomeAPI USD-BRL
     const respFallback = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL', { cache: 'no-store' });
     if (!respFallback.ok) throw new Error('Falha ao consultar PTAX');
+    
     const dataFallback = await respFallback.json();
     const ask = parseFloat(dataFallback?.USDBRL?.ask);
     if (isNaN(ask) || ask <= 0) throw new Error('Cotação inválida');
-
+    
     this.ptaxRateCache = ask;
     this.ptaxDateCache = 'Hoje';
     return { rate: ask, dateStr: 'Hoje' };
   },
 
   setKaspTipo(tipo) {
+    const currentTipo = document.getElementById('kasp-tipo').value;
+    if (currentTipo === tipo) return;
+
     document.getElementById('kasp-tipo').value = tipo;
     document.getElementById('btn-kasp-tipo-base').classList.toggle('active', tipo === 'Base');
     document.getElementById('btn-kasp-tipo-renewal').classList.toggle('active', tipo === 'Renewal');
-    const labelTipo = tipo === 'Renewal' ? 'Renew' : 'Base';
-    document.getElementById('resultado-container').innerHTML = `<div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">Tipo de licença Kaspersky alterado para <span class="theme-text font-semibold uppercase">${labelTipo}</span>.<br>Clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span> para consultar.</div>`;
+    
+    this.limparOutputPorSeguranca('Tipo de Licença Kaspersky', tipo === 'Renewal' ? 'Renew' : 'Base');
     this.analisarInput();
   },
 
   limparInput() {
     document.getElementById('input-itens').value = '';
     this.analisarInput();
+    const container = document.getElementById('resultado-container');
+    if (container) {
+      container.innerHTML = `
+        <div class="text-center py-24 text-gray-500 text-xs bg-[#faf9f8] rounded border border-dashed border-[#c8c6c4]">
+          Cole os produtos no painel esquerdo e clique em <span class="theme-text font-semibold">Buscar e Montar Tabelas</span>.
+        </div>`;
+    }
     document.getElementById('input-itens').focus();
   },
 
@@ -441,16 +458,31 @@ window.Cotador.app = {
 
   async gerarCotacao() {
     this.analisarInput();
+    
     if (this.parsedItems.length === 0) {
-      alert('Digite pelo menos um produto na lista!');
+      const container = document.getElementById('resultado-container');
+      if (container) {
+        container.innerHTML = `
+          <div class="text-center py-24 text-gray-500 text-xs bg-[#faf9f8] rounded border border-dashed border-[#c8c6c4]">
+            Cole os produtos no painel esquerdo e clique em <span class="theme-text font-semibold">Buscar e Montar Tabelas</span>.
+          </div>`;
+      }
+      window.Cotador.core.cancelarBuscasEmAndamento();
+      
+      const btn = document.getElementById('btn-buscar');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<span>Buscar e Montar Tabelas</span>';
+      }
       return;
     }
 
-    // Pré-validação de contratos CSP (Microsoft) antes de alterar o estado visual da tela
     let modalidadesMs = [];
     let contratosMs = [];
+
     if (this.currentVendor === 'microsoft') {
       modalidadesMs = this.obterModalidadesAtivas();
+      
       if (document.getElementById('chk-anual-anual')?.checked) {
         contratosMs.push({ id: 'aa', label: 'Anual / Anual', scanTempo: 'Anual', scanCiclo: 'Anual', soloTermo: 'P1Y', soloPlano: 'Annual' });
       }
@@ -469,6 +501,7 @@ window.Cotador.app = {
       if (document.getElementById('chk-trienal-trienal')?.checked) {
         contratosMs.push({ id: 'tt', label: 'Trienal / Total', scanTempo: 'Trienal', scanCiclo: 'Trienal', soloTermo: 'P3Y', soloPlano: 'Triennial' });
       }
+
       const precisaCSP = modalidadesMs.includes('scan') || modalidadesMs.includes('solo');
       if (precisaCSP && contratosMs.length === 0) {
         alert('Selecione pelo menos um Contrato CSP (Vigência / Ciclo)!');
@@ -476,14 +509,14 @@ window.Cotador.app = {
       }
     }
 
-    // Cancela qualquer consulta anterior que ainda esteja pendente em rede
     const searchSignal = window.Cotador.core.iniciarNovaSessaoBusca();
 
     const btn = document.getElementById('btn-buscar');
     const container = document.getElementById('resultado-container');
+
     btn.disabled = true;
     btn.innerHTML = '<span>Consultando SKUs em paralelo e montando propostas...</span>';
-    container.innerHTML = '<div class="text-center py-20 text-slate-400 text-xs font-normal animate-pulse bg-slate-50/60 rounded-xl border border-slate-200">Consultando banco de dados corporativo...</div>';
+    container.innerHTML = '<div class="text-center py-20 text-gray-500 text-xs font-normal animate-pulse bg-[#faf9f8] rounded border border-[#edebe9]">Consultando banco de dados corporativo...</div>';
 
     try {
       let missingItems = [];
@@ -491,7 +524,6 @@ window.Cotador.app = {
       if (this.currentVendor === 'microsoft') {
         const modalidades = modalidadesMs;
         const contratos = contratosMs;
-
         const flags = {
           contratos,
           segmentos: Array.from(this.msSegmentos).slice(0, 1),
@@ -526,6 +558,7 @@ window.Cotador.app = {
 
         container.innerHTML = combinedHTML;
         missingItems = this.parsedItems.filter(it => !globalMatchedIndices.has(it.itemIndex));
+
       } else if (this.currentVendor === 'adobe') {
         const usarPromo = document.getElementById('chk-adobe-promo').checked;
         const tabela = usarPromo ? 'adobe_promo' : 'adobe_base';
@@ -536,15 +569,17 @@ window.Cotador.app = {
           segmentos,
           segmento: segmentos[0] || 'teams',
           levelSelect: lvlSelect,
-          targetLevel: (lvlSelect === 'auto')
-            ? (this.totalLicenses > 0 ? this.getAdobeAutoLevel(this.totalLicenses) : 'all')
+          targetLevel: (lvlSelect === 'auto') 
+            ? (this.totalLicenses > 0 ? this.getAdobeAutoLevel(this.totalLicenses) : 'all') 
             : lvlSelect,
           taxaDolar: parseFloat(document.getElementById('adobe-dolar').value) || 4.80,
           showAdobeStock: document.getElementById('chk-adobe-show-stock')?.checked ?? false,
           hide3YCommit: document.getElementById('chk-adobe-hide-3y').checked
         };
+
         const resAdobe = await window.Cotador.tables[tabela].processar(this.parsedItems, flags);
         missingItems = this.parsedItems.filter(it => !resAdobe?.matchedItemIndices?.has(it.itemIndex));
+
       } else {
         const todosPeriodos = [
           { id: '1a', label: '1 ANO', match: '1 ANO' },
@@ -555,8 +590,8 @@ window.Cotador.app = {
         ];
         const marcados = todosPeriodos.filter((_, idx) => document.getElementById(`chk-kasp-p${idx + 1}`)?.checked);
         const periodos = marcados.length > 0 ? marcados : todosPeriodos;
-
         const bandaSelect = document.getElementById('kasp-banda')?.value || 'auto';
+        
         const priceRevenda = document.getElementById('chk-kasp-price-revenda')?.checked ?? true;
         const priceRO = document.getElementById('chk-kasp-price-ro')?.checked ?? false;
         const priceNaoPrime = document.getElementById('chk-kasp-price-naoprime')?.checked ?? false;
@@ -565,8 +600,8 @@ window.Cotador.app = {
         const flags = {
           periodos,
           bandaSelect,
-          targetBanda: (bandaSelect === 'auto')
-            ? (this.totalLicenses > 0 ? this.getKaspAutoBanda(this.totalLicenses) : 'all')
+          targetBanda: (bandaSelect === 'auto') 
+            ? (this.totalLicenses > 0 ? this.getKaspAutoBanda(this.totalLicenses) : 'all') 
             : bandaSelect,
           tipo: document.getElementById('kasp-tipo')?.value || 'Base',
           showPriceRevenda: temAlgumPreco ? priceRevenda : true,
@@ -577,6 +612,7 @@ window.Cotador.app = {
           showPublic: document.getElementById('chk-kasp-show-public')?.checked ?? false,
           showTraining: document.getElementById('chk-kasp-show-training')?.checked ?? false
         };
+
         const resKasp = await window.Cotador.tables.kaspersky.processar(this.parsedItems, flags);
         missingItems = this.parsedItems.filter(it => !resKasp?.matchedItemIndices?.has(it.itemIndex));
       }
@@ -584,11 +620,12 @@ window.Cotador.app = {
       window.Cotador.core.limparBlocosVazios();
       window.Cotador.core.renderUnmatchedWarning(missingItems);
       window.Cotador.core.recalcularSubtotais();
+
     } catch (err) {
       if (err && err.name === 'AbortError') {
-        return; // Busca substituída por uma ação mais recente do usuário
+        return;
       }
-      container.innerHTML = `<div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-900 text-xs"><b>Erro na consulta:</b> ${err.message}</div>`;
+      container.innerHTML = `<div class="p-4 rounded bg-[#fdf3f4] border border-[#f8d7da] text-[#a4262c] text-xs"><b>Erro na consulta:</b> ${err.message}</div>`;
     } finally {
       if (!searchSignal.aborted) {
         btn.disabled = false;

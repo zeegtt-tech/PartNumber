@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entrar | Gerador Comercial de PNs</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Reaproveitando as cores base do seu styles.css -->
+  <style>
+    :root {
+      --ms-blue: #0078d4;
+      --ms-blue-hover: #106ebe;
+      --ms-dark: #323130;
+      --ms-gray: #605e5c;
+      --ms-light-gray: #f3f2f1;
+      --ms-border: #8a8886;
+    }
+    body {
+      background-color: var(--ms-light-gray);
+      font-family: 'Segoe UI', 'Segoe UI Web (West European)', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    }
+    .ms-input {
+      border: 1px solid var(--ms-border);
+      border-radius: 4px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.95rem;
+      color: var(--ms-dark);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .ms-input:focus {
+      outline: none;
+      border-color: var(--ms-blue);
+      box-shadow: 0 0 0 1px var(--ms-blue);
+    }
+    .ms-btn-primary {
+      background-color: var(--ms-blue);
+      color: white;
+      font-weight: 600;
+      transition: background-color 0.15s;
+    }
+    .ms-btn-primary:hover {
+      background-color: var(--ms-blue-hover);
+    }
+    .slide-in {
+      animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+  <!-- Card Principal -->
+  <div class="bg-white p-8 sm:p-10 shadow-[0_2px_10px_rgba(0,0,0,0.1)] w-full max-w-[440px] rounded-sm">
+    
+    <!-- Logo Style (Padrão MS) -->
+    <div class="flex items-center gap-2 mb-6">
+      <div class="grid grid-cols-2 gap-[2px] w-5 h-5">
+        <div class="bg-[#f25022]"></div><div class="bg-[#7fba00]"></div>
+        <div class="bg-[#00a4ef]"></div><div class="bg-[#ffb900]"></div>
+      </div>
+      <span class="font-semibold text-[1.1rem] text-[#737373] tracking-tight">Buscador de Produtos e Part Numbers</span>
+    </div>
+
+    <!-- ETAPA 1: Identificação (E-mail) -->
+    <div id="step-email" class="slide-in">
+      <h2 class="text-2xl font-semibold text-gray-900 mb-4">Entrar</h2>
+      <div class="mb-4">
+        <input type="email" id="login-email" placeholder="E-mail, telefone ou Skype" class="ms-input w-full" autofocus>
+      </div>
+      <p class="text-[13px] text-gray-600 mb-6">
+        Não tem uma conta? <button type="button" onclick="showStep('step-request')" class="text-[#0078d4] hover:underline font-medium">Solicite acesso</button>
+      </p>
+      <div class="flex justify-end">
+        <button type="button" onclick="avancarParaSenha()" class="ms-btn-primary px-8 py-1.5 rounded-sm">Avançar</button>
+      </div>
+    </div>
+
+    <!-- ETAPA 2: Senha -->
+    <div id="step-password" class="hidden slide-in">
+      <div class="flex items-center gap-2 mb-4">
+        <button type="button" onclick="showStep('step-email')" class="text-gray-500 hover:text-gray-900" title="Voltar">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        </button>
+        <span id="display-email" class="text-sm font-medium text-gray-700">email@exemplo.com</span>
+      </div>
+      <h2 class="text-2xl font-semibold text-gray-900 mb-4">Inserir senha</h2>
+      <div class="mb-6">
+        <input type="password" id="login-password" placeholder="Senha" class="ms-input w-full">
+      </div>
+      <div class="flex justify-end">
+        <!-- Adicionado id="btn-login-submit" -->
+        <button type="button" id="btn-login-submit" onclick="realizarLogin()" class="ms-btn-primary px-8 py-1.5 rounded-sm">Entrar</button>
+      </div>
+    </div>
+
+    <!-- ETAPA 3: Solicitar Acesso -->
+    <div id="step-request" class="hidden slide-in">
+      <div class="flex items-center gap-2 mb-4">
+        <button type="button" onclick="showStep('step-email')" class="text-gray-500 hover:text-gray-900" title="Voltar">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+        </button>
+        <h2 class="text-xl font-semibold text-gray-900">Solicitar Acesso</h2>
+      </div>
+      <p class="text-sm text-gray-600 mb-4">Esta é uma ferramenta corporativa interna. Solicite a liberação informando seus dados abaixo.</p>
+      
+      <div class="space-y-3 mb-6">
+        <input type="text" id="req-nome" placeholder="Seu Nome Completo" class="ms-input w-full">
+        <input type="email" id="req-email" placeholder="E-mail corporativo" class="ms-input w-full">
+        <textarea id="req-motivo" placeholder="Motivo da solicitação / Departamento" rows="2" class="ms-input w-full resize-none"></textarea>
+      </div>
+      
+      <div class="flex justify-end gap-2">
+        <button type="button" onclick="showStep('step-email')" class="px-4 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-sm font-medium transition">Cancelar</button>
+        <!-- Adicionado id="btn-req-submit" -->
+        <button type="button" id="btn-req-submit" onclick="enviarSolicitacao()" class="ms-btn-primary px-6 py-1.5 rounded-sm">Solicitar</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Importando Supabase e Scripts Locais -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./js/core.js"></script>
+  <script src="./js/auth.js"></script>
+
+  <script>
+    // Inicializa o Auth Client
+    window.CotadorAuth.init();
+
+    // Redireciona se já estiver logado
+    window.CotadorAuth.getSession().then(session => {
+      if(session) window.location.href = 'index.html';
+    });
+
+    function showStep(stepId) {
+      ['step-email', 'step-password', 'step-request'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+      });
+      document.getElementById(stepId).classList.remove('hidden');
+
+      if(stepId === 'step-email') document.getElementById('login-email').focus();
+      if(stepId === 'step-password') document.getElementById('login-password').focus();
+      if(stepId === 'step-request') document.getElementById('req-nome').focus();
+    }
+
+    function avancarParaSenha() {
+      const email = document.getElementById('login-email').value;
+      if (!email || !email.includes('@')) {
+        alert('Por favor, insira um e-mail válido.');
+        return;
+      }
+      document.getElementById('display-email').textContent = email;
+      showStep('step-password');
+    }
+
+    async function realizarLogin() {
+      const email = document.getElementById('login-email').value;
+      const pass = document.getElementById('login-password').value;
+      const btn = document.getElementById('btn-login-submit');
+      if (btn) {
+        btn.innerText = 'Carregando...';
+        btn.disabled = true;
+      }
+      try {
+        await window.CotadorAuth.login(email, pass);
+        window.location.href = 'index.html';
+      } catch (error) {
+        if (error && error.message === 'ACESSO_REVOGADO') {
+          alert('Acesso bloqueado: sua credencial foi revogada pelo Administrador.');
+        } else {
+          alert('Falha no login: E-mail ou senha incorretos.');
+        }
+        if (btn) {
+          btn.innerText = 'Entrar';
+          btn.disabled = false;
+        }
+      }
+    }
+
+    async function enviarSolicitacao() {
+      const nome = document.getElementById('req-nome').value;
+      const email = document.getElementById('req-email').value;
+      const motivo = document.getElementById('req-motivo').value;
+      const btn = document.getElementById('btn-req-submit');
+
+      if(!nome || !email) {
+        alert('Nome e e-mail são obrigatórios.');
+        return;
+      }
+
+      if (btn) {
+        btn.innerText = 'Enviando...';
+        btn.disabled = true;
+      }
+
+      try {
+        await window.CotadorAuth.solicitarAcesso(nome, email, motivo);
+        alert('Solicitação enviada com sucesso! O administrador avaliará seu acesso.');
+        showStep('step-email');
+      } catch (error) {
+        alert('Erro ao enviar solicitação: ' + error.message);
+      } finally {
+        if (btn) {
+          btn.innerText = 'Solicitar';
+          btn.disabled = false;
+        }
+        document.getElementById('req-nome').value = '';
+        document.getElementById('req-email').value = '';
+        document.getElementById('req-motivo').value = '';
+      }
+    }
+
+    document.getElementById('login-email').addEventListener('keypress', e => e.key === 'Enter' && avancarParaSenha());
+    document.getElementById('login-password').addEventListener('keypress', e => e.key === 'Enter' && realizarLogin());
+  </script>
+</body>
+</html>

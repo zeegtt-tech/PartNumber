@@ -6,103 +6,112 @@
   <title>Buscador de PNs | v5.9</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="./css/styles.css?v=5.9">
-  <script defer src="./js/core.js?v=5.9"></script>
+
+  <!-- 1. SUPABASE SDK, NÚCLEO E AUTH (Síncronos na ordem correta) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./js/core.js?v=5.9"></script>
+  <script src="./js/auth.js?v=5.9"></script>
+  <script>
+    // Se não tiver sessão, redireciona para o login imediatamente (evita a tela piscar)
+    window.CotadorAuth.init();
+    window.CotadorAuth.getSession().then(session => {
+      if (!session) {
+        window.location.replace('login.html');
+      } else {
+        console.log("Usuário logado:", session.user.email);
+      }
+    });
+  </script>
+
+  <!-- 2. TABELAS, PAPAPARSE E APP (Carregamento com defer após o DOM) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script defer src="./js/tables/microsoft.js?v=5.9"></script>
   <script defer src="./js/tables/adobe.js?v=5.9"></script>
   <script defer src="./js/tables/kaspersky.js?v=5.9"></script>
   <script defer src="./js/app.js?v=5.9"></script>
 </head>
-<body data-vendor="microsoft" class="min-h-screen p-3 md:p-5 lg:px-6 lg:py-4 text-slate-800 hide-secondary-details hide-subtotals markup-disabled">
-  <div class="max-w-[1600px] mx-auto space-y-3.5">
-    
-    <!-- CABEÇALHO CORPORATIVO MINIMALISTA -->
-    <header class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm">
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg theme-bg-solid text-white flex items-center justify-center transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-          </svg>
-        </div>
-        <div>
-          <div class="flex items-center gap-2 flex-wrap">
-            <h1 class="text-sm md:text-base font-semibold text-slate-900 tracking-tight">
-              Gerador Comercial de PNs &amp; Cotação
-            </h1>
-            <span class="text-[10px] px-2 py-0.5 rounded-full theme-badge font-medium uppercase tracking-wide transition-colors">
-              v5.9
-            </span>
+<body data-vendor="microsoft" class="min-h-screen bg-[#faf9f8] text-[#323130] hide-secondary-details hide-subtotals markup-disabled">
+  
+  <!-- 1. DYNAMICS TOP BAR FIXA -->
+  <header class="dynamics-topbar sticky top-0 z-50 w-full flex flex-col sm:flex-row items-center justify-between px-4 py-2 shadow-md transition-colors duration-300">
+    <!-- Lado Esquerdo -->
+    <div class="flex items-center gap-2.5 text-white w-full sm:w-auto mb-2 sm:mb-0">
+      <svg class="w-4 h-4 opacity-90" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      <h1 class="text-sm font-semibold tracking-tight">Gerador Comercial de PNs &amp; Cotação</h1>
+      <span class="text-[10px] px-2 py-0.5 rounded-sm bg-white/20 font-medium uppercase tracking-wide">v5.9</span>
+    </div>
+    <!-- Lado Direito -->
+    <div class="flex flex-wrap items-center gap-2.5">
+      <!-- PTAX MOVIDO PARA A TOP BAR -->
+      <div id="header-ptax-panel" onclick="Cotador.core.copiarElemento(event, this)" data-copy="" data-label="Dólar PTAX" title="Consultando PTAX..." class="topbar-pill text-[11px] px-2.5 py-1 rounded font-medium flex items-center gap-1.5 select-none cursor-pointer tabular-nums">
+        <span id="header-ptax-dot" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+        <span class="font-normal opacity-90">PTAX:</span>
+        <span id="header-ptax-value" class="font-semibold text-white">R$ --,--</span>
+      </div>
+      <!-- BOTÃO + MINI JANELA DE DATAS DE ATUALIZAÇÃO -->
+      <div id="update-popover-wrapper" class="relative">
+        <button type="button" id="badge-last-update" onclick="Cotador.core.togglePainelAtualizacoes(event)" title="Ver data e horário de atualização" class="topbar-pill text-[11px] px-2.5 py-1 rounded font-medium flex items-center gap-1.5 select-none cursor-pointer">
+          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span id="badge-last-update-text">Atualização: --/--/----</span>
+          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div id="popover-last-update" class="hidden absolute right-0 mt-2 w-80 bg-white border border-[#edebe9] rounded shadow-lg p-3 z-[60] text-xs text-[#323130]">
+          <div class="flex items-center justify-between pb-2 mb-2 border-b border-[#edebe9]">
+            <span class="font-semibold uppercase tracking-wider text-[#323130]">Atualização por Planilha</span>
+            <button type="button" onclick="Cotador.core.fecharPainelAtualizacoes()" class="text-gray-400 hover:text-gray-600 text-xs px-1 leading-none" title="Fechar">&#10005;</button>
           </div>
-          <p class="text-[11px] text-slate-400">
-            Clique em qualquer dado para copiar &bull; Arraste as linhas para reordenar todas as tabelas &bull; <kbd class="px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded text-slate-600 font-medium">Ctrl + Enter</kbd> para buscar
-          </p>
+          <div id="popover-last-update-list" class="space-y-1.5 max-h-72 overflow-y-auto">
+            <div class="text-gray-400 text-[11px] py-2 text-center">Consultando datas...</div>
+          </div>
         </div>
       </div>
+      <span class="topbar-pill text-[11px] px-2.5 py-1 rounded font-medium flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span> Online
+      </span>
 
+      <!-- BOTÃO SAIR -->
+      <button type="button" onclick="window.CotadorAuth.logout()" title="Sair do sistema" class="topbar-pill text-[11px] px-2.5 py-1 rounded font-medium flex items-center gap-1.5 select-none cursor-pointer hover:bg-red-500 hover:border-red-600 transition">
+        <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        <span>Sair</span>
+      </button>
+
+    </div>
+  </header>
+
+  <!-- 2. CONTAINER PRINCIPAL -->
+  <div class="max-w-[1600px] mx-auto p-3 md:p-5 lg:px-6 lg:py-4 space-y-4">
+    
+    <!-- 3. COMMAND BAR (Ferramentas Unificadas) -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-[#edebe9] rounded px-3 py-2 shadow-sm">
+      <p class="text-[11px] text-[#605e5c]">
+        Clique nos dados para copiar &bull; Arraste as linhas para reordenar &bull; <kbd class="px-1.5 py-0.5 bg-[#f3f2f1] border border-[#edebe9] rounded text-[#323130] font-medium">Ctrl + Enter</kbd> p/ buscar
+      </p>
       <div class="flex flex-wrap items-center gap-2.5">
         <input type="checkbox" id="chk-mostrar-subtotal" class="sr-only" onchange="Cotador.core.recalcularSubtotais()">
         <input type="checkbox" id="chk-mostrar-detalhes" class="sr-only" onchange="Cotador.core.atualizarVisibilidadeDetalhes()">
-
-        <!-- PAINEL VISUAL DO DÓLAR PTAX DO DIA (À ESQUERDA DO MODO CLIENTE) -->
-        <div id="header-ptax-panel" onclick="Cotador.core.copiarElemento(event, this)" data-copy="" data-label="Dólar PTAX" title="Consultando cotação PTAX oficial do Banco Central..." class="copy-link text-[11px] px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/90 font-medium flex items-center gap-1.5 select-none tabular-nums transition-colors">
-          <span id="header-ptax-dot" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
-          <span class="text-slate-400 font-normal">PTAX:</span>
-          <span id="header-ptax-value" class="font-semibold text-slate-700">R$ --,--</span>
-        </div>
-
-        <!-- O #commercial-mode-bar (Modo Cliente + Margem) será injetado exatamente aqui -->
-
-        <div class="unified-view-control" role="group" aria-label="Controle de exibição da tabela">
-          <button type="button" id="btn-toggle-all-view" onclick="Cotador.core.alternarVisaoUnificada()" title="Alternar visão completa ou enxuta (Detalhes + Subtotais)" class="mini-toggle-btn text-slate-500 hover:text-slate-800 px-2 border-r border-slate-200/80 rounded-none">
+        <!-- CONTROLES UNIFICADOS DE EXIBIÇÃO -->
+        <div class="unified-view-control" role="group" aria-label="Controles">
+          <button type="button" id="btn-toggle-all-view" onclick="Cotador.core.alternarVisaoUnificada()" title="Alternar visão completa/enxuta" class="mini-toggle-btn text-[#605e5c] px-2 border-r border-[#edebe9] rounded-none">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
             </svg>
             <span>Visão</span>
           </button>
-          <button type="button" id="btn-toggle-detalhes" onclick="Cotador.core.toggleDetalhesSecundarios()" title="Habilitar/desabilitar colunas e informações secundárias" class="mini-toggle-btn">
-            <span class="dot"></span>
-            <span>Detalhes</span>
+          <button type="button" id="btn-toggle-detalhes" onclick="Cotador.core.toggleDetalhesSecundarios()" class="mini-toggle-btn">
+            <span class="dot"></span><span>Detalhes</span>
           </button>
-          <button type="button" id="btn-toggle-subtotal" onclick="Cotador.core.toggleMostrarSubtotal()" title="Habilitar/desabilitar coluna de Subtotal e valor Total da tabela" class="mini-toggle-btn">
-            <span class="dot"></span>
-            <span>Subtotais</span>
+          <button type="button" id="btn-toggle-subtotal" onclick="Cotador.core.toggleMostrarSubtotal()" class="mini-toggle-btn">
+            <span class="dot"></span><span>Subtotais</span>
           </button>
         </div>
-
-        <!-- BOTÃO + MINI JANELA (POPOVER) DE DATAS DE ATUALIZAÇÃO POR PLANILHA -->
-        <div id="update-popover-wrapper" class="relative">
-          <button type="button" id="badge-last-update" onclick="Cotador.core.togglePainelAtualizacoes(event)" title="Clique para ver a data e horário de atualização de cada planilha" class="text-[11px] px-2.5 py-1 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/90 font-medium flex items-center gap-1.5 select-none transition-colors cursor-pointer">
-            <svg class="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <span id="badge-last-update-text">Atualização: --/--/----</span>
-            <svg class="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-            </svg>
-          </button>
-
-          <div id="popover-last-update" class="hidden absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-lg p-3 z-50 text-xs">
-            <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-              <span class="font-semibold text-slate-800 text-[11px] uppercase tracking-wider">Atualização por Planilha</span>
-              <button type="button" onclick="Cotador.core.fecharPainelAtualizacoes()" class="text-slate-400 hover:text-slate-600 text-xs px-1 leading-none" title="Fechar">&#10005;</button>
-            </div>
-            <div id="popover-last-update-list" class="space-y-1.5 max-h-72 overflow-y-auto">
-              <div class="text-slate-400 text-[11px] py-2 text-center">Consultando datas...</div>
-            </div>
-          </div>
-        </div>
-
-        <span class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-medium flex items-center gap-1.5">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          Online
-        </span>
       </div>
-    </header>
+    </div>
 
-    <!-- LAYOUT PRINCIPAL -->
+    <!-- 4. LAYOUT GRID PRINCIPAL -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
       
       <!-- PAINEL ESQUERDO -->
-      <div class="lg:col-span-4 xl:col-span-3 lg:sticky lg:top-4">
+      <div class="lg:col-span-4 xl:col-span-3 lg:sticky lg:top-20">
         <div class="card card-accent-top p-4 space-y-4">
           
           <div>
@@ -118,196 +127,163 @@
             <div class="flex justify-between items-center mb-1">
               <label class="section-label !mb-0">2. Lista de Produtos</label>
               <div class="flex gap-2.5 text-[11px] font-medium">
-                <button onclick="Cotador.app.limparInput()" class="text-slate-400 hover:text-slate-600">Limpar</button>
+                <button onclick="Cotador.app.limparInput()" class="text-gray-400 hover:text-gray-600">Limpar</button>
               </div>
             </div>
-            <textarea id="input-itens" oninput="Cotador.app.analisarInput()" rows="4" 
-              placeholder="Ex:&#10;business basic 10&#10;business standard 26&#10;Exchange plan 1 80"
-              class="textarea-input w-full rounded-lg bg-slate-50/70 border border-slate-200 p-2.5 text-xs text-slate-800 font-normal placeholder-slate-400 leading-relaxed transition"></textarea>
+            <textarea id="input-itens" oninput="Cotador.app.analisarInput()" rows="4" placeholder="Ex:&#10;business basic 10&#10;business standard 26&#10;Exchange plan 1 80" class="textarea-input w-full rounded bg-[#faf9f8] border border-[#8a8886] p-2.5 text-xs text-[#323130] font-normal leading-relaxed transition"></textarea>
           </div>
 
-          <!-- BOTÃO DE BUSCA LOGO ABAIXO DA LISTA DE PRODUTOS -->
-          <button onclick="Cotador.app.gerarCotacao()" id="btn-buscar" class="btn-theme-primary w-full py-2.5 px-4 rounded-lg font-medium text-xs flex items-center justify-center gap-2">
+          <button onclick="Cotador.app.gerarCotacao()" id="btn-buscar" class="btn-theme-primary w-full py-2.5 px-4 rounded font-semibold text-xs flex items-center justify-center gap-2">
             <span>Buscar e Montar Tabelas</span>
           </button>
 
           <!-- 3. FILTROS MICROSOFT -->
-          <div id="filtros-microsoft" class="space-y-3.5 pt-3 border-t border-slate-100">
+          <div id="filtros-microsoft" class="space-y-3.5 pt-3 border-t border-[#edebe9]">
             
-            <!-- 3.1 MODALIDADES (SELEÇÃO ÚNICA - 1 POR VEZ) -->
+            <!-- 3.1 MODALIDADES -->
             <div>
               <div class="flex items-center justify-between mb-1">
                 <label class="section-label !mb-0">Modalidades / Tabelas</label>
-                <span class="text-[10px] text-slate-400">1 por vez</span>
+                <span class="text-[10px] text-gray-400">1 por vez</span>
               </div>
               <div class="grid grid-cols-2 gap-1.5">
-                <button type="button" onclick="Cotador.app.toggleMsModalidade('scan')" id="btn-ms-mod-scan" class="modality-chip modality-chip-scan active" title="Faturamento via Scansource">Scan</button>
+                <button type="button" onclick="Cotador.app.toggleMsModalidade('scan')" id="btn-ms-mod-scan" class="modality-chip modality-chip-scan active">Scan</button>
                 <button type="button" onclick="Cotador.app.toggleMsModalidade('solo')" id="btn-ms-mod-solo" class="modality-chip">CSP Solo</button>
                 <button type="button" onclick="Cotador.app.toggleMsModalidade('perpetuo')" id="btn-ms-mod-perpetuo" class="modality-chip">CSP Perpetual</button>
                 <button type="button" onclick="Cotador.app.toggleMsModalidade('mpsa')" id="btn-ms-mod-mpsa" class="modality-chip">MPSA</button>
               </div>
             </div>
 
-            <!-- 3.1.1 DESCONTO SCANSOURCE (%) - FIXO EM 7% (FUNDO CINZA SUTIL + TEXTO ÂMBAR) -->
-            <div id="ms-box-scan-discount" class="flex items-center justify-between gap-2 bg-slate-100/80 border border-slate-200/90 rounded-lg px-2.5 py-1.5 select-none" title="Desconto padrão Scansource travado em 7% para evitar erros operacionais">
-              <span class="text-[11px] font-medium text-amber-700 flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                </svg>
-                <span>Desconto Scansource</span>
-              </span>
-              <span class="text-xs font-bold text-amber-700 tabular-nums">
-                7% (Fixo)
-              </span>
-              <input type="hidden" id="ms-scan-discount" value="7" readonly disabled>
+            <!-- TOGGLES COMERCIAIS (Dinâmicos) -->
+            
+            <!-- 3.1.1 SCANSOURCE -->
+            <div id="ms-box-scan-discount" title="Ativar ou desativar o desconto padrão Scansource">
+              <label class="group flex items-center justify-between w-full cursor-pointer bg-white border border-[#edebe9] [&:has(:checked)]:border-[#0078d4] rounded p-2 select-none transition-all shadow-sm hover:bg-gray-50">
+                <input type="checkbox" id="chk-scan-discount" class="peer sr-only" checked onchange="Cotador.core.atualizarModificadoresMicrosoft();">
+                
+                <div class="flex flex-col peer-checked:[&_.status-on]:block peer-checked:[&_.status-off]:hidden">
+                  <span class="text-[12px] font-semibold text-[#323130] transition-colors peer-checked:text-[#0078d4]">Desc. Scansource</span>
+                  <span class="text-[10px] font-medium text-[#8a8886] peer-checked:text-[#0078d4] transition-colors">
+                    <span class="status-on hidden">Ativo</span>
+                    <span class="status-off block">Inativo</span>
+                  </span>
+                </div>
+
+                <div class="px-2.5 py-0.5 rounded text-[12px] font-bold transition-all bg-gray-100 text-gray-500 peer-checked:bg-amber-100 peer-checked:text-amber-700 peer-checked:border-amber-300 tabular-nums border border-transparent peer-checked:[&_.val-on]:block peer-checked:[&_.val-off]:hidden">
+                  <span class="val-on hidden">7%</span>
+                  <span class="val-off block">0%</span>
+                </div>
+              </label>
+              <input type="hidden" id="ms-scan-discount" value="7">
             </div>
 
-            <!-- 3.1.2 ADICIONAL CSP SOLO (%) - FIXO EM 5% DE SERVIÇOS -->
-            <div id="ms-box-solo-service" class="hidden flex items-center justify-between gap-2 bg-slate-100/80 border border-slate-200/90 rounded-lg px-2.5 py-1.5 select-none" title="Adicional padrão de 5% de serviços aplicado na tabela CSP Solo">
-              <span class="text-[11px] font-medium text-amber-700 flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                </svg>
-                <span>Adicional de Serviços (Solo)</span>
-              </span>
-              <span class="text-xs font-bold text-amber-700 tabular-nums">
-                +5% (Fixo)
-              </span>
+            <!-- 3.1.2 CSP SOLO -->
+            <div id="ms-box-solo-service" class="hidden" title="Ativar ou desativar o adicional de serviços (Solo)">
+              <label class="group flex items-center justify-between w-full cursor-pointer bg-white border border-[#edebe9] [&:has(:checked)]:border-[#0078d4] rounded p-2 select-none transition-all shadow-sm hover:bg-gray-50">
+                <input type="checkbox" id="chk-solo-service" class="peer sr-only" checked onchange="Cotador.core.atualizarModificadoresMicrosoft();">
+                
+                <div class="flex flex-col peer-checked:[&_.status-on]:block peer-checked:[&_.status-off]:hidden">
+                  <span class="text-[12px] font-semibold text-[#323130] transition-colors peer-checked:text-[#0078d4]">Adicional Serviç.</span>
+                  <span class="text-[10px] font-medium text-[#8a8886] peer-checked:text-[#0078d4] transition-colors">
+                    <span class="status-on hidden">Ativo</span>
+                    <span class="status-off block">Inativo</span>
+                  </span>
+                </div>
+
+                <div class="px-2.5 py-0.5 rounded text-[12px] font-bold transition-all bg-gray-100 text-gray-500 peer-checked:bg-amber-100 peer-checked:text-amber-700 peer-checked:border-amber-300 tabular-nums border border-transparent peer-checked:[&_.val-on]:block peer-checked:[&_.val-off]:hidden">
+                  <span class="val-on hidden">+5%</span>
+                  <span class="val-off block">0%</span>
+                </div>
+              </label>
             </div>
 
-            <!-- 3.2 SEGMENTO DE MERCADO (SELEÇÃO ÚNICA) -->
+            <!-- 3.2 SEGMENTO DE MERCADO -->
             <div>
               <div class="flex items-center justify-between mb-1">
                 <label class="section-label !mb-0">Segmento de Mercado</label>
-                <span class="text-[10px] text-slate-400">1 por vez</span>
+                <span class="text-[10px] text-gray-400">1 por vez</span>
               </div>
               <div class="grid grid-cols-4 gap-1">
-                <button type="button" onclick="Cotador.app.setMsSegmento('commercial')" id="btn-ms-seg-commercial" class="segment-chip active" title="Licenciamento Comercial / Corporativo (Padrão)">Comercial</button>
-                <button type="button" onclick="Cotador.app.setMsSegmento('education')" id="btn-ms-seg-education" class="segment-chip" title="Licenciamento Educacional / Academic / Faculty / Student">Educação</button>
-                <button type="button" onclick="Cotador.app.setMsSegmento('government')" id="btn-ms-seg-government" class="segment-chip" title="Licenciamento Governo / Setor Público">Governo</button>
-                <button type="button" onclick="Cotador.app.setMsSegmento('charity')" id="btn-ms-seg-charity" class="segment-chip" title="Licenciamento Filantropia / Non-Profit / ONG">Charity</button>
+                <button type="button" onclick="Cotador.app.setMsSegmento('commercial')" id="btn-ms-seg-commercial" class="segment-chip active">Comercial</button>
+                <button type="button" onclick="Cotador.app.setMsSegmento('education')" id="btn-ms-seg-education" class="segment-chip">Educação</button>
+                <button type="button" onclick="Cotador.app.setMsSegmento('government')" id="btn-ms-seg-government" class="segment-chip">Governo</button>
+                <button type="button" onclick="Cotador.app.setMsSegmento('charity')" id="btn-ms-seg-charity" class="segment-chip">Charity</button>
               </div>
             </div>
 
-            <!-- 3.3 CONTRATOS CSP (SCAN & SOLO) -->
+            <!-- 3.3 CONTRATOS CSP -->
             <div id="ms-box-contratos" class="space-y-1.5">
               <div class="flex items-center justify-between">
                 <label class="section-label !mb-0">Contratos CSP (Vigência / Ciclo)</label>
                 <button type="button" id="btn-toggle-trienais" onclick="Cotador.app.toggleTrienaisCSP()" class="text-[10px] font-medium theme-text hover:underline">+ Trienais</button>
               </div>
               <div class="grid grid-cols-3 gap-1.5">
-                <label class="contract-chip" title="Compromisso Anual com Faturamento Anual"><input type="checkbox" id="chk-anual-anual" checked> Anual/Anual</label>
-                <label class="contract-chip" title="Compromisso Anual com Faturamento Mensal"><input type="checkbox" id="chk-anual-mensal" checked> Anual/Mensal</label>
-                <label class="contract-chip" title="Compromisso Mensal com Faturamento Mensal"><input type="checkbox" id="chk-mensal-mensal"> Mensal/Mensal</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-anual-anual" checked> Anual/Anual</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-anual-mensal" checked> Anual/Mensal</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-mensal-mensal"> Mensal/Mensal</label>
               </div>
               <div id="ms-contratos-trienais" class="hidden grid grid-cols-3 gap-1.5 pt-0.5">
-                <label class="contract-chip" title="Compromisso Trienal (3 Anos) com Faturamento Anual"><input type="checkbox" id="chk-trienal-anual"> Trienal/Anual</label>
-                <label class="contract-chip" title="Compromisso Trienal (3 Anos) com Faturamento Mensal"><input type="checkbox" id="chk-trienal-mensal"> Trienal/Mensal</label>
-                <label class="contract-chip" title="Compromisso Trienal (3 Anos) com Pagamento Único/Total"><input type="checkbox" id="chk-trienal-trienal"> Trienal/Total</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-trienal-anual"> Trienal/Anual</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-trienal-mensal"> Trienal/Mensal</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-trienal-trienal"> Trienal/Total</label>
               </div>
             </div>
 
-            <!-- 3.4 FLAGS DE EXIBIÇÃO CONTEXTUAL MICROSOFT -->
+            <!-- 3.4 FLAGS MICROSOFT -->
             <div id="ms-box-flags">
               <label class="section-label">Flags de Exibição &amp; Refinamento</label>
-              <div class="space-y-2 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
-                
-                <!-- Flags CSP & Geral -->
+              <div class="space-y-2 text-[11px] text-[#323130] font-normal bg-[#f3f2f1] p-2.5 rounded border border-[#edebe9]">
+                <!-- CSP -->
                 <details id="ms-flags-csp" class="group" open>
-                  <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[10px] font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600">
+                  <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[10px] font-semibold uppercase tracking-wider text-[#605e5c]">
                     <span>Geral &amp; CSP (Scan / Solo)</span>
                     <svg class="w-3.5 h-3.5 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                   </summary>
                   <div class="space-y-1.5 pt-1.5">
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                      <input type="checkbox" id="chk-show-noteams">
-                      <span>Exibir variantes "Sem Teams" (No Teams)</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900" title="Exibe bundles (with Copilot) e licenças do tipo Add-on/Attach">
-                      <input type="checkbox" id="chk-show-copilot">
-                      <span>Exibir Bundles e Add-ons ("with Copilot" / Attach)</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                      <input type="checkbox" id="chk-show-trial">
-                      <span>Exibir "Trial / Gratuito / Promo"</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                      <input type="checkbox" id="chk-show-frontline" checked>
-                      <span>Exibir linha "Frontline / Kiosk (F1/F3)"</span>
-                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-show-noteams"><span>Exibir variantes "Sem Teams" (No Teams)</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-show-copilot"><span>Exibir Bundles e Add-ons ("with Copilot" / Attach)</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-show-trial"><span>Exibir "Trial / Gratuito / Promo"</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-show-frontline" checked><span>Exibir linha "Frontline / Kiosk (F1/F3)"</span></label>
                   </div>
                 </details>
-
-                <!-- Flags Perpétuo & MPSA -->
-                <details id="ms-flags-perpetuo-mpsa" class="hidden group pt-2 border-t border-slate-200/70" open>
-                  <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[10px] font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600">
+                <!-- Perpétuo/MPSA -->
+                <details id="ms-flags-perpetuo-mpsa" class="hidden group pt-2 border-t border-[#edebe9]" open>
+                  <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[10px] font-semibold uppercase tracking-wider text-[#605e5c]">
                     <span>Perpétuo &amp; MPSA (Duração / Escopo)</span>
                     <svg class="w-3.5 h-3.5 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                   </summary>
                   <div class="space-y-1.5 pt-1.5">
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900" title="Exibe licenças temporárias/assinaturas (Mensal, Anual e Trienal) além das licenças perpétuas">
-                      <input type="checkbox" id="chk-pm-show-temp" onchange="Cotador.app.syncTempFlagsFromMaster(this.checked)">
-                      <span>Exibir Contratos Temporários / Assinaturas</span>
-                    </label>
-                    
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-pm-show-temp" onchange="Cotador.app.syncTempFlagsFromMaster(this.checked)"><span>Exibir Contratos Temporários / Assinaturas</span></label>
                     <div class="grid grid-cols-3 gap-1 pt-0.5 pb-0.5">
-                      <label class="flag-mini-pill" title="Exibir itens com vigência Mensal no Perpétuo/MPSA">
-                        <input type="checkbox" id="chk-pm-show-mensal" onchange="Cotador.app.syncMasterFromTempPills()">
-                        <span>Exibir Mensal</span>
-                      </label>
-                      <label class="flag-mini-pill" title="Exibir itens com vigência Anual (1 Ano) no Perpétuo/MPSA">
-                        <input type="checkbox" id="chk-pm-show-anual" onchange="Cotador.app.syncMasterFromTempPills()">
-                        <span>Exibir Anual</span>
-                      </label>
-                      <label class="flag-mini-pill" title="Exibir itens com vigência Trienal (3 Anos) no Perpétuo/MPSA">
-                        <input type="checkbox" id="chk-pm-show-trienal" onchange="Cotador.app.syncMasterFromTempPills()">
-                        <span>Exibir Trienal</span>
-                      </label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-mensal" onchange="Cotador.app.syncMasterFromTempPills()"><span>Exibir Mensal</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-anual" onchange="Cotador.app.syncMasterFromTempPills()"><span>Exibir Anual</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-trienal" onchange="Cotador.app.syncMasterFromTempPills()"><span>Exibir Trienal</span></label>
                     </div>
-
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                      <input type="checkbox" id="chk-pm-show-stepup">
-                      <span>Exibir "Step-Up / Upgrade / Migration"</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                      <input type="checkbox" id="chk-pm-show-cals" checked>
-                      <span>Exibir "CALs de Acesso" (User / Device / RDS CAL)</span>
-                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-pm-show-stepup"><span>Exibir "Step-Up / Upgrade / Migration"</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-pm-show-cals" checked><span>Exibir "CALs de Acesso" (User / Device)</span></label>
                   </div>
                 </details>
-
-                <!-- Flags Exclusivas MPSA -->
-                <details id="ms-flags-mpsa" class="hidden group pt-2 border-t border-slate-200/70" open>
-                  <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[10px] font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600">
+                <!-- MPSA -->
+                <details id="ms-flags-mpsa" class="hidden group pt-2 border-t border-[#edebe9]" open>
+                  <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[10px] font-semibold uppercase tracking-wider text-[#605e5c]">
                     <span>Opções de Uso MPSA</span>
                     <svg class="w-3.5 h-3.5 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                   </summary>
                   <div class="space-y-1.5 pt-1.5">
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                      <input type="checkbox" id="chk-mpsa-show-sa">
-                      <span>Exibir "SA Only" (Software Assurance Avulso)</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                      <input type="checkbox" id="chk-mpsa-show-licsa">
-                      <span>Exibir "Licença + SA"</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                      <input type="checkbox" id="chk-mpsa-show-liconly">
-                      <span>Exibir "License Only" (Licença Pura)</span>
-                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-mpsa-show-sa"><span>Exibir "SA Only" (SA Avulso)</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-mpsa-show-licsa"><span>Exibir "Licença + SA"</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-mpsa-show-liconly"><span>Exibir "License Only" (Licença Pura)</span></label>
                   </div>
                 </details>
-
               </div>
             </div>
           </div>
 
           <!-- 3. FILTROS ADOBE -->
-          <div id="filtros-adobe" class="hidden space-y-3.5 pt-3 border-t border-slate-100">
+          <div id="filtros-adobe" class="hidden space-y-3.5 pt-3 border-t border-[#edebe9]">
             <div>
               <div class="flex items-center justify-between mb-1">
                 <label class="section-label !mb-0">Segmento Adobe</label>
-                <span class="text-[10px] text-slate-400">1 por vez</span>
               </div>
               <input type="hidden" id="adobe-segmento" value="teams">
               <div class="grid grid-cols-2 gap-1.5">
@@ -319,7 +295,7 @@
               <div>
                 <label class="section-label">Filtro de Level</label>
                 <select id="adobe-level" class="select-input">
-                  <option value="auto">Automático pela Soma</option>
+                  <option value="auto">Automático (Soma)</option>
                   <option value="1">Level 1 (1-9)</option>
                   <option value="2">Level 2 / 12 (10-49)</option>
                   <option value="3">Level 3 / 13 (50-99)</option>
@@ -330,43 +306,30 @@
               <div>
                 <div class="flex items-center justify-between mb-1">
                   <label class="section-label !mb-0">Câmbio Dólar</label>
-                  <span id="adobe-ptax-status" class="text-[9px] font-medium text-slate-400 tabular-nums">Travado</span>
+                  <span id="adobe-ptax-status" class="text-[9px] font-medium text-gray-400 tabular-nums">Travado</span>
                 </div>
                 <input type="hidden" id="adobe-dolar" value="4.80" readonly>
-                <button type="button" id="btn-adobe-cambio-toggle" onclick="Cotador.app.toggleAdobeCambioMode()" role="switch" aria-checked="true" title="Ligado (Padrão): Câmbio travado em R$ 4,80 | Desligado: Utiliza o PTAX atual do Banco Central" class="adobe-cambio-switch is-locked">
+                <button type="button" id="btn-adobe-cambio-toggle" onclick="Cotador.app.toggleAdobeCambioMode()" role="switch" class="adobe-cambio-switch is-locked">
                   <span class="flex items-center gap-1.5 min-w-0">
-                    <svg id="icon-adobe-cambio-lock" class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                    </svg>
+                    <svg id="icon-adobe-cambio-lock" class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                     <span id="adobe-cambio-btn-label" class="truncate tabular-nums">R$ 4,80 (Fixo)</span>
                   </span>
-                  <span class="switch-track" aria-hidden="true">
-                    <span class="switch-thumb"></span>
-                  </span>
+                  <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
                 </button>
               </div>
             </div>
             <div>
               <label class="section-label">Flags de Filtragem Adobe</label>
-              <div class="space-y-1.5 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
-                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                  <input type="checkbox" id="chk-adobe-promo">
-                  <span>Usar Valor Promocional <span class="text-slate-400">(Novo Cliente)</span></span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                  <input type="checkbox" id="chk-adobe-show-stock">
-                  <span>Exibir opções "with Adobe Stock"</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                  <input type="checkbox" id="chk-adobe-hide-3y" checked>
-                  <span>Ocultar "VIP Select 3 year commit"</span>
-                </label>
+              <div class="space-y-1.5 text-[11px] text-[#323130] font-normal bg-[#f3f2f1] p-2.5 rounded border border-[#edebe9]">
+                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-adobe-promo"><span>Usar Valor Promo <span class="text-gray-400">(Novo Cliente)</span></span></label>
+                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-adobe-show-stock"><span>Exibir opções "with Adobe Stock"</span></label>
+                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-adobe-hide-3y" checked><span>Ocultar "VIP Select 3 year commit"</span></label>
               </div>
             </div>
           </div>
 
           <!-- 3. FILTROS KASPERSKY -->
-          <div id="filtros-kaspersky" class="hidden space-y-3.5 pt-3 border-t border-slate-100">
+          <div id="filtros-kaspersky" class="hidden space-y-3.5 pt-3 border-t border-[#edebe9]">
             <div>
               <label class="section-label">Tipo de Licença Kaspersky</label>
               <input type="hidden" id="kasp-tipo" value="Base">
@@ -376,120 +339,73 @@
               </div>
             </div>
             <div>
-              <label class="section-label">Períodos a Consultar (Flags de Período)</label>
-              <div class="grid grid-cols-5 gap-1 text-[11px] text-slate-600 font-medium bg-slate-50/70 p-2 rounded-lg border border-slate-200/80">
-                <label class="flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap hover:text-slate-900">
-                  <input type="checkbox" id="chk-kasp-p1">
-                  <span>1 Ano</span>
-                </label>
-                <label class="flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap hover:text-slate-900">
-                  <input type="checkbox" id="chk-kasp-p2">
-                  <span>2 Anos</span>
-                </label>
-                <label class="flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap hover:text-slate-900">
-                  <input type="checkbox" id="chk-kasp-p3">
-                  <span>3 Anos</span>
-                </label>
-                <label class="flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap hover:text-slate-900">
-                  <input type="checkbox" id="chk-kasp-p4">
-                  <span>4 Anos</span>
-                </label>
-                <label class="flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap hover:text-slate-900">
-                  <input type="checkbox" id="chk-kasp-p5">
-                  <span>5 Anos</span>
-                </label>
+              <label class="section-label">Períodos (Flags)</label>
+              <div class="grid grid-cols-5 gap-1 text-[11px] text-[#323130] font-medium bg-[#f3f2f1] p-2 rounded border border-[#edebe9]">
+                <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p1"><span>1 Ano</span></label>
+                <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p2"><span>2 Anos</span></label>
+                <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p3"><span>3 Anos</span></label>
+                <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p4"><span>4 Anos</span></label>
+                <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p5"><span>5 Anos</span></label>
               </div>
             </div>
             <div>
               <label class="section-label">Faixa (Banda)</label>
               <select id="kasp-banda" class="select-input">
                 <option value="auto">Automático pela Soma</option>
-                <option value="5-9">5-9</option>
-                <option value="10-14">10-14</option>
-                <option value="15-19">15-19</option>
-                <option value="20-24">20-24</option>
-                <option value="25-49">25-49</option>
-                <option value="50-99">50-99</option>
-                <option value="100-149">100-149</option>
-                <option value="150-249">150-249</option>
-                <option value="250-499">250-499</option>
-                <option value="500-999">500-999</option>
-                <option value="1000-1499">1000-1499</option>
-                <option value="1500-2499">1500-2499</option>
+                <option value="5-9">5-9</option><option value="10-14">10-14</option><option value="15-19">15-19</option>
+                <option value="20-24">20-24</option><option value="25-49">25-49</option><option value="50-99">50-99</option>
+                <option value="100-149">100-149</option><option value="150-249">150-249</option><option value="250-499">250-499</option>
+                <option value="500-999">500-999</option><option value="1000-1499">1000-1499</option><option value="1500-2499">1500-2499</option>
                 <option value="all">Todas as Bandas</option>
               </select>
             </div>
             <div>
-              <label class="section-label">Flags de Preço Kaspersky</label>
-              <div class="space-y-1.5 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
-                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                  <input type="checkbox" id="chk-kasp-price-revenda" checked>
-                  <span>Exibir "Valor de Revenda" <span class="text-slate-400">(Padrão)</span></span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                  <input type="checkbox" id="chk-kasp-price-ro">
-                  <span>Exibir "Valor com RO"</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                  <input type="checkbox" id="chk-kasp-price-naoprime">
-                  <span>Exibir "Não Prime sem RO"</span>
-                </label>
+              <label class="section-label">Flags de Preço</label>
+              <div class="space-y-1.5 text-[11px] text-[#323130] font-normal bg-[#f3f2f1] p-2.5 rounded border border-[#edebe9]">
+                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-price-revenda" checked><span>Exibir "Valor de Revenda"</span></label>
+                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-price-ro"><span>Exibir "Valor com RO"</span></label>
+                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-price-naoprime"><span>Exibir "Não Prime sem RO"</span></label>
               </div>
             </div>
             <div>
               <label class="section-label">Flags de Exibição Kaspersky</label>
-              <div class="space-y-1.5 text-[11px] text-slate-600 font-normal bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/80">
-                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                  <input type="checkbox" id="chk-kasp-show-baseplus">
-                  <span>Exibir "Base Plus"</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                  <input type="checkbox" id="chk-kasp-show-successive">
-                  <span>Exibir "Successive Licence"</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                  <input type="checkbox" id="chk-kasp-show-public">
-                  <span>Exibir "Public Sector Licence"</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                  <input type="checkbox" id="chk-kasp-show-training">
-                  <span>Exibir "Training / Treinamentos (ATC)"</span>
-                </label>
+              <div class="space-y-1.5 text-[11px] text-[#323130] font-normal bg-[#f3f2f1] p-2.5 rounded border border-[#edebe9]">
+                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-show-baseplus"><span>Exibir "Base Plus"</span></label>
+                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-show-successive"><span>Exibir "Successive Licence"</span></label>
+                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-show-public"><span>Exibir "Public Sector Licence"</span></label>
+                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-show-training"><span>Exibir "Training / Treinamentos (ATC)"</span></label>
               </div>
             </div>
           </div>
-
         </div>
       </div>
-
-      <!-- PAINEL DIREITO -->
+      
+      <!-- PAINEL DIREITO (Tabelas e Respostas) -->
       <div class="lg:col-span-8 xl:col-span-9">
         <div class="card p-4 md:p-5 min-h-[560px] flex flex-col justify-between">
           <div>
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3.5 mb-4">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#edebe9] pb-3.5 mb-4">
               <div>
-                <h2 class="text-sm md:text-base font-semibold text-slate-800 flex items-center gap-2">
+                <h2 class="text-sm md:text-base font-semibold text-[#323130] flex items-center gap-2">
                   <span class="w-2 h-2 rounded-sm theme-bg-solid inline-block transition-colors"></span>
                   Resultado da Cotação
                 </h2>
-                <p class="text-[11px] text-slate-400 mt-0.5">
-                  Clique em qualquer produto, PN, detalhe ou valor para copiar &bull; Arraste pelo ícone lateral para ordenar &bull; Clique no título da coluna para copiar a coluna inteira
+                <p class="text-[11px] text-gray-500 mt-0.5">
+                  Clique em qualquer produto, PN ou valor para copiar &bull; Arraste pelo ícone lateral para ordenar
                 </p>
               </div>
-              <div class="flex flex-wrap items-center gap-1.5">
-                <button onclick="Cotador.core.alternarTodasTabelas()" class="text-[11px] px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 font-medium transition" title="Expandir ou recolher todas as tabelas">
-                  Expandir / Recolher
-                </button>
-              </div>
+              <button onclick="Cotador.core.alternarTodasTabelas()" class="text-[11px] px-2.5 py-1.5 rounded bg-white hover:bg-[#f3f2f1] text-[#323130] border border-[#edebe9] font-medium transition" title="Expandir ou recolher todas as tabelas">
+                Expandir / Recolher
+              </button>
             </div>
-
-            <div id="copy-toast" class="hidden mb-3 p-2 rounded-lg theme-badge text-xs text-center font-medium shadow-sm transition-all">
+            
+            <div id="copy-toast" class="hidden mb-3 p-2 rounded theme-badge text-xs text-center font-medium shadow-sm transition-all">
               Copiado com sucesso!
             </div>
-
-            <div id="resultado-container" class="space-y-4 text-slate-800">
-              <div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
-                Cole os produtos no painel esquerdo e clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span> (ou <kbd class="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-600 font-medium">Ctrl + Enter</kbd>).
+            
+            <div id="resultado-container" class="space-y-4 text-[#323130]">
+              <div class="text-center py-24 text-gray-500 text-xs bg-[#faf9f8] rounded border border-dashed border-[#c8c6c4]">
+                Cole os produtos no painel esquerdo e clique em <span class="theme-text font-semibold">Buscar e Montar Tabelas</span>.
               </div>
             </div>
           </div>
