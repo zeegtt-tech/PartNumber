@@ -604,13 +604,25 @@ window.Cotador.core = {
     const url = `${this.SUPABASE_URL}/${table}?${qs}`;
     const headers = {
       'apikey': this.SUPABASE_KEY,
-      'Authorization': `Bearer ${this.SUPABASE_KEY}`,
       'Accept': 'application/json'
     };
-    const resp = await fetch(url, { method: 'GET', headers });
+    // Só envia Authorization: Bearer se a chave for um token JWT (iniciado por "eyJ")
+    if (String(this.SUPABASE_KEY || '').startsWith('eyJ')) {
+      headers['Authorization'] = `Bearer ${this.SUPABASE_KEY}`;
+    }
+
+    let resp;
+    try {
+      resp = await fetch(url, { method: 'GET', headers, mode: 'cors', cache: 'no-store' });
+    } catch (netErr) {
+      throw new Error(
+        `Falha de conexão com o Supabase (${netErr.message}). Verifique se o projeto rftvbxlbltmiwamjhgzl não está pausado no painel do Supabase ou bloqueado por firewall/extensão.`
+      );
+    }
+
     if (!resp.ok) {
       const errTxt = await resp.text();
-      throw new Error(`Erro (${resp.status}) na tabela [${table}]: ${errTxt}`);
+      throw new Error(`Erro HTTP (${resp.status}) na tabela [${table}]: ${errTxt}`);
     }
     return await resp.json();
   },
@@ -975,7 +987,6 @@ window.Cotador.core = {
       this._draggedRow = null;
       if (sourceTbody) {
         this.sincronizarOrdemTabelas(sourceTbody, movedRow);
-        this.atualizarMarkdownBruto();
       }
     });
   },
@@ -1105,7 +1116,6 @@ window.Cotador.core = {
     document.body.classList.toggle('hide-secondary-details', !showDet);
     const btnDet = document.getElementById('btn-toggle-detalhes');
     if (btnDet) btnDet.classList.toggle('active', showDet);
-    this.atualizarMarkdownBruto();
   },
 
   atualizarCambioAdobeEmTempoReal(novaTaxa) {
@@ -1296,8 +1306,6 @@ window.Cotador.core = {
         }
       }
     });
-
-    this.atualizarMarkdownBruto();
   },
 
   extrairValorCelula(td) {
@@ -1336,41 +1344,6 @@ window.Cotador.core = {
     const clean = String(rawTitle || '').replace(/^###\s*/, '');
     if (!this.modoCliente) return clean;
     return clean.replace(/\s*\(Faturamento:.*?\)/gi, '');
-  },
-
-  atualizarMarkdownBruto() {
-    const blocks = document.querySelectorAll('.quote-block');
-    let md = '';
-    blocks.forEach(block => {
-      const title = this.limparTituloBlocoModoCliente(block.getAttribute('data-title'));
-      md += `### ${title}\n`;
-      const table = block.querySelector('table');
-      const headers = Array.from(table.querySelectorAll('thead th'))
-        .slice(0, -1).filter(th => this.isColunaVisivel(th))
-        .map(th => th.innerText.trim());
-      md += `| ${headers.join(' | ')} |\n|${headers.map(() => '---').join('|')}|\n`;
-
-      table.querySelectorAll('tbody tr').forEach(tr => {
-        const cells = Array.from(tr.querySelectorAll('td'))
-          .slice(0, -1).filter(td => this.isColunaVisivel(td));
-        if (cells.length > 0) md += `| ${cells.map(td => this.extrairValorCelula(td)).join(' | ')} |\n`;
-      });
-
-      const tfootTr = table.querySelector('tfoot.block-table-tfoot tr');
-      if (tfootTr) {
-        const footCells = Array.from(tfootTr.querySelectorAll('td'))
-          .slice(0, -1).filter(td => this.isColunaVisivel(td))
-          .map(td => {
-            const val = this.extrairValorCelula(td);
-            return val ? `**${val}**` : '';
-          });
-        if (footCells.length > 0) md += `| ${footCells.join(' | ')} |\n`;
-      }
-
-      md += '\n';
-    });
-    const out = document.getElementById('markdown-output');
-    if (out) out.textContent = md.trim();
   },
 
   mostrarToast(msg) {
@@ -1476,13 +1449,5 @@ window.Cotador.core = {
       await navigator.clipboard.writeText(tsv.trim());
     }
     this.mostrarToast(msgSucesso);
-  },
-
-  copiarMarkdown() {
-    this.atualizarMarkdownBruto();
-    const txt = document.getElementById('markdown-output')?.textContent || '';
-    if (!txt) return;
-    navigator.clipboard.writeText(txt);
-    this.mostrarToast('Markdown copiado!');
   }
 };

@@ -88,7 +88,6 @@ window.Cotador.app = {
     window.Cotador.core.atualizarBadgeDataFabricante(vendor);
 
     document.getElementById('resultado-container').innerHTML = `<div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">Fabricante alterado para <span class="theme-text font-semibold uppercase">${vendor}</span>.<br>Insira os itens no painel esquerdo e clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span>.</div>`;
-    document.getElementById('markdown-output').textContent = '';
     this.salvarPreferencias();
     this.analisarInput();
   },
@@ -244,7 +243,6 @@ window.Cotador.app = {
     document.getElementById('btn-kasp-tipo-renewal').classList.toggle('active', tipo === 'Renewal');
     const labelTipo = tipo === 'Renewal' ? 'Renew' : 'Base';
     document.getElementById('resultado-container').innerHTML = `<div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">Tipo de licença Kaspersky alterado para <span class="theme-text font-semibold uppercase">${labelTipo}</span>.<br>Clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span> para consultar.</div>`;
-    document.getElementById('markdown-output').textContent = '';
     this.analisarInput();
   },
 
