@@ -7,11 +7,14 @@ window.Cotador.core = {
   VERSION: '5.9.0',
   SUPABASE_URL: "https://rftvbxlbltmiwamjhgzl.supabase.co/rest/v1",
   SUPABASE_KEY: "sb_publishable_fN_BXmhXXod2gpeyJ8u38Q_rvgDPl7N",
+  ADMIN_MASTER_EMAIL: "jose.garrett@solonetwork.com.br",
 
   _dragInitialized: false,
   _draggedRow: null,
   _lastMouseDownTarget: null,
   _searchAbortController: null,
+  _rbacInitialized: false,
+
   modoCliente: false,
   markupPercent: 0,
   markupEnabled: false,
@@ -19,6 +22,887 @@ window.Cotador.core = {
   setCalcMode() {},
   toggleCalcMode() {},
 
+  // Estado de Autenticação & RBAC
+  currentUser: null,
+  currentProfile: null,
+  isAdmin: false,
+  adminViewAtiva: false,
+  adminActiveTab: 'solicitacoes',
+  _adminPendingCount: 0,
+
+  // ==========================================================================
+  // 1. SEGURANÇA, RBAC E PAINEL ADMINISTRATIVO (TELA DEDICADA)
+  // ==========================================================================
+  async inicializarSegurancaERBAC() {
+    if (this._rbacInitialized) return;
+    this._rbacInitialized = true;
+
+    try {
+      if (!window.CotadorAuth) return;
+      if (!window.CotadorAuth.supabase && typeof window.CotadorAuth.init === 'function') {
+        window.CotadorAuth.init();
+      }
+      if (!window.CotadorAuth.supabase) return;
+
+      const session = await window.CotadorAuth.getSession();
+      if (!session || !session.user) return;
+
+      this.currentUser = session.user;
+      const emailLogado = String(session.user.email || '').trim().toLowerCase();
+
+      // Consulta o perfil na tabela user_profiles (protegida por RLS no Supabase)
+      let profile = null;
+      try {
+        const { data, error } = await window.CotadorAuth.supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (!error && data) profile = data;
+      } catch (_) {}
+
+      // Se o usuário estiver com acesso revogado, encerra a sessão imediatamente
+      if (profile && profile.status === 'revoked') {
+        alert('Seu acesso a esta ferramenta foi revogado pelo Administrador.');
+        await window.CotadorAuth.logout();
+        return;
+      }
+
+      this.currentProfile = profile;
+
+      // Verificação de Privilégio Admin:
+      // Checa role no banco ('admin'), app_metadata no JWT ou e-mail do Admin Global autenticado via JWT
+      const roleBanco = String(profile?.role || '').toLowerCase();
+      const roleJwt = String(session.user?.app_metadata?.role || '').toLowerCase();
+      this.isAdmin = (
+        roleBanco === 'admin' ||
+        roleJwt === 'admin' ||
+        emailLogado === this.ADMIN_MASTER_EMAIL.toLowerCase()
+      );
+
+      if (this.isAdmin) {
+        this.injetarBotaoAdminHeader();
+        this.atualizarContadorPendenciasAdmin();
+      }
+    } catch (err) {
+      console.error('Erro ao inicializar RBAC:', err);
+    }
+  },
+
+  injetarBotaoAdminHeader() {
+    if (!this.isAdmin) return;
+    if (document.getElementById('btn-painel-admin')) return;
+
+    const ptaxPanel = document.getElementById('header-ptax-panel');
+    if (!ptaxPanel || !ptaxPanel.parentElement) return;
+
+    const btnAdmin = document.createElement('button');
+    btnAdmin.type = 'button';
+    btnAdmin.id = 'btn-painel-admin';
+    btnAdmin.title = 'Acessar Painel Administrativo (Gestão de Usuários, Acessos e Tabelas)';
+    btnAdmin.className = 'topbar-pill text-[11px] px-2.5 py-1 rounded font-semibold flex items-center gap-1.5 select-none cursor-pointer bg-amber-500/20 hover:bg-amber-500/35 border border-amber-300/40 text-white transition';
+    btnAdmin.onclick = (e) => {
+      e.stopPropagation();
+      this.alternarTelaAdmin();
+    };
+
+    btnAdmin.innerHTML = `
+      <svg class="w-3.5 h-3.5 shrink-0 text-amber-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+      </svg>
+      <span id="btn-painel-admin-label">Painel Admin</span>
+      <span id="badge-admin-pending" class="hidden px-1.5 py-0.2 rounded-full bg-amber-400 text-[#323130] text-[10px] font-bold tabular-nums">0</span>
+    `;
+
+    // Posiciona EXATAMENTE à esquerda do indicador da PTAX
+    ptaxPanel.parentElement.insertBefore(btnAdmin, ptaxPanel);
+  },
+
+  async atualizarContadorPendenciasAdmin() {
+    if (!this.isAdmin || !window.CotadorAuth?.supabase) return;
+    try {
+      const { count, error } = await window.CotadorAuth.supabase
+        .from('access_requests')
+        .select('*', { count: 'exact', head: true })
+        .in('status', ['pending', 'pendente']);
+
+      if (!error && typeof count === 'number') {
+        this._adminPendingCount = count;
+        const badge = document.getElementById('badge-admin-pending');
+        if (badge) {
+          badge.textContent = String(count);
+          badge.classList.toggle('hidden', count <= 0);
+        }
+      }
+    } catch (_) {}
+  },
+
+  alternarTelaAdmin(forcarEstado) {
+    if (!this.isAdmin) {
+      this.mostrarToast('Acesso restrito ao Administrador Global.');
+      return;
+    }
+
+    this.adminViewAtiva = typeof forcarEstado === 'boolean' ? forcarEstado : !this.adminViewAtiva;
+
+    // Localiza o container principal do Cotador
+    const mainCotadorContainer = document.querySelector('body > div.max-w-\\[1600px\\]');
+    let adminView = document.getElementById('admin-dedicated-view');
+
+    if (!adminView) {
+      adminView = document.createElement('div');
+      adminView.id = 'admin-dedicated-view';
+      adminView.className = 'hidden max-w-[1600px] mx-auto p-3 md:p-5 lg:px-6 lg:py-4 space-y-4';
+      if (mainCotadorContainer && mainCotadorContainer.parentElement) {
+        mainCotadorContainer.parentElement.insertBefore(adminView, mainCotadorContainer.nextSibling);
+      } else {
+        document.body.appendChild(adminView);
+      }
+      this.renderizarEstruturaPainelAdmin(adminView);
+    }
+
+    if (mainCotadorContainer) {
+      mainCotadorContainer.classList.toggle('hidden', this.adminViewAtiva);
+    }
+    adminView.classList.toggle('hidden', !this.adminViewAtiva);
+
+    const btnLabel = document.getElementById('btn-painel-admin-label');
+    if (btnLabel) {
+      btnLabel.textContent = this.adminViewAtiva ? 'Voltar ao Cotador' : 'Painel Admin';
+    }
+
+    if (this.adminViewAtiva) {
+      this.selecionarAbaAdmin(this.adminActiveTab || 'solicitacoes');
+    }
+  },
+
+  renderizarEstruturaPainelAdmin(container) {
+    container.innerHTML = `
+      <!-- CABEÇALHO DO PAINEL ADMIN -->
+      <div class="card card-accent-top p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold uppercase tracking-wider">RBAC Admin Global</span>
+            <h2 class="text-base font-semibold text-[#323130]">Painel Administrativo &bull; Governança de Acessos e Dados</h2>
+          </div>
+          <p class="text-xs text-[#605e5c] mt-1">
+            Sessão administrativa ativa: <strong class="text-[#323130]">${this.escapeHTML(this.currentUser?.email || this.ADMIN_MASTER_EMAIL)}</strong>
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="Cotador.core.recarregarModuloAdminAtual()" class="px-3 py-1.5 rounded text-xs font-semibold bg-[#f3f2f1] hover:bg-[#edebe9] text-[#323130] border border-[#8a8886] transition flex items-center gap-1.5">
+            <span>&#8635;</span> Atualizar Dados
+          </button>
+          <button type="button" onclick="Cotador.core.alternarTelaAdmin(false)" class="btn-theme-primary px-3.5 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5">
+            <span>&larr; Voltar ao Cotador</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- NAVEGAÇÃO DOS 3 MÓDULOS -->
+      <div class="flex flex-wrap items-center gap-2 border-b border-[#edebe9] pb-2">
+        <button type="button" id="tab-btn-solicitacoes" onclick="Cotador.core.selecionarAbaAdmin('solicitacoes')" class="vendor-btn active flex items-center gap-2 !px-4 !py-2">
+          <span>1. Solicitações de Acesso</span>
+          <span id="tab-badge-pending" class="px-1.5 py-0.2 rounded-full bg-white/25 text-[10px] font-bold">0</span>
+        </button>
+        <button type="button" id="tab-btn-usuarios" onclick="Cotador.core.selecionarAbaAdmin('usuarios')" class="vendor-btn flex items-center gap-2 !px-4 !py-2">
+          <span>2. Gestão de Usuários</span>
+        </button>
+        <button type="button" id="tab-btn-upload" onclick="Cotador.core.selecionarAbaAdmin('upload')" class="vendor-btn flex items-center gap-2 !px-4 !py-2">
+          <span>3. Gestão de Dados (Upload CSV)</span>
+        </button>
+      </div>
+
+      <!-- MÓDULO 1: SOLICITAÇÕES DE ACESSO -->
+      <div id="admin-mod-solicitacoes" class="card p-4 md:p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#edebe9] pb-3">
+          <div>
+            <h3 class="text-sm font-semibold text-[#323130]">Fila de Solicitações de Acesso</h3>
+            <p class="text-[11px] text-[#605e5c]">Aprove ou recuse pedidos enviados pela tela de login. Ao aprovar, o perfil de Visualizador é autorizado e você pode definir a senha inicial.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="admin-filter-req-status" onchange="Cotador.core.carregarSolicitacoesAdmin()" class="select-input !w-auto text-xs">
+              <option value="pending">Apenas Pendentes</option>
+              <option value="approved">Aprovadas</option>
+              <option value="rejected">Recusadas</option>
+              <option value="all">Todas</option>
+            </select>
+          </div>
+        </div>
+        <div id="admin-solicitacoes-container" class="overflow-x-auto">
+          <div class="text-center py-12 text-xs text-gray-400">Carregando solicitações...</div>
+        </div>
+      </div>
+
+      <!-- MÓDULO 2: GESTÃO DE USUÁRIOS -->
+      <div id="admin-mod-usuarios" class="hidden card p-4 md:p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#edebe9] pb-3">
+          <div>
+            <h3 class="text-sm font-semibold text-[#323130]">Usuários Cadastrados &amp; Controle de Permissões (RBAC)</h3>
+            <p class="text-[11px] text-[#605e5c]">Gerencie o status de acesso (Ativo / Revogado) e o perfil de cada usuário autenticado na plataforma.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <input type="text" id="admin-new-user-nome" placeholder="Nome do colaborador" class="select-input !w-44 text-xs">
+            <input type="email" id="admin-new-user-email" placeholder="colaborador@solonetwork.com.br" class="select-input !w-56 text-xs">
+            <input type="password" id="admin-new-user-pass" placeholder="Senha inicial (min 6)" class="select-input !w-40 text-xs">
+            <button type="button" onclick="Cotador.core.criarNovoUsuarioVisualizador()" class="btn-theme-primary px-3 py-1.5 rounded text-xs font-semibold whitespace-nowrap">
+              + Cadastrar Visualizador
+            </button>
+          </div>
+        </div>
+        <div id="admin-usuarios-container" class="overflow-x-auto">
+          <div class="text-center py-12 text-xs text-gray-400">Carregando usuários...</div>
+        </div>
+      </div>
+
+      <!-- MÓDULO 3: GESTÃO DE DADOS (UPLOAD CSV COM ROLLBACK) -->
+      <div id="admin-mod-upload" class="hidden card p-4 md:p-5 space-y-4">
+        <div class="border-b border-[#edebe9] pb-3">
+          <h3 class="text-sm font-semibold text-[#323130]">Atualização de Tabelas de Preços (Auto-Encoding + Rollback Seguro)</h3>
+          <p class="text-[11px] text-[#605e5c]">Faça upload de arquivos CSV originais (Microsoft, Adobe ou Kaspersky). O sistema detecta a codificação (UTF-8/ANSI), cria um snapshot de backup em memória e executa rollback automático em caso de falha.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div>
+            <label class="section-label">Tabela de Destino</label>
+            <select id="admin-upload-table" class="select-input text-xs">
+              <option value="auto">Detectar Tabela Automaticamente (Multi-CSVs suportado)</option>
+              <option value="microsoft_scan">Microsoft CSP - Scan (microsoft_scan)</option>
+              <option value="microsoft_solo">Microsoft CSP - Solo (microsoft_solo)</option>
+              <option value="microsoft_perpetuo">Microsoft CSP Perpétuo - Solo (microsoft_perpetuo)</option>
+              <option value="microsoft_mpsa">Microsoft MPSA - Solo (microsoft_mpsa)</option>
+              <option value="adobe_base">Adobe Base (adobe_base)</option>
+              <option value="adobe_promo">Adobe Promo (adobe_promo)</option>
+              <option value="kaspersky">Kaspersky Completo (kaspersky)</option>
+            </select>
+          </div>
+          <div>
+            <label class="section-label">Arquivo(s) CSV Original(is)</label>
+            <input type="file" id="admin-upload-files" accept=".csv" multiple class="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-[#f3f2f1] file:text-[#323130] hover:file:bg-[#edebe9] file:cursor-pointer border border-[#8a8886] rounded bg-[#faf9f8] p-1">
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3 pt-2">
+          <button type="button" id="btn-admin-validar-csv" onclick="Cotador.core.iniciarUploadDadosAdmin(true)" class="flex-1 py-2 px-4 rounded font-semibold text-xs border border-[#8a8886] text-[#323130] bg-[#faf9f8] hover:bg-[#edebe9] transition">
+            Apenas Validar CSV(s) (Dry-Run)
+          </button>
+          <button type="button" id="btn-admin-importar-csv" onclick="Cotador.core.iniciarUploadDadosAdmin(false)" class="flex-[2] py-2 px-4 rounded font-semibold text-xs btn-theme-primary shadow-sm">
+            Atualizar Tabelas com Proteção Rollback
+          </button>
+        </div>
+
+        <div class="space-y-2 pt-2">
+          <div class="w-full bg-[#edebe9] rounded-full h-1.5 overflow-hidden">
+            <div id="admin-upload-progress" class="bg-emerald-500 h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <pre id="admin-upload-log" class="w-full bg-[#edebe9] text-[#323130] p-3.5 rounded border border-[#c8c6c4] text-[11px] font-mono whitespace-pre-wrap overflow-y-auto h-60 leading-relaxed">Aguardando seleção de arquivo(s) CSV...</pre>
+        </div>
+      </div>
+    `;
+  },
+
+  selecionarAbaAdmin(aba) {
+    this.adminActiveTab = aba;
+    ['solicitacoes', 'usuarios', 'upload'].forEach(id => {
+      document.getElementById(`tab-btn-${id}`)?.classList.toggle('active', id === aba);
+      document.getElementById(`admin-mod-${id}`)?.classList.toggle('hidden', id !== aba);
+    });
+    this.recarregarModuloAdminAtual();
+  },
+
+  recarregarModuloAdminAtual() {
+    this.atualizarContadorPendenciasAdmin();
+    if (this.adminActiveTab === 'solicitacoes') this.carregarSolicitacoesAdmin();
+    else if (this.adminActiveTab === 'usuarios') this.carregarUsuariosAdmin();
+  },
+
+  async carregarSolicitacoesAdmin() {
+    const container = document.getElementById('admin-solicitacoes-container');
+    if (!container || !window.CotadorAuth?.supabase) return;
+
+    const statusFilter = document.getElementById('admin-filter-req-status')?.value || 'pending';
+    container.innerHTML = `<div class="text-center py-10 text-xs text-gray-400 animate-pulse">Consultando fila de solicitações...</div>`;
+
+    try {
+      let query = window.CotadorAuth.supabase
+        .from('access_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (statusFilter === 'pending') {
+        query = query.in('status', ['pending', 'pendente']);
+      } else if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const tabBadge = document.getElementById('tab-badge-pending');
+      if (tabBadge && statusFilter === 'pending') {
+        tabBadge.textContent = String((data || []).length);
+      }
+
+      if (!data || data.length === 0) {
+        container.innerHTML = `<div class="text-center py-12 text-xs text-gray-500 bg-[#faf9f8] rounded border border-dashed border-[#c8c6c4]">Nenhuma solicitação encontrada para o filtro selecionado.</div>`;
+        return;
+      }
+
+      const rowsHTML = data.map(req => {
+        const rawStatus = String(req.status || 'pending').toLowerCase();
+        const status = rawStatus === 'pendente' ? 'pending' : rawStatus;
+        const badgeStatus = status === 'approved'
+          ? `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Aprovado</span>`
+          : (status === 'rejected'
+            ? `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200">Recusado</span>`
+            : `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">Pendente</span>`);
+
+        const dataCriacao = this.formatarDataHoraCompleta(req.created_at);
+        const safeEmail = this.escapeHTML(req.email || '');
+        const safeNome = this.escapeHTML(req.nome || '');
+        const safeMotivo = this.escapeHTML(req.motivo || '-');
+
+        const acoesHTML = status === 'pending'
+          ? `<div class="flex items-center justify-end gap-1.5">
+              <button type="button" onclick="Cotador.core.aprovarSolicitacaoAdmin('${req.id}', '${safeEmail}', '${safeNome}')" class="px-2.5 py-1 rounded text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition">Aprovar e Liberar</button>
+              <button type="button" onclick="Cotador.core.recusarSolicitacaoAdmin('${req.id}')" class="px-2.5 py-1 rounded text-[11px] font-semibold bg-white hover:bg-red-50 text-red-700 border border-red-200 transition">Negar</button>
+            </div>`
+          : `<span class="text-[11px] text-gray-400">Processado</span>`;
+
+        return `
+          <tr>
+            <td class="font-semibold text-[#323130]">${safeNome}</td>
+            <td class="font-mono text-xs text-[#0078d4]">${safeEmail}</td>
+            <td class="text-xs text-[#605e5c]">${safeMotivo}</td>
+            <td class="text-xs text-gray-500 whitespace-nowrap tabular-nums">${this.escapeHTML(dataCriacao)}</td>
+            <td>${badgeStatus}</td>
+            <td class="text-right whitespace-nowrap">${acoesHTML}</td>
+          </tr>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <div class="border border-[#edebe9] rounded overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome Completo</th>
+                <th>E-mail Corporativo</th>
+                <th>Motivo / Departamento</th>
+                <th>Data do Pedido</th>
+                <th>Status</th>
+                <th class="text-right">Ações Rápidas</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHTML}</tbody>
+          </table>
+        </div>
+      `;
+    } catch (err) {
+      container.innerHTML = `<div class="p-3 rounded bg-red-50 border border-red-200 text-red-700 text-xs">Erro ao carregar solicitações: ${this.escapeHTML(err.message)}</div>`;
+    }
+  },
+
+  async aprovarSolicitacaoAdmin(reqId, email, nome) {
+    const senhaTemporaria = prompt(
+      `Aprovar acesso de Visualizador para ${nome} (${email}).\n\nDigite uma senha temporária inicial (mínimo 6 caracteres) para criar a credencial de acesso do usuário:`,
+      `Solo@${Math.floor(1000 + Math.random() * 9000)}`
+    );
+    if (!senhaTemporaria || senhaTemporaria.trim().length < 6) {
+      this.mostrarToast('Aprovação cancelada: a senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+
+    try {
+      await window.CotadorAuth.aprovarSolicitacaoCriarUsuario({
+        requestId: reqId,
+        email: email.trim().toLowerCase(),
+        nome: nome.trim(),
+        password: senhaTemporaria.trim()
+      });
+
+      this.mostrarToast(`Acesso aprovado para ${email}!`);
+      this.carregarSolicitacoesAdmin();
+      this.atualizarContadorPendenciasAdmin();
+
+      const assunto = encodeURIComponent('Acesso Liberado - Gerador Comercial de PNs & Cotação');
+      const corpo = encodeURIComponent(
+        `Olá ${nome},\n\nSua solicitação de acesso ao Gerador Comercial de PNs (Solo Network) foi aprovada!\n\n` +
+        `Link de acesso: ${window.location.origin}/login.html\n` +
+        `E-mail: ${email}\n` +
+        `Senha Inicial: ${senhaTemporaria.trim()}\n` +
+        `Perfil: Visualizador Padrão\n\nAtenciosamente,\nAdministração do Sistema`
+      );
+      if (confirm(`Usuário ${email} liberado com sucesso!\n\nDeseja abrir seu cliente de e-mail (Outlook) agora para enviar a confirmação de acesso ao usuário?`)) {
+        window.open(`mailto:${email}?subject=${assunto}&body=${corpo}`, '_blank');
+      }
+    } catch (err) {
+      alert('Erro ao aprovar solicitação: ' + err.message);
+    }
+  },
+
+  async recusarSolicitacaoAdmin(reqId) {
+    if (!confirm('Tem certeza que deseja recusar esta solicitação de acesso?')) return;
+    try {
+      const { error } = await window.CotadorAuth.supabase
+        .from('access_requests')
+        .update({
+          status: 'rejected',
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: this.currentUser?.email || this.ADMIN_MASTER_EMAIL
+        })
+        .eq('id', reqId);
+
+      if (error) throw error;
+      this.mostrarToast('Solicitação recusada.');
+      this.carregarSolicitacoesAdmin();
+      this.atualizarContadorPendenciasAdmin();
+    } catch (err) {
+      alert('Erro ao recusar solicitação: ' + err.message);
+    }
+  },
+
+  async carregarUsuariosAdmin() {
+    const container = document.getElementById('admin-usuarios-container');
+    if (!container || !window.CotadorAuth?.supabase) return;
+
+    container.innerHTML = `<div class="text-center py-10 text-xs text-gray-400 animate-pulse">Carregando usuários cadastrados...</div>`;
+
+    try {
+      const { data, error } = await window.CotadorAuth.supabase
+        .from('user_profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        container.innerHTML = `<div class="text-center py-12 text-xs text-gray-500">Nenhum perfil encontrado em user_profiles.</div>`;
+        return;
+      }
+
+      const rowsHTML = data.map(u => {
+        const emailLower = String(u.email || '').toLowerCase();
+        const isMaster = emailLower === this.ADMIN_MASTER_EMAIL.toLowerCase();
+        const isAtivo = u.status !== 'revoked';
+        const isRoleAdmin = String(u.role || '').toLowerCase() === 'admin';
+
+        const roleBadge = isRoleAdmin
+          ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">Admin Global</span>`
+          : `<span class="px-2 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-[#0078d4] border border-blue-200">Visualizador</span>`;
+
+        const statusBadge = isAtivo
+          ? `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Ativo</span>`
+          : `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200">Revogado</span>`;
+
+        const acoesHTML = isMaster
+          ? `<span class="text-[11px] text-gray-400 italic">Admin Global Protegido</span>`
+          : `<div class="flex items-center justify-end gap-1.5">
+              ${isAtivo
+                ? `<button type="button" onclick="Cotador.core.alterarStatusUsuarioAdmin('${u.id}', 'revoked')" class="px-2.5 py-1 rounded text-[11px] font-semibold bg-white hover:bg-red-50 text-red-700 border border-red-200 transition">Revogar Acesso</button>`
+                : `<button type="button" onclick="Cotador.core.alterarStatusUsuarioAdmin('${u.id}', 'active')" class="px-2.5 py-1 rounded text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition">Reativar Acesso</button>`
+              }
+            </div>`;
+
+        return `
+          <tr>
+            <td class="font-semibold text-[#323130]">${this.escapeHTML(u.nome || '-')}</td>
+            <td class="font-mono text-xs text-[#323130]">${this.escapeHTML(u.email || '')}</td>
+            <td>${roleBadge}</td>
+            <td>${statusBadge}</td>
+            <td class="text-xs text-gray-500 whitespace-nowrap tabular-nums">${this.escapeHTML(this.formatarDataHoraCompleta(u.created_at))}</td>
+            <td class="text-right whitespace-nowrap">${acoesHTML}</td>
+          </tr>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <div class="border border-[#edebe9] rounded overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>E-mail</th>
+                <th>Perfil (Role)</th>
+                <th>Status</th>
+                <th>Criado em</th>
+                <th class="text-right">Controle de Acesso</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHTML}</tbody>
+          </table>
+        </div>
+      `;
+    } catch (err) {
+      container.innerHTML = `<div class="p-3 rounded bg-red-50 border border-red-200 text-red-700 text-xs">Erro ao carregar usuários: ${this.escapeHTML(err.message)}</div>`;
+    }
+  },
+
+  async criarNovoUsuarioVisualizador() {
+    const nomeEl = document.getElementById('admin-new-user-nome');
+    const emailEl = document.getElementById('admin-new-user-email');
+    const passEl = document.getElementById('admin-new-user-pass');
+
+    const nome = (nomeEl?.value || '').trim();
+    const email = (emailEl?.value || '').trim().toLowerCase();
+    const password = (passEl?.value || '').trim();
+
+    if (!nome || !email || password.length < 6) {
+      alert('Preencha Nome, E-mail válido e uma Senha Inicial com no mínimo 6 caracteres.');
+      return;
+    }
+
+    try {
+      await window.CotadorAuth.criarUsuarioVisualizadorDireto({ nome, email, password });
+      if (nomeEl) nomeEl.value = '';
+      if (emailEl) emailEl.value = '';
+      if (passEl) passEl.value = '';
+      this.mostrarToast(`Usuário ${email} criado com perfil Visualizador!`);
+      this.carregarUsuariosAdmin();
+    } catch (err) {
+      alert('Falha ao criar usuário: ' + err.message);
+    }
+  },
+
+  async alterarStatusUsuarioAdmin(userId, novoStatus) {
+    const acao = novoStatus === 'revoked' ? 'REVOGAR' : 'REATIVAR';
+    if (!confirm(`Confirma ${acao} o acesso deste usuário imediatamente?`)) return;
+
+    try {
+      const { error } = await window.CotadorAuth.supabase
+        .from('user_profiles')
+        .update({ status: novoStatus, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+
+      if (error) throw error;
+      this.mostrarToast(`Status do usuário atualizado para ${novoStatus === 'revoked' ? 'Revogado' : 'Ativo'}.`);
+      this.carregarUsuariosAdmin();
+    } catch (err) {
+      alert('Erro ao alterar status: ' + err.message);
+    }
+  },
+
+  // ==========================================================================
+  // MÓDULO 3 DO ADMIN: MOTOR DE UPLOAD CSV COM AUTO-ENCODING E ROLLBACK SEGURO
+  // ==========================================================================
+  _adminLog(msg) {
+    const el = document.getElementById('admin-upload-log');
+    if (!el) return;
+    el.textContent += '\n' + msg;
+    el.scrollTop = el.scrollHeight;
+  },
+
+  _adminProgress(pct) {
+    const bar = document.getElementById('admin-upload-progress');
+    if (bar) bar.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  },
+
+  _normalizarChaveCSV(str) {
+    if (!str) return '';
+    return String(str).replace(/^\uFEFF/, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  },
+
+  async _lerArquivoCSVComEncoding(file) {
+    const buffer = await file.arrayBuffer();
+    try {
+      const decoderUtf8 = new TextDecoder('utf-8', { fatal: true });
+      return { text: decoderUtf8.decode(buffer).replace(/^\uFEFF/, ''), encoding: 'UTF-8' };
+    } catch (_) {
+      const decoderWin1252 = new TextDecoder('windows-1252');
+      return { text: decoderWin1252.decode(buffer).replace(/^\uFEFF/, ''), encoding: 'Windows-1252 (ANSI)' };
+    }
+  },
+
+  _limparLinhasVaziasTopoCSV(csvText) {
+    const lines = csvText.split(/\r?\n/);
+    const headerKeywords = [
+      'part number', 'partnumber', 'saleitemname', 'offer display name',
+      'idproduto', 'titulo sku', 'productid', 'nome do produto',
+      'numero do item', 'nome curto da peca'
+    ];
+    for (let i = 0; i < Math.min(lines.length, 25); i++) {
+      const normLine = this._normalizarChaveCSV(lines[i]);
+      if (headerKeywords.some(kw => normLine.includes(kw))) {
+        return lines.slice(i).join('\n');
+      }
+    }
+    while (lines.length > 0) {
+      const check = lines[0].replace(/[;,\s"\uFEFF]/g, '');
+      if (check.length === 0) lines.shift(); else break;
+    }
+    return lines.join('\n');
+  },
+
+  _detectarTabelaPorColunasCSV(headers, fileName) {
+    const cols = headers.map(h => this._normalizarChaveCSV(h));
+    const fn = this._normalizarChaveCSV(fileName);
+    if (cols.includes('numero do item') || cols.includes('nome curto da peca')) return 'microsoft_mpsa';
+    if (cols.includes('saleitemname') || cols.includes('preco nao prime')) return 'kaspersky';
+    if (cols.includes('offer display name') || cols.includes('ciclo de pagamento')) return 'microsoft_scan';
+    if (cols.includes('idproduto') || cols.includes('titulo sku')) return 'microsoft_solo';
+    if (cols.includes('productid') || cols.includes('nome do produto')) return 'microsoft_perpetuo';
+    if (cols.includes('product family') || cols.includes('part number')) {
+      if (fn.includes('promo')) return 'adobe_promo';
+      if (fn.includes('base')) return 'adobe_base';
+      if (cols.includes('acd indicator') || cols.includes('estimated street price')) return 'adobe_base';
+      return 'adobe_promo';
+    }
+    return null;
+  },
+
+  _mapearLinhaCSVParaTabela(table, row) {
+    const exactMap = {};
+    const normMap = {};
+    for (const key in row) {
+      if (!key) continue;
+      const cleanKey = key.replace(/^\uFEFF/, '').trim();
+      const val = (row[key] !== null && row[key] !== undefined) ? String(row[key]).trim() : '';
+      exactMap[cleanKey] = val;
+      normMap[this._normalizarChaveCSV(cleanKey)] = val;
+    }
+    const get = (colName, ...aliases) => {
+      if (exactMap[colName] !== undefined) return exactMap[colName];
+      const normVal = normMap[this._normalizarChaveCSV(colName)];
+      if (normVal !== undefined) return normVal;
+      for (const alias of aliases) {
+        if (exactMap[alias] !== undefined) return exactMap[alias];
+        const normAlias = normMap[this._normalizarChaveCSV(alias)];
+        if (normAlias !== undefined) return normAlias;
+      }
+      return '';
+    };
+    const formatSkuId = (val) => {
+      if (!val) return '';
+      const s = String(val).trim();
+      return /^\d{1,3}$/.test(s) ? s.padStart(4, '0') : s;
+    };
+
+    if (table === 'adobe_base' || table === 'adobe_promo') {
+      const partNumber = get('Part Number');
+      if (!partNumber) return null;
+      return {
+        acd_indicator: get('ACD Indicator'), acd_description: get('ACD Description'), acd_effective_date: get('ACD Effective Date'),
+        first_order_date: get('First Order Date'), last_order_date: get('Last Order Date'), estimated_ship_date: get('Estimated Ship Date'),
+        public_announce_date: get('Public Announce Date'), rma_request_deadline: get('RMA Request Deadline'),
+        part_number: partNumber, product_family: get('Product Family'), version: get('Version'), operating_system: get('Operating System'),
+        language: get('Language'), product_type: get('Product Type'), product_type_detail: get('Product Type Detail'), additional_detail: get('Additional Detail'),
+        users: get('Users'), metric: get('Metric'), bridge: get('Bridge'), level_detail: get('Level Detail', 'Level'), duration: get('Duration'),
+        media: get('Media'), upc_ean_code: get('UPC/EAN Code'), gtin_codes: get('GTIN Codes'), country: get('Country'), channel: get('Channel'),
+        segment: get('Segment'), pool: get('Pool'), estimated_street_price: get('Estimated Street Price'), partner_price: get('Partner Price'), points: get('Points')
+      };
+    }
+    if (table === 'kaspersky') {
+      const partNumber = get('PartNumber', 'Part Number');
+      if (!partNumber) return null;
+      return {
+        part_number: partNumber, sale_item_name: get('SaleItemName'), family: get('Family'), tipo: get('TIPO'),
+        banda: get('BANDA'), periodo: get('PERÍODO', 'PERIODO'), preco_nao_prime: get('Preço nao Prime', 'Preco nao Prime', 'Preço Prime'),
+        revenda: get('REVENDA'), ro: get('RO'), cross_sem_ro: get('Cross sem RO'), cross_com_ro: get('Cross com RO')
+      };
+    }
+    if (table === 'microsoft_scan') {
+      const sku = get('Sku', 'SKU');
+      if (!sku) return null;
+      return {
+        sku: sku, offer_display_name: get('Offer Display Name'), preco_unitario: get('Preço Unitário', 'Preco Unitario'),
+        tempo_contrato: get('Tempo de contrato'), segmento: get('Segmento'), categoria: get('Categoria'), ciclo_pagamento: get('Ciclo de pagamento')
+      };
+    }
+    if (table === 'microsoft_solo') {
+      const idProduto = get('IDProduto', 'ID Produto');
+      if (!idProduto) return null;
+      return {
+        id_produto: idProduto, sku_id: formatSkuId(get('SkuId', 'SKU ID')), titulo_sku: get('Titulo SKU', 'Título SKU'),
+        termo_duracao: get('Termo de Duração', 'Termo de Duracao'), plano_pagamento: get('Plano de Pagamento'), moeda: get('Moeda'),
+        fob_impostos: get('FOB + Impostos'), termo_anual_pagamento_mensal: get('Termo anual com pagamento mensal'),
+        valor_5pct_servicos: get('Valor com 5% serviços', 'Valor com 5% servicos'), erp_price: get('ERP Price'), segmento: get('Segmento'),
+        tags: get('Tags'), categoria: get('Categoria'), descricao_produto: get('Descrição do Produto', 'Descricao do Produto'), condicao_comercial: get('Condição Comercial', 'Condicao Comercial')
+      };
+    }
+    if (table === 'microsoft_perpetuo') {
+      const productId = get('ProductId', 'Product ID');
+      if (!productId) return null;
+      return {
+        product_id: productId, sku_id: formatSkuId(get('SkuId', 'SKU ID')), nome_produto: get('Nome do Produto'),
+        termo_duracao: get('Termo de Duração', 'Termo de Duracao'), plano_pagamento: get('Plano de Pagamento'),
+        moeda: get('Moeda'), fob_impostos: get('FOB + Impostos'), erp: get('ERP'), tags: get('Tags'), segment: get('Segment', 'Segmento'), categoria: get('Categoria')
+      };
+    }
+    if (table === 'microsoft_mpsa') {
+      const numeroItem = get('NÚMERO DO ITEM', 'NUMERO DO ITEM');
+      if (!numeroItem) return null;
+      return {
+        numero_item: numeroItem, nome_curto_peca: get('NOME CURTO DA PEÇA', 'NOME CURTO DA PECA'), grupo_itens: get('GRUPO DE ITENS'),
+        edicao_item: get('EDIÇÃO DE ITEM', 'EDICAO DE ITEM'), uso_recurso: get('USO DO RECURSO'), tipo_item: get('TIPO DE ITEM'),
+        tipo_conta_compras: get('TIPO DE CONTA DE COMPRAS'), categoria_precos: get('CATEGORIA DE PREÇOS', 'CATEGORIA DE PRECOS'),
+        unidade_compra: get('UNIDADE DE COMPRA'), duracao_compra: get('DURAÇÃO DE COMPRA', 'DURACAO DE COMPRA'),
+        valor_preco_liquido_atual: get('VALOR DO PREÇO LÍQUIDO ATUAL', 'VALOR DO PRECO LIQUIDO ATUAL'), custo_com_imposto: get('Custo com Imposto', 'CUSTO COM IMPOSTO'),
+        moeda_precos: get('MOEDA DOS PREÇOS', 'MOEDA DOS PRECOS'), indicador_pre_requisito: get('INDICADOR DE PRÉ-REQUISITO', 'INDICADOR DE PRE-REQUISITO'),
+        pool: get('POOL'), contagem_pontos_itens: get('CONTAGEM DE PONTOS DE ITENS'), data_inicio_validade: get('DATA DE INÍCIO DE VALIDADE', 'DATA DE INICIO DE VALIDADE'),
+        data_termino_validade: get('DATA DE TÉRMINO DE VALIDADE', 'DATA DE TERMINO DE VALIDADE'), valor_preco_varejo_estimado: get('VALOR DO PREÇO DE VAREJO ESTIMADO', 'VALOR DO PRECO DE VAREJO ESTIMADO'),
+        data_lista_precos: get('DATA DA LISTA DE PREÇOS', 'DATA DA LISTA DE PRECOS'), pais: get('PAÍS', 'PAIS')
+      };
+    }
+    return null;
+  },
+
+  async iniciarUploadDadosAdmin(isDryRun) {
+    if (!this.isAdmin) return;
+    if (typeof window.Papa === 'undefined') {
+      alert('Biblioteca PapaParse não encontrada. Verifique a inclusão do script no index.html.');
+      return;
+    }
+
+    const fileInput = document.getElementById('admin-upload-files');
+    const selectedMode = document.getElementById('admin-upload-table')?.value || 'auto';
+    const btnValidar = document.getElementById('btn-admin-validar-csv');
+    const btnImportar = document.getElementById('btn-admin-importar-csv');
+
+    if (!fileInput || !fileInput.files.length) {
+      alert('Selecione pelo menos um arquivo CSV para continuar.');
+      return;
+    }
+    if (fileInput.files.length > 1 && selectedMode !== 'auto') {
+      alert('Para processar múltiplos arquivos simultaneamente, mantenha o destino em "Detectar Tabela Automaticamente".');
+      return;
+    }
+
+    const sb = window.CotadorAuth.supabase;
+    const pkByTable = {
+      adobe_base: 'part_number', adobe_promo: 'part_number', kaspersky: 'part_number',
+      microsoft_scan: 'sku', microsoft_solo: 'id_produto', microsoft_perpetuo: 'product_id', microsoft_mpsa: 'numero_item'
+    };
+
+    if (btnValidar) btnValidar.disabled = true;
+    if (btnImportar) btnImportar.disabled = true;
+    this._adminProgress(2);
+
+    const logEl = document.getElementById('admin-upload-log');
+    if (logEl) logEl.textContent = `[Sistema] Iniciando ${isDryRun ? 'VALIDAÇÃO (DRY-RUN)' : 'ATUALIZAÇÃO DE PRODUÇÃO'} de ${fileInput.files.length} arquivo(s)...`;
+
+    const startTime = performance.now();
+    let sucessos = 0;
+    const totalFiles = fileInput.files.length;
+
+    for (let idx = 0; idx < totalFiles; idx++) {
+      const file = fileInput.files[idx];
+      this._adminLog(`\n------------------------------------------------------------`);
+      this._adminLog(`[Arquivo] Lendo "${file.name}"...`);
+
+      const { text: rawText, encoding } = await this._lerArquivoCSVComEncoding(file);
+      const cleanedText = this._limparLinhasVaziasTopoCSV(rawText);
+
+      const ok = await new Promise(resolve => {
+        window.Papa.parse(cleanedText, {
+          header: true,
+          skipEmptyLines: 'greedy',
+          delimitersToGuess: [';', ',', '\t', '|'],
+          complete: async (results) => {
+            const headers = results.meta.fields || [];
+            const delimiter = results.meta.delimiter || ';';
+            const targetTable = selectedMode === 'auto' ? this._detectarTabelaPorColunasCSV(headers, file.name) : selectedMode;
+
+            if (!targetTable) {
+              this._adminLog(`[Erro] Não foi possível identificar a tabela para "${file.name}".`);
+              return resolve(false);
+            }
+
+            this._adminLog(`[Destino] Tabela: [${targetTable}] | Encoding: ${encoding} | Separador: "${delimiter}"`);
+            const mappedRows = results.data.map(r => this._mapearLinhaCSVParaTabela(targetTable, r)).filter(Boolean);
+
+            if (mappedRows.length === 0) {
+              this._adminLog(`[Erro] 0 linhas válidas mapeadas para [${targetTable}].`);
+              return resolve(false);
+            }
+
+            this._adminLog(`[OK] Validação estrutural concluída: ${mappedRows.length} registros válidos.`);
+            if (isDryRun) {
+              this._adminLog(`[DRY-RUN] Simulação concluída sem alterar o banco de dados.`);
+              return resolve(true);
+            }
+
+            // Snapshot de Backup para Rollback
+            this._adminLog(`[Backup] Criando snapshot em memória de [${targetTable}]...`);
+            const backupRows = [];
+            let from = 0;
+            while (true) {
+              const { data } = await sb.from(targetTable).select('*').range(from, from + 999);
+              if (!Array.isArray(data) || data.length === 0) break;
+              data.forEach(r => {
+                const copy = { ...r };
+                delete copy.id; delete copy.created_at; delete copy.updated_at;
+                backupRows.push(copy);
+              });
+              if (data.length < 1000) break;
+              from += 1000;
+            }
+            this._adminLog(`   -> Snapshot salvo (${backupRows.length} registros).`);
+
+            // Limpeza da tabela
+            this._adminLog(`[Limpeza] Removendo registros antigos de [${targetTable}]...`);
+            let delErr = (await sb.rpc('limpar_tabela', { nome_tabela: targetTable })).error;
+            if (delErr) {
+              delErr = (await sb.from(targetTable).delete().not(pkByTable[targetTable] || 'part_number', 'is', null)).error;
+            }
+            if (delErr) {
+              this._adminLog(`[Erro] Falha ao limpar [${targetTable}]: ${delErr.message}`);
+              return resolve(false);
+            }
+
+            // Inserção em lotes de 800
+            const chunkSize = 800;
+            for (let i = 0; i < mappedRows.length; i += chunkSize) {
+              const chunk = mappedRows.slice(i, i + chunkSize);
+              const { error: insErr } = await sb.from(targetTable).insert(chunk);
+              if (insErr) {
+                this._adminLog(`[Erro Crítico] Falha no lote ${i}: ${insErr.message}. Executando Rollback...`);
+                await sb.from(targetTable).delete().not(pkByTable[targetTable] || 'part_number', 'is', null);
+                for (let j = 0; j < backupRows.length; j += chunkSize) {
+                  await sb.from(targetTable).insert(backupRows.slice(j, j + chunkSize));
+                }
+                this._adminLog(`[Rollback] Tabela [${targetTable}] restaurada com sucesso.`);
+                return resolve(false);
+              }
+              const done = Math.min(i + chunkSize, mappedRows.length);
+              this._adminProgress(Math.round(((idx + (done / mappedRows.length)) / totalFiles) * 100));
+              this._adminLog(`   -> Progresso [${targetTable}]: ${done} / ${mappedRows.length}`);
+            }
+
+            // Atualiza catálogo de datas
+            const meta = this.CATALOGO_TABELAS.find(t => t.id === targetTable);
+            await sb.from('catalogo_atualizacoes').upsert({
+              tabela: targetTable,
+              fabricante: meta?.fab || targetTable,
+              nome_exibicao: meta?.nome || targetTable,
+              atualizado_em: new Date().toISOString()
+            }, { onConflict: 'tabela' });
+
+            this._adminLog(`[Sucesso] Tabela [${targetTable}] atualizada com sucesso!`);
+            resolve(true);
+          }
+        });
+      });
+
+      if (ok) sucessos++;
+      this._adminProgress(Math.round(((idx + 1) / totalFiles) * 100));
+    }
+
+    this._adminLog(`\n============================================================`);
+    this._adminLog(`[Finalizado] Concluído em ${((performance.now() - startTime) / 1000).toFixed(1)}s (${sucessos}/${totalFiles} arquivos com sucesso).`);
+
+    if (btnValidar) btnValidar.disabled = false;
+    if (btnImportar) btnImportar.disabled = false;
+
+    if (!isDryRun && sucessos > 0) {
+      await this.carregarDatasAtualizacao();
+      this.mostrarToast('Base de dados atualizada com sucesso!');
+    }
+  },
+
+  // ==========================================================================
+  // 2. MODIFICADORES MICROSOFT E CONTROLE DE SESSÃO DE BUSCA
+  // ==========================================================================
   atualizarModificadoresMicrosoft() {
     const chkScan = document.getElementById('chk-scan-discount');
     const descontoScan = chkScan && chkScan.checked ? 7 : 0;
@@ -36,6 +920,7 @@ window.Cotador.core = {
         th.innerHTML = thScanLabel;
         th.dataset.originalHeader = thScanLabel;
       }
+
       block.querySelectorAll('tbody tr[data-row-kind="ms_scan"]').forEach(tr => {
         const tabela = parseFloat(tr.getAttribute('data-base-price-tabela'));
         if (!isNaN(tabela)) {
@@ -99,6 +984,7 @@ window.Cotador.core = {
         });
       }
     });
+
     this.recalcularSubtotais();
   },
 
@@ -107,7 +993,7 @@ window.Cotador.core = {
     this._searchAbortController = new AbortController();
     return this._searchAbortController.signal;
   },
-  
+
   cancelarBuscasEmAndamento() {
     if (this._searchAbortController) {
       this._searchAbortController.abort();
@@ -115,20 +1001,23 @@ window.Cotador.core = {
     }
   },
 
+  // ==========================================================================
+  // 3. DATAS DE ATUALIZAÇÃO DAS PLANILHAS E POPOVER DO HEADER
+  // ==========================================================================
   formatarDataCurta(isoStr) {
     if (!isoStr) return null;
     const d = new Date(isoStr);
     if (isNaN(d.getTime())) return null;
-    return d.toLocaleDateString('pt-BR');
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   },
 
   formatarDataHoraCompleta(isoStr) {
     if (!isoStr) return '-';
     const d = new Date(isoStr);
     if (isNaN(d.getTime())) return '-';
-    return d.toLocaleString('pt-BR', { 
-      day: '2-digit', month: '2-digit', year: 'numeric', 
-      hour: '2-digit', minute: '2-digit', hour12: false 
+    return d.toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: false
     });
   },
 
@@ -172,6 +1061,12 @@ window.Cotador.core = {
             return;
           }
         } catch (_) {}
+        try {
+          const resCreated = await this.fetchSupabase(t.id, [['select', 'created_at'], ['order', 'created_at.desc'], ['limit', '1']], { useAbort: false });
+          if (resCreated && resCreated[0] && resCreated[0].created_at) {
+            this.ultimasAtualizacoes[t.id] = { iso: resCreated[0].created_at, fabricante: t.fab, nome: t.nome };
+          }
+        } catch (_) {}
       }));
     }
     this.atualizarBadgeDataFabricante(window.Cotador.app?.currentVendor || 'microsoft');
@@ -204,17 +1099,17 @@ window.Cotador.core = {
     listEl.innerHTML = tabelasOrdenadas.map(t => {
       const info = this.ultimasAtualizacoes[t.id];
       const dataHora = info?.iso ? this.formatarDataHoraCompleta(info.iso) : 'Sem registro';
-      
-      const dotCls = info?.iso ? 'bg-emerald-500' : 'bg-gray-300';
-      const textCls = info?.iso ? 'text-[#323130]' : 'text-gray-400';
+      const isFabAtivo = t.fab === vendor;
+      const rowBg = isFabAtivo ? 'bg-[#f3f2f1] border-[#edebe9]' : 'bg-white border-transparent opacity-75';
+      const dotCls = info?.iso ? (isFabAtivo ? 'bg-emerald-500' : 'bg-gray-300') : 'bg-amber-400';
 
       return `
-        <div class="flex items-center justify-between gap-2 px-2 py-1.5 rounded border border-transparent hover:bg-[#f3f2f1] transition-colors">
+        <div class="flex items-center justify-between gap-2 px-2 py-1.5 rounded border ${rowBg} hover:bg-[#f3f2f1] transition-colors">
           <div class="flex items-center gap-1.5 min-w-0">
             <span class="w-1.5 h-1.5 rounded-full ${dotCls} shrink-0"></span>
-            <span class="font-medium ${textCls} truncate">${this.escapeHTML(t.nome)}</span>
+            <span class="font-medium text-[#323130] truncate">${this.escapeHTML(t.nome)}</span>
           </div>
-          <span class="text-[11px] font-mono ${textCls} tabular-nums whitespace-nowrap">${this.escapeHTML(dataHora)}</span>
+          <span class="text-[11px] font-mono text-gray-500 tabular-nums whitespace-nowrap">${this.escapeHTML(dataHora)}</span>
         </div>
       `;
     }).join('');
@@ -247,6 +1142,9 @@ window.Cotador.core = {
     if (pop) pop.classList.add('hidden');
   },
 
+  // ==========================================================================
+  // 4. MOTOR DE BUSCA INTELIGENTE, CORREÇÃO FUZZY E PARSER DE INPUT
+  // ==========================================================================
   SEARCH_KEYWORDS: {
     "adobe acrobat pro": ["Acrobat", "Pro"],
     "adobe acrobat standard": ["Acrobat", "Standard"],
@@ -255,55 +1153,177 @@ window.Cotador.core = {
     "adobe photoshop": ["Photoshop"],
     "adobe indesign": ["InDesign"],
     "adobe premiere": ["Premiere"],
+    "phothosop": ["Photoshop"],
+    "photshop": ["Photoshop"],
+    "photosop": ["Photoshop"],
+    "photopshop": ["Photoshop"],
+    "phtoshop": ["Photoshop"],
+    "fotoshop": ["Photoshop"],
+    "photoshop": ["Photoshop"],
+    "ilustrator": ["Illustrator"],
+    "illustrator": ["Illustrator"],
+    "indesing": ["InDesign"],
+    "indesign": ["InDesign"],
+    "acrobat pro": ["Acrobat", "Pro"],
+    "acrobat dc pro": ["Acrobat", "Pro"],
+    "acrobat standard": ["Acrobat", "Standard"],
+    "acrobat std": ["Acrobat", "Standard"],
+    "adobe sign": ["Acrobat", "Sign"],
+    "acrobat sign": ["Acrobat", "Sign"],
+    "creative cloud pro": ["Creative Cloud"],
+    "creative cloud all apps": ["Creative Cloud"],
+    "cc all apps": ["Creative Cloud"],
+    "creative cloud": ["Creative Cloud"],
+    "premiere": ["Premiere"],
+    "premiere pro": ["Premiere"],
+    "after effects": ["After Effects"],
+    "lightroom": ["Lightroom"],
+    "adobe stock": ["Stock"],
+    "substance 3d": ["Substance"],
+    "dreamweaver": ["Dreamweaver"],
+    "animate": ["Animate"],
+    "audition": ["Audition"],
+    "incopy": ["InCopy"],
+    "captivate": ["Captivate"],
+    "firefly": ["Firefly"],
     "business basic": ["Business Basic"],
     "m365 business basic": ["Business Basic"],
+    "o365 business basic": ["Business Basic"],
+    "microsoft 365 business basic": ["Business Basic"],
+    "office 365 business basic": ["Business Basic"],
     "business standard": ["Business Standard"],
+    "business standart": ["Business Standard"],
+    "business standar": ["Business Standard"],
     "m365 business standard": ["Business Standard"],
+    "o365 business standard": ["Business Standard"],
+    "microsoft 365 business standard": ["Business Standard"],
+    "office 365 business standard": ["Business Standard"],
     "business premium": ["Business Premium"],
     "m365 business premium": ["Business Premium"],
+    "o365 business premium": ["Business Premium"],
+    "microsoft 365 business premium": ["Business Premium"],
+    "office 365 business premium": ["Business Premium"],
     "apps for business": ["Apps for business"],
+    "m365 apps for business": ["Apps for business"],
+    "microsoft 365 apps for business": ["Apps for business"],
+    "apps for enterprise": ["Apps for enterprise"],
     "m365 apps for enterprise": ["Apps for enterprise"],
+    "microsoft 365 apps for enterprise": ["Apps for enterprise"],
+    "office 365 proplus": ["Apps for enterprise"],
+    "proplus": ["Apps for enterprise"],
     "m365 e3": ["Microsoft 365", "E3"],
     "m365 e5": ["Microsoft 365", "E5"],
     "m365 f1": ["Microsoft 365", "F1"],
+    "m365 f3": ["Microsoft 365", "F3"],
     "o365 e1": ["Office 365", "E1"],
+    "o365 e3": ["Office 365", "E3"],
+    "o365 e5": ["Office 365", "E5"],
+    "o365 f3": ["Office 365", "F3"],
     "exchange plan 1": ["Exchange Online", "Plan 1"],
     "exchange plan 2": ["Exchange Online", "Plan 2"],
+    "exchange online plan 1": ["Exchange Online", "Plan 1"],
+    "exchange online plan 2": ["Exchange Online", "Plan 2"],
+    "exchange p1": ["Exchange Online", "Plan 1"],
+    "exchange p2": ["Exchange Online", "Plan 2"],
     "exchange online archiving": ["Exchange Online", "Archiving"],
+    "exchange archiving": ["Exchange Online", "Archiving"],
+    "exchange kiosk": ["Exchange Online", "Kiosk"],
+    "exchange online kiosk": ["Exchange Online", "Kiosk"],
+    "exchange online": ["Exchange Online"],
     "teams essentials": ["Teams", "Essentials"],
+    "ms teams essentials": ["Teams", "Essentials"],
+    "teams enterprise": ["Teams", "Enterprise"],
+    "ms teams enterprise": ["Teams", "Enterprise"],
+    "ms teams": ["Teams"],
+    "planner": ["Planner"],
+    "planner plan 1": ["Planner", "Plan 1"],
+    "project plan 1": ["Plan 1"],
+    "project p1": ["Plan 1"],
+    "project plan 3": ["Project", "Plan 3"],
+    "project p3": ["Project", "Plan 3"],
+    "project plan 5": ["Project", "Plan 5"],
+    "project p5": ["Project", "Plan 5"],
+    "visio plan 1": ["Visio", "Plan 1"],
+    "visio p1": ["Visio", "Plan 1"],
+    "visio plan 2": ["Visio", "Plan 2"],
+    "visio p2": ["Visio", "Plan 2"],
     "power bi pro": ["Power BI", "Pro"],
+    "powerbi pro": ["Power BI", "Pro"],
+    "pbi pro": ["Power BI", "Pro"],
+    "power bi premium": ["Power BI", "Premium"],
+    "powerbi premium": ["Power BI", "Premium"],
+    "power bi premium per user": ["Power BI", "Premium", "User"],
+    "power bi ppu": ["Power BI", "Premium", "User"],
+    "pbi ppu": ["Power BI", "Premium", "User"],
     "copilot": ["Copilot"],
+    "copilot business": ["Copilot", "Business"],
+    "m365 copilot business": ["Copilot", "Business"],
+    "microsoft 365 copilot business": ["Copilot", "Business"],
+    "m365 copilot": ["Microsoft 365", "Copilot"],
+    "microsoft 365 copilot": ["Microsoft 365", "Copilot"],
+    "copilot studio": ["Copilot Studio"],
+    "microsoft copilot studio": ["Copilot Studio"],
     "defender for business": ["Defender", "Business"],
+    "defender business": ["Defender", "Business"],
+    "defender endpoint p1": ["Defender", "Endpoint", "Plan 1"],
+    "defender endpoint p2": ["Defender", "Endpoint", "Plan 2"],
+    "defender for office 365 plan 1": ["Defender", "Office 365", "Plan 1"],
+    "defender for office 365 plan 2": ["Defender", "Office 365", "Plan 2"],
     "entra id p1": ["Entra ID", "P1"],
+    "azure ad p1": ["Entra ID", "P1"],
+    "entra id p2": ["Entra ID", "P2"],
+    "azure ad p2": ["Entra ID", "P2"],
     "intune plan 1": ["Intune", "Plan 1"],
+    "kesb select": ["Select"],
     "kaspersky select": ["Select"],
+    "endpoint security select": ["Select"],
+    "kesb advanced": ["Advanced"],
+    "kaspersky advanced": ["Advanced"],
     "endpoint security advanced": ["Advanced"],
+    "kesb total": ["Total"],
+    "kaspersky total": ["Total"],
     "next edr foundations": ["EDR", "Foundations"],
+    "edr foundations": ["EDR", "Foundations"],
     "next edr optimum": ["EDR", "Optimum"],
+    "edr optimum": ["EDR", "Optimum"],
+    "next xdr expert": ["XDR", "Expert"],
+    "xdr expert": ["XDR", "Expert"],
     "ksos": ["Small Office"],
-    "kesc plus": ["Cloud", "Plus"]
+    "small office security": ["Small Office"],
+    "kaspersky small office": ["Small Office"],
+    "kesc": ["Cloud"],
+    "kesc plus": ["Cloud", "Plus"],
+    "kesc pro": ["Cloud", "Pro"]
   },
 
   TOKEN_TYPO_MAP: {
-    "standar": "Standard", "standart": "Standard", "std": "Standard",
-    "entprise": "Enterprise", "enterpise": "Enterprise", "ent": "Enterprise",
-    "bussiness": "Business", "busines": "Business", "busness": "Business",
-    "microsft": "Microsoft", "micrsoft": "Microsoft",
-    "premiun": "Premium", "premuim": "Premium",
-    "exchenge": "Exchange", "exchage": "Exchange",
-    "sharepoit": "SharePoint", "projet": "Project",
-    "m365": "365", "o365": "365", "win": "Windows", "ws": "Windows Server",
+    "standar": "Standard", "standart": "Standard", "standad": "Standard", "stardard": "Standard", "padrao": "Standard", "std": "Standard",
+    "entprise": "Enterprise", "enterpise": "Enterprise", "enterprize": "Enterprise", "entreprice": "Enterprise", "ent": "Enterprise",
+    "datacent": "Datacenter", "dc": "Datacenter",
+    "foudation": "Foundations", "foudations": "Foundations", "foudantions": "Foundations", "foundation": "Foundations",
+    "optmium": "Optimum", "optimun": "Optimum",
+    "bussiness": "Business", "busines": "Business", "bussines": "Business", "bsiness": "Business", "busness": "Business",
+    "microsft": "Microsoft", "micrsoft": "Microsoft", "micosoft": "Microsoft",
+    "premiun": "Premium", "premuim": "Premium", "premum": "Premium",
+    "exchenge": "Exchange", "exchage": "Exchange", "excange": "Exchange", "exhange": "Exchange", "exchagne": "Exchange",
+    "sharepoit": "SharePoint", "sharpoint": "SharePoint",
+    "projet": "Project", "projec": "Project",
+    "m365": "365", "o365": "365",
+    "win": "Windows", "ws": "Windows Server",
     "powerbi": "Power BI", "pbi": "Power BI",
-    "phothosop": "Photoshop", "photshop": "Photoshop",
-    "ilustrator": "Illustrator", "indesing": "InDesign",
-    "acobrat": "Acrobat", "kasperky": "Kaspersky"
+    "phothosop": "Photoshop", "photshop": "Photoshop", "photosop": "Photoshop", "photopshop": "Photoshop", "phtoshop": "Photoshop", "fotoshop": "Photoshop",
+    "ilustrator": "Illustrator", "ilustrattor": "Illustrator", "ilustraitor": "Illustrator",
+    "indesing": "InDesign", "indising": "InDesign",
+    "acobrat": "Acrobat", "premier": "Premiere",
+    "kasperky": "Kaspersky", "kasparsky": "Kaspersky"
   },
 
   CANONICAL_CATALOG_TOKENS: [
     "Microsoft", "Business", "Standard", "Basic", "Premium", "Enterprise",
     "Exchange", "SharePoint", "Project", "Defender", "Copilot", "Photoshop",
     "Illustrator", "InDesign", "Acrobat", "Creative", "Premiere", "Lightroom",
-    "Substance", "Kaspersky", "Foundations", "Optimum", "Advanced", "Endpoint"
+    "Substance", "Kaspersky", "Foundations", "Optimum", "Advanced", "Endpoint",
+    "Security", "Datacenter"
   ],
 
   STOPWORDS_PT: new Set([
@@ -312,9 +1332,12 @@ window.Cotador.core = {
   ]),
 
   calcularLevenshtein(a, b) {
-    const s = a.toLowerCase(); const t = b.toLowerCase();
-    const m = s.length; const n = t.length;
-    if (m === 0) return n; if (n === 0) return m;
+    const s = a.toLowerCase();
+    const t = b.toLowerCase();
+    const m = s.length;
+    const n = t.length;
+    if (m === 0) return n;
+    if (n === 0) return m;
     const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
     for (let i = 0; i <= m; i++) dp[i][0] = i;
     for (let j = 0; j <= n; j++) dp[0][j] = j;
@@ -337,7 +1360,8 @@ window.Cotador.core = {
       if (Math.abs(canon.length - clean.length) > maxDist) continue;
       const dist = this.calcularLevenshtein(clean, canon);
       if (dist <= maxDist && dist < menorDistancia) {
-        menorDistancia = dist; melhorPalavra = canon;
+        menorDistancia = dist;
+        melhorPalavra = canon;
         if (dist === 0) break;
       }
     }
@@ -426,7 +1450,7 @@ window.Cotador.core = {
     if (n >= 2005 && n <= 2035 && !prefixHasYear) return true;
     if (n === 365 && ['microsoft', 'ms', 'office', 'o', 'dynamics', 'windows', 'win', 'm', 'd'].includes(lastWord)) return true;
 
-    const designators = new Set(['plan', 'plano', 'pl', 'level', 'lvl', 'nivel', 'n vel', 'tier', 'version', 'versao', 'vers o', 'ver', 'v', 'release', 'rel', 'r', 'edition', 'edicao', 'edi o', 'ed', 'gen', 'generation', 'geracao', 'gera', 'wave', 'step', 'phase', 'fase', 'type', 'tipo', 'cat', 'categoria', 'group', 'grupo', 'option', 'opcao', 'op', 'pack', 'pacote', 'suite', 'su te', 'core', 'e', 'f', 'p', 'g', 'a', 'k']);
+    const designators = new Set(['plan', 'plano', 'pl', 'level', 'lvl', 'nivel', 'nível', 'tier', 'version', 'versao', 'versão', 'ver', 'v', 'release', 'rel', 'r', 'edition', 'edicao', 'edição', 'ed', 'gen', 'generation', 'geracao', 'geração', 'wave', 'step', 'phase', 'fase', 'type', 'tipo', 'cat', 'categoria', 'group', 'grupo', 'option', 'opcao', 'op', 'pack', 'pacote', 'suite', 'suíte', 'core', 'e', 'f', 'p', 'g', 'a', 'k']);
     if (designators.has(lastWord)) return true;
     if (['windows', 'win'].includes(lastWord) && [7, 8, 10, 11, 365].includes(n)) return true;
     if (lastWord === 'hololens' && [1, 2, 3].includes(n)) return true;
@@ -448,9 +1472,9 @@ window.Cotador.core = {
         return;
       }
 
-      const explicitUnitEnd = prodName.match(/^(.*?)(?:[\s:|=\t]+|\s*[- :|=/]\s*|\b(?:qtd|qtde|quant)\s*[:=]?\s*)(\d+)\s*(?:x|un|unid|unidades?|lic|licen[c ]as?|users?|usu[a ]rios?|pcs?|seats?|disp|dispositivos?)\.?$/i);
+      const explicitUnitEnd = prodName.match(/^(.*?)(?:[\s:|=\t]+|\s*[- :|=/]\s*|\b(?:qtd|qtde|quant)\s*[:=]?\s*)(\d+)\s*(?:x|un|unid|unidades?|lic|licen[cç]as?|users?|usu[aá]rios?|pcs?|seats?|disp|dispositivos?)\.?$/i);
       const explicitDelimEnd = !explicitUnitEnd && prodName.match(/^(.*?)(?:\t+|\s*[- :|=/]\s*)(\d+)\s*$/);
-      const explicitStart = !explicitUnitEnd && !explicitDelimEnd && prodName.match(/^(\d+)\s*(?:x\b|un\b|unid\b|unidades?\b|lic\b|licen[c ]as?\b|\s*[- :|=/]\s*)\s*(.+)$/i);
+      const explicitStart = !explicitUnitEnd && !explicitDelimEnd && prodName.match(/^(\d+)\s*(?:x\b|un\b|unid\b|unidades?\b|lic\b|licen[cç]as?\b|\s*[- :|=/]\s*)\s*(.+)$/i);
 
       if (explicitUnitEnd && explicitUnitEnd[1].trim()) {
         prodName = explicitUnitEnd[1].trim(); qty = parseInt(explicitUnitEnd[2], 10);
@@ -459,7 +1483,7 @@ window.Cotador.core = {
       } else if (explicitStart && explicitStart[2].trim()) {
         qty = parseInt(explicitStart[1], 10); prodName = explicitStart[2].trim();
       } else {
-        const clean = prodName.replace(/\s+\b(unidades|unidade|licen as|licencas|lic|unid|un)\b\.?$/gi, '').replace(/\s+/g, ' ').trim();
+        const clean = prodName.replace(/\s+\b(unidades|unidade|licenças|licencas|lic|unid|un)\b\.?$/gi, '').replace(/\s+/g, ' ').trim();
         prodName = clean;
         const matchEnd = clean.match(/^(.*?)\s+(\d+)$/);
         if (matchEnd && matchEnd[1].trim()) {
@@ -482,6 +1506,9 @@ window.Cotador.core = {
     return { items, sumLicenses };
   },
 
+  // ==========================================================================
+  // 5. SEGMENTOS DE MERCADO E FETCH SUPABASE AUTENTICADO (JWT + RLS)
+  // ==========================================================================
   extrairSegmentoRow(rowOrVal) {
     if (!rowOrVal) return '';
     if (typeof rowOrVal === 'string') return rowOrVal.trim();
@@ -515,8 +1542,8 @@ window.Cotador.core = {
       if (/\b(government|gov|governo|public sector|setor p|state|federal|municipal|gcc)\b/i.test(segRaw) || segRaw.includes('government') || segRaw.includes('public')) return 'government';
     }
     if (/\b(charity|non-profit|nonprofit|non profit|donation|filantropia)\b/i.test(nome)) return 'charity';
-    if (/\b(education|faculty|student|academic|academico|acad mico|school)\b/i.test(nome)) return 'education';
-    if (/\b(government|gov|governo|public sector|setor publico|setor p blico|gcc)\b/i.test(nome)) return 'government';
+    if (/\b(education|faculty|student|academic|academico|acadêmico|school)\b/i.test(nome)) return 'education';
+    if (/\b(government|gov|governo|public sector|setor publico|setor público|gcc)\b/i.test(nome)) return 'government';
     return 'commercial';
   },
 
@@ -544,22 +1571,25 @@ window.Cotador.core = {
   async fetchSupabase(table, paramsArray, options = {}) {
     const qs = paramsArray.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
     const url = `${this.SUPABASE_URL}/${table}?${qs}`;
-    
-    const headers = { 
-      'apikey': this.SUPABASE_KEY, 
-      'Accept': 'application/json' 
+
+    const headers = {
+      'apikey': this.SUPABASE_KEY,
+      'Accept': 'application/json'
     };
 
-    const session = await window.CotadorAuth.getSession();
-    if (session && session.access_token) {
-      headers['Authorization'] = `Bearer ${session.access_token}`;
-    } else {
-      window.location.href = 'login.html';
-      throw new Error("Sessão não encontrada.");
+    if (window.CotadorAuth && typeof window.CotadorAuth.getSession === 'function') {
+      const session = await window.CotadorAuth.getSession();
+      if (session && session.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      } else {
+        window.location.replace('login.html');
+        throw new Error('Sessão expirada ou não encontrada.');
+      }
+    } else if (String(this.SUPABASE_KEY || '').startsWith('eyJ')) {
+      headers['Authorization'] = `Bearer ${this.SUPABASE_KEY}`;
     }
 
     const signal = options.signal !== undefined ? options.signal : (options.useAbort === false ? undefined : this._searchAbortController?.signal);
-    
     let resp;
     try {
       resp = await fetch(url, { method: 'GET', headers, mode: 'cors', cache: 'no-store', signal });
@@ -567,10 +1597,17 @@ window.Cotador.core = {
       if (netErr.name === 'AbortError') throw netErr;
       throw new Error(`Falha de conexão com o Supabase (${netErr.message}).`);
     }
+    if (resp.status === 401 || resp.status === 403) {
+      window.location.replace('login.html');
+      throw new Error('Acesso não autorizado (401/403).');
+    }
     if (!resp.ok) throw new Error(`Erro HTTP (${resp.status}) na tabela [${table}].`);
     return await resp.json();
   },
 
+  // ==========================================================================
+  // 6. CÁLCULOS COMERCIAIS: MARGEM DE VENDA DIRETA E MODO CLIENTE
+  // ==========================================================================
   parsePrice(val) {
     if (typeof val === 'number') return val;
     if (!val) return 0;
@@ -600,9 +1637,6 @@ window.Cotador.core = {
 
     // Margem de Venda Direta (Adição percentual simples sobre o custo: Custo * (1 + %))
     return 1 + (pct / 100);
-
-    // Se preferir Margem Bruta por dentro (Custo / (1 - %)), basta usar a linha abaixo:
-    // return 1 / (1 - (Math.min(pct, 99) / 100));
   },
 
   aplicarMarkup(valor) {
@@ -624,7 +1658,8 @@ window.Cotador.core = {
   },
 
   injetarControlesComerciaisHeader() {
-    this.inicializarSegurancaERBAC?.();
+    // Inicializa simultaneamente a verificação de segurança RBAC e botão Admin no Header
+    this.inicializarSegurancaERBAC();
 
     if (document.getElementById('commercial-mode-bar')) return;
     const viewCtrl = document.querySelector('.unified-view-control');
@@ -746,6 +1781,9 @@ window.Cotador.core = {
     });
   },
 
+  // ==========================================================================
+  // 7. RENDERIZAÇÃO DE COMPONENTES, DRAG & DROP, SUBTOTAIS E EXPORTAÇÃO
+  // ==========================================================================
   renderCopyLink(displayText, copyValue, label = 'Valor', extraClass = '') {
     const safeDisplay = this.escapeHTML(String(displayText ?? ''));
     const safeCopy = this.escapeHTML(String(copyValue ?? displayText ?? ''));
@@ -784,16 +1822,16 @@ window.Cotador.core = {
 
   renderDetalhesSoloCSP(contratoId, custoCom5, mensalSem5, anualSem5, fator = 1, isMarginCol = false) {
     if (contratoId !== 'am' && contratoId !== 'mm' && contratoId !== 'tm') return '';
-    
+
     const toggle = document.getElementById('chk-solo-service');
     const isSoloEnabled = !toggle || toggle.checked;
 
     const anualVal = (custoCom5 * fator) * 12;
     const fmtAnualVal = `R$ ${this.formatBRL(anualVal)}`;
-    
+
     const labelInterno = isSoloEnabled ? `12x c/ 5%: ${fmtAnualVal}` : `Total 12x: ${fmtAnualVal}`;
     const labelCliente = `Total 12x: ${fmtAnualVal}`;
-    
+
     if (isMarginCol) {
       return `<div class="sec-detail text-[11px] font-medium text-[#605e5c] mt-0.5">
         <span class="internal-only-text">${this.renderCopyLink(labelInterno, fmtAnualVal, labelInterno.split(':')[0])}</span>
@@ -828,7 +1866,7 @@ window.Cotador.core = {
     const infoData = tabelaRef ? this.ultimasAtualizacoes[tabelaRef] : null;
     const dataCurta = infoData ? this.formatarDataCurta(infoData.iso) : null;
     const badgeDataHTML = dataCurta ? `<span class="sec-detail no-export text-[10px] font-normal text-gray-400 bg-white border border-gray-200 px-2 py-0.5 rounded-full whitespace-nowrap">Atualizado em ${dataCurta}</span>` : '';
-    
+
     return `<div onclick="Cotador.core.toggleBlock('${blockId}')" class="block-header-bar flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none"><div class="flex items-center gap-2"><svg class="w-4 h-4 text-gray-400 chevron-icon transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg><h3 onclick="Cotador.core.copiarBlocoAoClicarTitulo(event, '${blockId}')" class="copy-link text-xs font-semibold text-[#323130]">${safeTitle}</h3></div><div class="flex items-center gap-2" onclick="event.stopPropagation()">${badgeDataHTML}<span id="total-${blockId}" onclick="Cotador.core.copiarElemento(event, this)" data-copy="" data-label="Total da Tabela" class="copy-link block-total-badge text-xs font-semibold theme-badge px-2.5 py-0.5 rounded tabular-nums hidden"></span></div></div>`;
   },
 
@@ -972,23 +2010,27 @@ window.Cotador.core = {
   },
 
   toggleBlock(blockId) { document.getElementById(blockId)?.classList.toggle('is-collapsed'); },
+
   alternarTodasTabelas() {
     const blocks = Array.from(document.querySelectorAll('.quote-block'));
     if (blocks.length === 0) return;
     const algumaAberta = blocks.some(b => !b.classList.contains('is-collapsed'));
     blocks.forEach(b => b.classList.toggle('is-collapsed', algumaAberta));
   },
+
   toggleMostrarSubtotal() {
     const chk = document.getElementById('chk-mostrar-subtotal');
     chk.checked = !chk.checked;
     document.getElementById('btn-toggle-subtotal').classList.toggle('active', chk.checked);
     this.recalcularSubtotais();
   },
+
   toggleDetalhesSecundarios() {
     const chk = document.getElementById('chk-mostrar-detalhes');
     chk.checked = !chk.checked;
     this.atualizarVisibilidadeDetalhes();
   },
+
   alternarVisaoUnificada() {
     const chkSub = document.getElementById('chk-mostrar-subtotal');
     const chkDet = document.getElementById('chk-mostrar-detalhes');
@@ -998,11 +2040,13 @@ window.Cotador.core = {
     this.atualizarVisibilidadeDetalhes();
     this.recalcularSubtotais();
   },
+
   atualizarVisibilidadeDetalhes() {
     const showDet = document.getElementById('chk-mostrar-detalhes').checked;
     document.body.classList.toggle('hide-secondary-details', !showDet);
     document.getElementById('btn-toggle-detalhes')?.classList.toggle('active', showDet);
   },
+
   atualizarCambioAdobeEmTempoReal(novaTaxa) {
     const taxa = parseFloat(novaTaxa);
     if (isNaN(taxa) || taxa <= 0) return;
@@ -1045,12 +2089,12 @@ window.Cotador.core = {
       block.querySelectorAll('tbody tr').forEach(tr => {
         if (!tr.hasAttribute('data-base-unit-price')) tr.setAttribute('data-base-unit-price', tr.getAttribute('data-unit-price') || '0');
         if (isUSD && !tr.hasAttribute('data-base-unit-price-brl')) tr.setAttribute('data-base-unit-price-brl', tr.getAttribute('data-unit-price-brl') || '0');
-        
+
         const baseUnit = parseFloat(tr.getAttribute('data-base-unit-price'));
         const baseUnitBrl = parseFloat(tr.getAttribute('data-base-unit-price-brl'));
         const unitComMargem = baseUnit * fatorMarkup;
         const unitBrlComMargem = (!isNaN(baseUnitBrl) ? baseUnitBrl : 0) * fatorMarkup;
-        
+
         tr.setAttribute('data-unit-price', String(unitComMargem));
         if (isUSD) tr.setAttribute('data-unit-price-brl', String(unitBrlComMargem));
 
@@ -1078,7 +2122,7 @@ window.Cotador.core = {
             tdMargin.textContent = '-';
           }
         }
-        
+
         const input = tr.querySelector('.qty-input');
         const subTd = tr.querySelector('.col-subtotal');
         if (!input || isNaN(unitComMargem)) return;
@@ -1102,7 +2146,7 @@ window.Cotador.core = {
           subTd.textContent = '-';
         }
       });
-      
+
       const badgeTotal = document.getElementById(`total-${block.id}`);
       if (badgeTotal) {
         if (isUSD) {
@@ -1116,7 +2160,7 @@ window.Cotador.core = {
         }
         badgeTotal.classList.toggle('hidden', !temQtd || !showSub);
       }
-      
+
       const table = block.querySelector('table');
       if (table) {
         let tfoot = table.querySelector('tfoot.block-table-tfoot');
