@@ -41,7 +41,16 @@
       <div class="flex flex-wrap items-center gap-2.5">
         <input type="checkbox" id="chk-mostrar-subtotal" class="sr-only" onchange="Cotador.core.recalcularSubtotais()">
         <input type="checkbox" id="chk-mostrar-detalhes" class="sr-only" onchange="Cotador.core.atualizarVisibilidadeDetalhes()">
-        
+
+        <!-- PAINEL VISUAL DO DÓLAR PTAX DO DIA (À ESQUERDA DO MODO CLIENTE) -->
+        <div id="header-ptax-panel" onclick="Cotador.core.copiarElemento(event, this)" data-copy="" data-label="Dólar PTAX" title="Consultando cotação PTAX oficial do Banco Central..." class="copy-link text-[11px] px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/90 font-medium flex items-center gap-1.5 select-none tabular-nums transition-colors">
+          <span id="header-ptax-dot" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+          <span class="text-slate-400 font-normal">PTAX:</span>
+          <span id="header-ptax-value" class="font-semibold text-slate-700">R$ --,--</span>
+        </div>
+
+        <!-- O #commercial-mode-bar (Modo Cliente + Margem) será injetado exatamente aqui -->
+
         <div class="unified-view-control" role="group" aria-label="Controle de exibição da tabela">
           <button type="button" id="btn-toggle-all-view" onclick="Cotador.core.alternarVisaoUnificada()" title="Alternar visão completa ou enxuta (Detalhes + Subtotais)" class="mini-toggle-btn text-slate-500 hover:text-slate-800 px-2 border-r border-slate-200/80 rounded-none">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
@@ -124,15 +133,15 @@
               </div>
             </div>
 
-            <!-- 3.1.1 DESCONTO SCANSOURCE (%) - FIXO EM 7% -->
-            <div id="ms-box-scan-discount" class="flex items-center justify-between gap-2 bg-amber-50/60 border border-amber-200/80 rounded-lg px-2.5 py-1.5 select-none" title="Desconto padrão Scansource travado em 7% para evitar erros operacionais">
-              <span class="text-[11px] font-medium text-amber-900 flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5 text-amber-700 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <!-- 3.1.1 DESCONTO SCANSOURCE (%) - FIXO EM 7% (FUNDO CINZA SUTIL + TEXTO ÂMBAR) -->
+            <div id="ms-box-scan-discount" class="flex items-center justify-between gap-2 bg-slate-100/80 border border-slate-200/90 rounded-lg px-2.5 py-1.5 select-none" title="Desconto padrão Scansource travado em 7% para evitar erros operacionais">
+              <span class="text-[11px] font-medium text-amber-700 flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
                 </svg>
                 <span>Desconto Scansource</span>
               </span>
-              <span class="text-xs font-bold text-amber-900 bg-amber-100/80 border border-amber-300/80 rounded px-2 py-0.5 tabular-nums">
+              <span class="text-xs font-bold text-amber-700 tabular-nums">
                 7% (Fixo)
               </span>
               <input type="hidden" id="ms-scan-discount" value="7" readonly disabled>
@@ -291,8 +300,22 @@
                 </select>
               </div>
               <div>
-                <label class="section-label">Câmbio Dólar (R$)</label>
-                <input type="number" id="adobe-dolar" value="4.80" step="0.05" class="select-input tabular-nums">
+                <div class="flex items-center justify-between mb-1">
+                  <label class="section-label !mb-0">Câmbio Dólar</label>
+                  <span id="adobe-ptax-status" class="text-[9px] font-medium text-slate-400 tabular-nums">Travado</span>
+                </div>
+                <input type="hidden" id="adobe-dolar" value="4.80" readonly>
+                <button type="button" id="btn-adobe-cambio-toggle" onclick="Cotador.app.toggleAdobeCambioMode()" role="switch" aria-checked="true" title="Ligado (Padrão): Câmbio travado em R$ 4,80 | Desligado: Utiliza o PTAX atual do Banco Central" class="adobe-cambio-switch is-locked">
+                  <span class="flex items-center gap-1.5 min-w-0">
+                    <svg id="icon-adobe-cambio-lock" class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                    <span id="adobe-cambio-btn-label" class="truncate tabular-nums">R$ 4,80 (Fixo)</span>
+                  </span>
+                  <span class="switch-track" aria-hidden="true">
+                    <span class="switch-thumb"></span>
+                  </span>
+                </button>
               </div>
             </div>
             <div>

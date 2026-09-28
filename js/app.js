@@ -46,6 +46,7 @@ window.Cotador.app = {
     }
 
     window.Cotador.core.carregarDatasAtualizacao();
+    this.carregarPainelPtaxHeader();
   },
 
   salvarPreferencias() {
@@ -212,51 +213,94 @@ window.Cotador.app = {
     });
   },
 
+  async carregarPainelPtaxHeader() {
+    const valEl = document.getElementById('header-ptax-value');
+    const panelEl = document.getElementById('header-ptax-panel');
+    const dotEl = document.getElementById('header-ptax-dot');
+    try {
+      const { rate, dateStr } = await this.obterCotacaoPtaxDia();
+      const fmtCurto = `R$ ${Number(rate).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const fmtCompleto = Number(rate).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+      if (valEl) valEl.textContent = fmtCurto;
+      if (panelEl) {
+        panelEl.setAttribute('data-copy', fmtCurto);
+        panelEl.title = `Dólar PTAX Oficial BCB${dateStr ? ` (${dateStr})` : ''}: R$ ${fmtCompleto} • Clique para copiar`;
+      }
+      if (dotEl) {
+        dotEl.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0';
+      }
+    } catch (_) {
+      if (valEl) valEl.textContent = 'Indisp.';
+      if (dotEl) dotEl.className = 'w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0';
+      if (panelEl) panelEl.title = 'Não foi possível consultar a API PTAX do Banco Central agora';
+    }
+  },
+
+  toggleAdobeCambioMode() {
+    const proximoModo = this.adobeCambioMode === 'fixo' ? 'ptax' : 'fixo';
+    this.setAdobeCambioMode(proximoModo);
+  },
+
   async setAdobeCambioMode(mode) {
     const modoEfetivo = mode === 'ptax' ? 'ptax' : 'fixo';
     this.adobeCambioMode = modoEfetivo;
 
-    const btnFixo = document.getElementById('btn-adobe-cambio-fixo');
-    const btnPtax = document.getElementById('btn-adobe-cambio-ptax');
+    const btnToggle = document.getElementById('btn-adobe-cambio-toggle');
+    const btnLabel = document.getElementById('adobe-cambio-btn-label');
+    const iconLock = document.getElementById('icon-adobe-cambio-lock');
     const statusEl = document.getElementById('adobe-ptax-status');
-    const ptaxLabelEl = document.getElementById('btn-adobe-ptax-label');
     const inputDolar = document.getElementById('adobe-dolar');
 
-    if (btnFixo) btnFixo.classList.toggle('active', modoEfetivo === 'fixo');
-    if (btnPtax) btnPtax.classList.toggle('active', modoEfetivo === 'ptax');
+    const aplicarEstadoFixo = (msgStatus = 'Travado') => {
+      this.adobeCambioMode = 'fixo';
+      if (inputDolar) inputDolar.value = '4.80';
+      if (btnToggle) {
+        btnToggle.classList.add('is-locked');
+        btnToggle.setAttribute('aria-checked', 'true');
+      }
+      if (btnLabel) btnLabel.textContent = 'R$ 4,80 (Fixo)';
+      if (statusEl) statusEl.textContent = msgStatus;
+      if (iconLock) {
+        iconLock.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>';
+      }
+      window.Cotador.core.atualizarCambioAdobeEmTempoReal(4.80);
+    };
 
     if (modoEfetivo === 'fixo') {
-      if (inputDolar) inputDolar.value = '4.80';
-      if (statusEl) statusEl.textContent = 'Travado: R$ 4,80';
-      window.Cotador.core.atualizarCambioAdobeEmTempoReal(4.80);
+      aplicarEstadoFixo('Travado');
       return;
     }
 
-    // Modo PTAX do Dia: busca cotação oficial sem permitir edição manual
-    if (statusEl) statusEl.textContent = 'Consultando BCB...';
-    if (btnPtax) btnPtax.disabled = true;
+    // Modo PTAX (Destravado): busca cotação oficial sem permitir digitação manual
+    if (btnToggle) {
+      btnToggle.classList.remove('is-locked');
+      btnToggle.setAttribute('aria-checked', 'false');
+      btnToggle.disabled = true;
+    }
+    if (btnLabel) btnLabel.textContent = 'Buscando PTAX...';
+    if (statusEl) statusEl.textContent = 'BCB...';
 
     try {
       const { rate, dateStr } = await this.obterCotacaoPtaxDia();
       const rateFixed = Number(rate).toFixed(4);
-      const rateDisplay = Number(rate).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+      const rateShort = Number(rate).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
       if (inputDolar) inputDolar.value = rateFixed;
-      if (ptaxLabelEl) ptaxLabelEl.textContent = `PTAX (R$ ${Number(rate).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
-      if (statusEl) statusEl.textContent = `PTAX${dateStr ? ` (${dateStr})` : ''}: R$ ${rateDisplay}`;
+      if (btnLabel) btnLabel.textContent = `PTAX: R$ ${rateShort}`;
+      if (statusEl) statusEl.textContent = dateStr ? `PTAX (${dateStr})` : 'PTAX Atual';
+      if (iconLock) {
+        // Ícone de cadeado aberto indicando que saiu da trava de 4,80 para o PTAX do dia
+        iconLock.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/>';
+      }
 
+      // Sincroniza também o painel visual do topo caso ainda não estivesse preenchido
+      this.carregarPainelPtaxHeader();
       window.Cotador.core.atualizarCambioAdobeEmTempoReal(rate);
     } catch (err) {
-      // Se houver bloqueio de rede na API externa, reverte com segurança para Fixo 4,80
-      this.adobeCambioMode = 'fixo';
-      if (btnFixo) btnFixo.classList.add('active');
-      if (btnPtax) btnPtax.classList.remove('active');
-      if (inputDolar) inputDolar.value = '4.80';
-      if (statusEl) statusEl.textContent = 'Erro PTAX • Mantido R$ 4,80';
-      window.Cotador.core.mostrarToast('Não foi possível obter o PTAX do BCB agora. Mantido R$ 4,80.');
-      window.Cotador.core.atualizarCambioAdobeEmTempoReal(4.80);
+      aplicarEstadoFixo('Erro PTAX • Fixo');
+      window.Cotador.core.mostrarToast('Não foi possível obter o PTAX agora. Mantido R$ 4,80.');
     } finally {
-      if (btnPtax) btnPtax.disabled = false;
+      if (btnToggle) btnToggle.disabled = false;
     }
   },
 

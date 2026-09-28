@@ -775,6 +775,24 @@ window.Cotador.core = {
     const viewCtrl = document.querySelector('.unified-view-control');
     if (!viewCtrl || !viewCtrl.parentElement) return;
 
+    // Se o painel PTAX ainda não estiver no HTML, cria-o automaticamente à esquerda do Modo Cliente
+    let ptaxPanel = document.getElementById('header-ptax-panel');
+    if (!ptaxPanel) {
+      ptaxPanel = document.createElement('div');
+      ptaxPanel.id = 'header-ptax-panel';
+      ptaxPanel.className = 'copy-link text-[11px] px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/90 font-medium flex items-center gap-1.5 select-none tabular-nums transition-colors';
+      ptaxPanel.setAttribute('onclick', 'Cotador.core.copiarElemento(event, this)');
+      ptaxPanel.setAttribute('data-copy', '');
+      ptaxPanel.setAttribute('data-label', 'Dólar PTAX');
+      ptaxPanel.title = 'Consultando cotação PTAX oficial do Banco Central...';
+      ptaxPanel.innerHTML = `
+        <span id="header-ptax-dot" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+        <span class="text-slate-400 font-normal">PTAX:</span>
+        <span id="header-ptax-value" class="font-semibold text-slate-700">R$ --,--</span>
+      `;
+    }
+    viewCtrl.parentElement.insertBefore(ptaxPanel, viewCtrl);
+
     const bar = document.createElement('div');
     bar.id = 'commercial-mode-bar';
     bar.className = 'unified-view-control';
