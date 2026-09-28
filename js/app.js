@@ -47,6 +47,8 @@ window.Cotador.app = {
     } else {
       this.analisarInput();
     }
+
+    window.Cotador.core.carregarDatasAtualizacao();
   },
 
   salvarPreferencias() {
@@ -82,6 +84,8 @@ window.Cotador.app = {
       document.getElementById(`btn-vendor-${v}`).classList.toggle('active', v === vendor);
       document.getElementById(`filtros-${v}`).classList.toggle('hidden', v !== vendor);
     });
+
+    window.Cotador.core.atualizarBadgeDataFabricante(vendor);
 
     document.getElementById('resultado-container').innerHTML = `<div class="text-center py-24 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">Fabricante alterado para <span class="theme-text font-semibold uppercase">${vendor}</span>.<br>Insira os itens no painel esquerdo e clique em <span class="theme-text font-medium">Buscar e Montar Tabelas</span>.</div>`;
     document.getElementById('markdown-output').textContent = '';
@@ -389,17 +393,15 @@ window.Cotador.app = {
         };
         await window.Cotador.tables[tabela].processar(this.parsedItems, flags);
       } else {
-        const periodos = [];
-        if (document.getElementById('chk-kasp-p1')?.checked) periodos.push({ id: '1a', label: '1 ANO', match: '1 ANO' });
-        if (document.getElementById('chk-kasp-p2')?.checked) periodos.push({ id: '2a', label: '2 ANOS', match: '2 ANOS' });
-        if (document.getElementById('chk-kasp-p3')?.checked) periodos.push({ id: '3a', label: '3 ANOS', match: '3 ANOS' });
-        if (document.getElementById('chk-kasp-p4')?.checked) periodos.push({ id: '4a', label: '4 ANOS', match: '4 ANOS' });
-        if (document.getElementById('chk-kasp-p5')?.checked) periodos.push({ id: '5a', label: '5 ANOS', match: '5 ANOS' });
-
-        if (periodos.length === 0) {
-          alert('Selecione pelo menos um período para a Kaspersky (1 a 5 Anos)!');
-          return;
-        }
+        const todosPeriodos = [
+          { id: '1a', label: '1 ANO', match: '1 ANO' },
+          { id: '2a', label: '2 ANOS', match: '2 ANOS' },
+          { id: '3a', label: '3 ANOS', match: '3 ANOS' },
+          { id: '4a', label: '4 ANOS', match: '4 ANOS' },
+          { id: '5a', label: '5 ANOS', match: '5 ANOS' }
+        ];
+        const marcados = todosPeriodos.filter((_, idx) => document.getElementById(`chk-kasp-p${idx + 1}`)?.checked);
+        const periodos = marcados.length > 0 ? marcados : todosPeriodos;
 
         const bandaSelect = document.getElementById('kasp-banda')?.value || 'auto';
         const priceRevenda = document.getElementById('chk-kasp-price-revenda')?.checked ?? true;
@@ -419,7 +421,8 @@ window.Cotador.app = {
           showPriceNaoPrime: priceNaoPrime,
           showBasePlus: document.getElementById('chk-kasp-show-baseplus')?.checked ?? false,
           showSuccessive: document.getElementById('chk-kasp-show-successive')?.checked ?? false,
-          showPublic: document.getElementById('chk-kasp-show-public')?.checked ?? false
+          showPublic: document.getElementById('chk-kasp-show-public')?.checked ?? false,
+          showTraining: document.getElementById('chk-kasp-show-training')?.checked ?? false
         };
         await window.Cotador.tables.kaspersky.processar(this.parsedItems, flags);
       }

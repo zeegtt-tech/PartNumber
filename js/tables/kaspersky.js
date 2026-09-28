@@ -1,5 +1,5 @@
 // ============================================================================
-// MÓDULO DE TABELAS: KASPERSKY (Separado por Produto, Período e Faixa) - v5.8
+// MÓDULO DE TABELAS: KASPERSKY (Separado por Produto, Período e Faixa) - v5.9
 // Ficheiro: js/tables/kaspersky.js
 // ============================================================================
 
@@ -124,6 +124,14 @@ window.Cotador.tables.kaspersky = {
       periodosAtivos.unshift({ id: '1m', label: '1 MÊS', match: '1 MÊS' });
     }
 
+    // Soma total de quantidades válidas para o modo 'auto_sum' (Cross-Band)
+    const somaTotalQtd = parsedItems.reduce((acc, it) => {
+      const q = parseInt(it.qty, 10);
+      return acc + (!isNaN(q) && q > 0 ? q : 0);
+    }, 0);
+
+    const modoBanda = flags.bandaSelect || flags.targetBanda || 'auto_item';
+
     const promessas = parsedItems.map(async item => {
       let data = [];
       const hasFoundationKw = item.keywords.some(kw => kw.toLowerCase().includes('foundation'));
@@ -157,15 +165,22 @@ window.Cotador.tables.kaspersky = {
       data = data.filter(r => {
         const nome = (r.sale_item_name || '').toLowerCase();
         const tipo = (r.tipo || '').toLowerCase().trim();
-
+        const family = (r.family || '').toLowerCase().trim();
         const isBasePlus = nome.includes('base plus') || tipo.includes('base plus');
         const isSuccessive = nome.includes('successive') || tipo.includes('successive');
         const isPublic = nome.includes('public sector') || tipo.includes('public sector') || tipo.includes('gov');
-        const isServiceOrTraining = tipo === '-' || nome.startsWith('kaspersky atc training');
+        const isTraining =
+          nome.startsWith('kaspersky atc training') ||
+          nome.includes('atc training') ||
+          /\btraining\b/i.test(nome) ||
+          /\btraining\b/i.test(family) ||
+          /\btraining\b/i.test(tipo);
+        const isServiceOrTraining = tipo === '-' || isTraining;
 
         if (!flags.showBasePlus && isBasePlus) return false;
         if (!flags.showSuccessive && isSuccessive) return false;
         if (!flags.showPublic && isPublic) return false;
+        if (!flags.showTraining && isTraining) return false;
 
         if (flags.tipo !== 'all' && !isServiceOrTraining) {
           const targetTipo = flags.tipo.toLowerCase();
@@ -185,11 +200,15 @@ window.Cotador.tables.kaspersky = {
       });
 
       const semQuantidade = item.qty === '-' || item.qty === null || item.qty === '' || isNaN(item.qty);
-      const effectiveBanda = (flags.bandaSelect === 'auto')
-        ? (semQuantidade ? 'all' : obterBandaAutoPorQtdKaspersky(item.qty))
-        : flags.targetBanda;
+      let effectiveBanda = flags.targetBanda;
 
-      if (effectiveBanda !== 'all') {
+      if (modoBanda === 'auto' || modoBanda === 'auto_item') {
+        effectiveBanda = semQuantidade ? 'all' : obterBandaAutoPorQtdKaspersky(item.qty);
+      } else if (modoBanda === 'auto_sum') {
+        effectiveBanda = (semQuantidade || somaTotalQtd <= 0) ? 'all' : obterBandaAutoPorQtdKaspersky(somaTotalQtd);
+      }
+
+      if (effectiveBanda && effectiveBanda !== 'all') {
         data = data.filter(r => {
           const b = (r.banda || '').trim();
           return b === effectiveBanda || b === '-';
@@ -262,12 +281,18 @@ window.Cotador.tables.kaspersky = {
               const naoPrime = extrairPrecoNaoPrimeKaspersky(r, core);
 
               let unitarioRef = NaN;
+              let usouFallbackRO = false;
+
               if (showRO && roOficial > 0) {
                 unitarioRef = roOficial;
               } else if (showRevenda && revenda > 0) {
                 unitarioRef = revenda;
               } else if (showNaoPrime && naoPrime > 0) {
                 unitarioRef = naoPrime;
+              } else if (roOficial > 0) {
+                // Fallback inteligente: faixas 250+ só possuem preço em RO na planilha oficial
+                unitarioRef = roOficial;
+                usouFallbackRO = true;
               }
 
               const pn = r.part_number;
@@ -281,11 +306,15 @@ window.Cotador.tables.kaspersky = {
                 ? `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="SEM EDR" data-label="EDR" title="Clique para copiar" class="copy-link sec-detail ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-normal bg-slate-100 text-slate-600 border border-slate-200">SEM EDR</span>`
                 : '';
 
+              const badgeExigeRO = usouFallbackRO
+                ? `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="[Exige RO]" data-label="Aviso RO" title="Faixa possui apenas preço com Registro de Oportunidade (RO)" class="copy-link sec-detail ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">[Exige RO]</span>`
+                : '';
+
               const bandaTxt = bandaAtual === '-' ? 'Único / Serviço' : `Banda: ${bandaAtual}`;
               const prodKey = normalizarChaveProdutoKaspersky(r.sale_item_name, bandaAtual);
 
               rowsHTML += `<tr data-unit-price="${unitarioRef}" data-pn="${core.escapeHTML(pn)}" data-prod-key="${core.escapeHTML(prodKey)}">
-                <td class="font-medium text-slate-800">${core.renderCopyLink(r.sale_item_name, r.sale_item_name, 'Produto')}${badgeSemEdr}</td>
+                <td class="font-medium text-slate-800">${core.renderCopyLink(r.sale_item_name, r.sale_item_name, 'Produto')}${badgeSemEdr}${badgeExigeRO}</td>
                 <td>${core.renderQtyInput(item.qty)}</td>
                 <td class="col-pn">${core.renderPnBadge(pn)}</td>
                 <td class="col-secondary text-xs text-slate-500 font-normal whitespace-nowrap">${core.renderCopyLink(bandaTxt, bandaAtual, 'Faixa / Banda')}</td>

@@ -9,6 +9,14 @@ window.Cotador.tables.ms_scan = {
     const container = document.getElementById('resultado-container');
     if (!flags.append && !flags.returnHTML) container.innerHTML = '';
 
+    // Lê o desconto configurável da Scansource (via flags.scanDiscountPct ou input na UI, padrão 7%)
+    const domScanInput = document.getElementById('ms-scan-discount') || document.getElementById('scan-discount-pct');
+    const rawScanPct = (flags.scanDiscountPct !== undefined && flags.scanDiscountPct !== null && flags.scanDiscountPct !== '')
+      ? Number(flags.scanDiscountPct)
+      : (domScanInput && domScanInput.value !== '' ? Number(domScanInput.value) : 7);
+    const descontoScan = Number.isFinite(rawScanPct) ? Math.min(100, Math.max(0, rawScanPct)) : 7;
+    const fmtDescPct = Number.isInteger(descontoScan) ? String(descontoScan) : String(descontoScan).replace('.', ',');
+
     const segOrFilter = core.construirFiltroPostgrestSegmento('segmento', flags.segmentos);
 
     const promessas = parsedItems.map(async item => {
@@ -68,7 +76,7 @@ window.Cotador.tables.ms_scan = {
         filtrados.forEach(r => {
           matchedItemIndices.add(item.itemIndex);
           const tabela = core.parsePrice(r.preco_unitario);
-          const finalDesc = tabela * 0.93;
+          const finalDesc = tabela * (1 - (descontoScan / 100));
           const pn = r.sku;
           const fmtTabela = `R$ ${core.formatBRL(tabela)}`;
           const fmtFinal = `R$ ${core.formatBRL(finalDesc)}`;
@@ -81,8 +89,8 @@ window.Cotador.tables.ms_scan = {
             <td>${core.renderQtyInput(item.qty)}</td>
             <td class="col-pn">${core.renderPnBadge(pn)}</td>
             <td class="col-secondary col-internal-cost text-slate-400 font-normal whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtTabela, fmtTabela, 'Custo Tabela')}</td>
-            <td class="col-cost-normal font-medium text-amber-900 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtFinal, fmtFinal, 'Custo Final (-7%)')}${detalhesScanCusto}</td>
-            <td class="col-margin-price font-semibold text-amber-950 whitespace-nowrap tabular-nums">-</td>
+            <td class="col-cost-normal font-medium text-slate-800 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtFinal, fmtFinal, `Custo Final (-${fmtDescPct}%)`)}${detalhesScanCusto}</td>
+            <td class="col-margin-price font-semibold text-slate-900 whitespace-nowrap tabular-nums">-</td>
             <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
             <td class="text-right">${core.renderRowActions()}</td>
           </tr>`;
@@ -92,7 +100,7 @@ window.Cotador.tables.ms_scan = {
       if (!rowsHTML) continue;
       const bId = `blk-scan-${c.id}`;
       const headerTitle = `Contrato: ${c.label} (Faturamento: Scansource)`;
-      blocksHTML += `<div id="${bId}" class="quote-block quote-block-scan" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th class="col-pn">PN (SKU)</th><th class="col-secondary col-internal-cost">Custo Tabela</th><th class="col-cost-normal">Custo Final (-7%)</th><th class="col-margin-price">Valor c/ Margem</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
+      blocksHTML += `<div id="${bId}" class="quote-block quote-block-scan" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th class="col-pn">PN (SKU)</th><th class="col-secondary col-internal-cost">Custo Tabela</th><th class="col-cost-normal">Custo Final (-${fmtDescPct}%)</th><th class="col-margin-price">Valor c/ Margem</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
     }
 
     if (!flags.returnHTML && blocksHTML) {
@@ -232,6 +240,16 @@ window.Cotador.tables.ms_perpetuo = {
 
     const segOrFilter = core.construirFiltroPostgrestSegmento('segment', flags.segmentos);
 
+    // Verifica contratos CSP selecionados para liberar assinaturas equivalentes na planilha Perpétuo
+    const contratos = flags.contratos || [];
+    const hasCspMensal = contratos.some(c => c.id === 'mm' || String(c.soloTermo || '').toUpperCase() === 'P1M');
+    const hasCspAnual = contratos.some(c => c.id === 'aa' || c.id === 'am' || String(c.soloTermo || '').toUpperCase() === 'P1Y');
+    const hasCspTrienal = contratos.some(c => c.id === 'ta' || c.id === 'tm' || String(c.soloTermo || '').toUpperCase() === 'P3Y');
+
+    const allowMensal = Boolean(flags.pmShowMensal || hasCspMensal);
+    const allowAnual = Boolean(flags.pmShowAnual || hasCspAnual);
+    const allowTrienal = Boolean(flags.pmShowTrienal || hasCspTrienal);
+
     const promessas = parsedItems.map(async item => {
       const params = [['select', '*'], ['limit', '800']];
       const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z\-]{5,25}$/i.test(item.keywords[0]) && /\d/.test(item.keywords[0]);
@@ -262,18 +280,23 @@ window.Cotador.tables.ms_perpetuo = {
 
       data = data.filter(r => {
         const nome = (r.nome_produto || '').toLowerCase();
-        const plano = (r.plano_pagamento || '').toLowerCase();
+        const plano = (r.plano_pagamento || '').trim().toLowerCase();
         const preco = core.parsePrice(r.fob_impostos || r.erp);
         if (preco <= 0) return false;
         if (!core.isItemSegmentoValido(r.nome_produto, r, flags.segmentos, preco)) return false;
 
-        const isTrienal = plano === 'triennial' || /\b(3\s*y|3\s*year|3\s*anos|trienal|triennial|p3y)\b/i.test(nome);
-        const isMensal = plano === 'monthly' || /\b(1\s*m|month|mensal|p1m)\b/i.test(nome);
-        const isAnual = !isTrienal && !isMensal && (plano === 'annual' || /\b(1\s*y|1\s*year|1\s*ano|annual|anual|p1y)\b/i.test(nome));
+        const isOneTime = plano === 'onetime' || plano === '';
 
-        if (!flags.pmShowMensal && isMensal) return false;
-        if (!flags.pmShowAnual && isAnual) return false;
-        if (!flags.pmShowTrienal && isTrienal) return false;
+        if (!isOneTime) {
+          const isTrienal = plano === 'triennial' || /\b(3\s*y|3\s*year|3\s*anos|trienal|triennial|p3y)\b/i.test(nome);
+          const isMensal = plano === 'monthly' || /\b(1\s*m|month|mensal|p1m)\b/i.test(nome);
+          const isAnual = !isTrienal && !isMensal && (plano === 'annual' || /\b(1\s*y|1\s*year|1\s*ano|annual|anual|p1y)\b/i.test(nome));
+
+          if (!allowMensal && isMensal) return false;
+          if (!allowAnual && isAnual) return false;
+          if (!allowTrienal && isTrienal) return false;
+        }
+
         if (!flags.pmShowStepup && /\b(step-up|step up|upgrade|migration)\b/i.test(nome)) return false;
         if (!flags.pmShowCals && /\b(cal|rds)\b/i.test(nome)) return false;
         return true;
@@ -382,6 +405,8 @@ window.Cotador.tables.ms_mpsa = {
     let rowsHTML = '';
     const matchedItemIndices = new Set();
 
+    const segOrFilterMpsa = core.construirFiltroPostgrestSegmento('tipo_conta_compras', flags.segmentos);
+
     const promessas = parsedItems.map(async item => {
       const queries = [];
       const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z\-]{5,22}$/i.test(item.keywords[0]) && /\d/.test(item.keywords[0]);
@@ -394,7 +419,22 @@ window.Cotador.tables.ms_mpsa = {
       } else {
         item.keywords.forEach(kw => p1.push(['nome_curto_peca', `ilike.*${kw}*`]));
       }
-      queries.push(core.fetchSupabase('microsoft_mpsa', p1));
+      if (segOrFilterMpsa) p1.push(['or', segOrFilterMpsa]);
+      // Prioriza ordenação por categoria_precos A direto no banco
+      p1.push(['order', 'categoria_precos.asc']);
+
+      queries.push(
+        core.fetchSupabase('microsoft_mpsa', p1).catch(() => {
+          const fallbackP1 = [['select', '*'], ['limit', '800']];
+          if (isPnQuery) {
+            const term = item.keywords[0];
+            fallbackP1.push(['or', `(numero_item.ilike.*${term}*,nome_curto_peca.ilike.*${term}*)`]);
+          } else {
+            item.keywords.forEach(kw => fallbackP1.push(['nome_curto_peca', `ilike.*${kw}*`]));
+          }
+          return core.fetchSupabase('microsoft_mpsa', fallbackP1);
+        })
+      );
 
       // 2. Busca pelos termos abreviados reais do catálogo MPSA (apenas quando não for PN direto)
       if (!isPnQuery) {
@@ -402,7 +442,16 @@ window.Cotador.tables.ms_mpsa = {
         if (abrevTerms.length > 0) {
           const p2 = [['select', '*'], ['limit', '800']];
           abrevTerms.forEach(kw => p2.push(['nome_curto_peca', `ilike.*${kw}*`]));
-          queries.push(core.fetchSupabase('microsoft_mpsa', p2));
+          if (segOrFilterMpsa) p2.push(['or', segOrFilterMpsa]);
+          p2.push(['order', 'categoria_precos.asc']);
+
+          queries.push(
+            core.fetchSupabase('microsoft_mpsa', p2).catch(() => {
+              const fallbackP2 = [['select', '*'], ['limit', '800']];
+              abrevTerms.forEach(kw => fallbackP2.push(['nome_curto_peca', `ilike.*${kw}*`]));
+              return core.fetchSupabase('microsoft_mpsa', fallbackP2);
+            })
+          );
         }
       }
 

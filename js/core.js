@@ -11,8 +11,86 @@ window.Cotador.core = {
   _lastMouseDownTarget: null,
   modoCliente: false,
   markupPercent: 0,
+  ultimasAtualizacoes: {},
+
+  formatarDataCurta(isoStr) {
+    if (!isoStr) return null;
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleDateString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric'
+    });
+  },
+
+  formatarDataHoraCompleta(isoStr) {
+    if (!isoStr) return '-';
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  },
+
+  async carregarDatasAtualizacao() {
+    try {
+      const rows = await this.fetchSupabase('catalogo_atualizacoes', [['select', '*']]);
+      if (Array.isArray(rows)) {
+        rows.forEach(r => {
+          if (r.tabela && r.atualizado_em) {
+            this.ultimasAtualizacoes[r.tabela] = {
+              iso: r.atualizado_em,
+              fabricante: r.fabricante,
+              nome: r.nome_exibicao || r.tabela
+            };
+          }
+        });
+      }
+    } catch (_) {
+      // Fallback automático: consulta updated_at direto nas tabelas caso catalogo_atualizacoes ainda não exista
+      const tabelas = [
+        { id: 'microsoft_scan', fab: 'microsoft', nome: 'Scan' },
+        { id: 'microsoft_solo', fab: 'microsoft', nome: 'CSP Solo' },
+        { id: 'microsoft_perpetuo', fab: 'microsoft', nome: 'CSP Perpétuo' },
+        { id: 'microsoft_mpsa', fab: 'microsoft', nome: 'MPSA' },
+        { id: 'adobe_base', fab: 'adobe', nome: 'Adobe Base' },
+        { id: 'adobe_promo', fab: 'adobe', nome: 'Adobe Promo' },
+        { id: 'kaspersky', fab: 'kaspersky', nome: 'Kaspersky' }
+      ];
+      await Promise.allSettled(tabelas.map(async t => {
+        const res = await this.fetchSupabase(t.id, [['select', 'updated_at'], ['order', 'updated_at.desc'], ['limit', '1']]);
+        if (res && res[0] && res[0].updated_at) {
+          this.ultimasAtualizacoes[t.id] = { iso: res[0].updated_at, fabricante: t.fab, nome: t.nome };
+        }
+      }));
+    }
+    this.atualizarBadgeDataFabricante(window.Cotador.app?.currentVendor || 'microsoft');
+  },
+
+  atualizarBadgeDataFabricante(vendor) {
+    const txtEl = document.getElementById('badge-last-update-text');
+    const badgeEl = document.getElementById('badge-last-update');
+    if (!txtEl || !badgeEl) return;
+
+    const entradas = Object.values(this.ultimasAtualizacoes).filter(x => x.fabricante === vendor);
+    if (entradas.length === 0) {
+      txtEl.textContent = 'Tabela s/ registro';
+      return;
+    }
+
+    // Pega a atualização mais recente do fabricante ativo
+    entradas.sort((a, b) => new Date(b.iso) - new Date(a.iso));
+    const maisRecente = this.formatarDataCurta(entradas[0].iso);
+    txtEl.textContent = `Base: ${maisRecente}`;
+
+    // Tooltip detalhado com todas as tabelas daquele fabricante
+    badgeEl.title = entradas
+      .map(e => `${e.nome}: ${this.formatarDataHoraCompleta(e.iso)}`)
+      .join('\n');
+  },
 
   SEARCH_KEYWORDS: {
+    // Adobe VIP MP
     "phothosop": ["Photoshop"],
     "photshop": ["Photoshop"],
     "photosop": ["Photoshop"],
@@ -20,20 +98,136 @@ window.Cotador.core = {
     "ilustrator": ["Illustrator"],
     "illustrator": ["Illustrator"],
     "indesing": ["InDesign"],
+    "indesign": ["InDesign"],
     "acrobat pro": ["Acrobat", "Pro"],
+    "acrobat dc pro": ["Acrobat", "Pro"],
+    "acrobat standard": ["Acrobat", "Standard"],
+    "acrobat std": ["Acrobat", "Standard"],
+    "adobe sign": ["Acrobat", "Sign"],
+    "acrobat sign": ["Acrobat", "Sign"],
     "creative cloud pro": ["Creative Cloud"],
+    "creative cloud all apps": ["Creative Cloud"],
+    "cc all apps": ["Creative Cloud"],
+    "creative cloud todas as aplicacoes": ["Creative Cloud"],
     "creative cloud": ["Creative Cloud"],
+    "premiere": ["Premiere"],
+    "premiere pro": ["Premiere"],
+    "after effects": ["After Effects"],
+    "lightroom": ["Lightroom"],
+    "adobe stock": ["Stock"],
+    "substance 3d": ["Substance"],
+    "dreamweaver": ["Dreamweaver"],
+    "animate": ["Animate"],
+    "audition": ["Audition"],
+    "incopy": ["InCopy"],
+    "captivate": ["Captivate"],
+    "firefly": ["Firefly"],
+
+    // Microsoft 365 / Office 365 / Suites Comerciais
     "business basic": ["Business Basic"],
+    "m365 business basic": ["Business Basic"],
+    "o365 business basic": ["Business Basic"],
+    "microsoft 365 business basic": ["Business Basic"],
+    "office 365 business basic": ["Business Basic"],
     "business standard": ["Business Standard"],
     "business standart": ["Business Standard"],
     "business standar": ["Business Standard"],
+    "m365 business standard": ["Business Standard"],
+    "o365 business standard": ["Business Standard"],
+    "microsoft 365 business standard": ["Business Standard"],
+    "office 365 business standard": ["Business Standard"],
     "business premium": ["Business Premium"],
+    "m365 business premium": ["Business Premium"],
+    "o365 business premium": ["Business Premium"],
+    "microsoft 365 business premium": ["Business Premium"],
+    "office 365 business premium": ["Business Premium"],
+    "apps for business": ["Apps for business"],
+    "m365 apps for business": ["Apps for business"],
+    "microsoft 365 apps for business": ["Apps for business"],
+    "apps for enterprise": ["Apps for enterprise"],
+    "m365 apps for enterprise": ["Apps for enterprise"],
+    "microsoft 365 apps for enterprise": ["Apps for enterprise"],
+    "office 365 proplus": ["Apps for enterprise"],
+    "proplus": ["Apps for enterprise"],
+    "m365 e3": ["Microsoft 365", "E3"],
+    "m365 e5": ["Microsoft 365", "E5"],
+    "m365 f1": ["Microsoft 365", "F1"],
+    "m365 f3": ["Microsoft 365", "F3"],
+    "o365 e1": ["Office 365", "E1"],
+    "o365 e3": ["Office 365", "E3"],
+    "o365 e5": ["Office 365", "E5"],
+    "o365 f3": ["Office 365", "F3"],
+
+    // Microsoft Exchange / Teams / Colaboração / Segurança / BI
     "exchange plan 1": ["Exchange Online", "Plan 1"],
     "exchange plan 2": ["Exchange Online", "Plan 2"],
     "exchange online plan 1": ["Exchange Online", "Plan 1"],
     "exchange online plan 2": ["Exchange Online", "Plan 2"],
+    "exchange p1": ["Exchange Online", "Plan 1"],
+    "exchange p2": ["Exchange Online", "Plan 2"],
+    "exchange online archiving": ["Exchange Online", "Archiving"],
+    "exchange archiving": ["Exchange Online", "Archiving"],
+    "exchange kiosk": ["Exchange Online", "Kiosk"],
+    "exchange online kiosk": ["Exchange Online", "Kiosk"],
     "exchange online": ["Exchange Online"],
-    "planner": ["Planner"]
+    "teams essentials": ["Teams", "Essentials"],
+    "ms teams essentials": ["Teams", "Essentials"],
+    "teams enterprise": ["Teams", "Enterprise"],
+    "ms teams enterprise": ["Teams", "Enterprise"],
+    "ms teams": ["Teams"],
+    "planner": ["Planner"],
+    "planner plan 1": ["Planner", "Plan 1"],
+    "project plan 1": ["Plan 1"],
+    "project p1": ["Plan 1"],
+    "project plan 3": ["Project", "Plan 3"],
+    "project p3": ["Project", "Plan 3"],
+    "project plan 5": ["Project", "Plan 5"],
+    "project p5": ["Project", "Plan 5"],
+    "visio plan 1": ["Visio", "Plan 1"],
+    "visio p1": ["Visio", "Plan 1"],
+    "visio plan 2": ["Visio", "Plan 2"],
+    "visio p2": ["Visio", "Plan 2"],
+    "power bi pro": ["Power BI", "Pro"],
+    "powerbi pro": ["Power BI", "Pro"],
+    "pbi pro": ["Power BI", "Pro"],
+    "power bi premium": ["Power BI", "Premium"],
+    "powerbi premium": ["Power BI", "Premium"],
+    "copilot": ["Copilot"],
+    "m365 copilot": ["Microsoft 365", "Copilot"],
+    "microsoft 365 copilot": ["Microsoft 365", "Copilot"],
+    "defender for business": ["Defender", "Business"],
+    "defender business": ["Defender", "Business"],
+    "defender endpoint p1": ["Defender", "Endpoint", "Plan 1"],
+    "defender endpoint p2": ["Defender", "Endpoint", "Plan 2"],
+    "defender for office 365 plan 1": ["Defender", "Office 365", "Plan 1"],
+    "defender for office 365 plan 2": ["Defender", "Office 365", "Plan 2"],
+    "entra id p1": ["Entra ID", "P1"],
+    "azure ad p1": ["Entra ID", "P1"],
+    "entra id p2": ["Entra ID", "P2"],
+    "azure ad p2": ["Entra ID", "P2"],
+    "intune plan 1": ["Intune", "Plan 1"],
+
+    // Kaspersky
+    "kesb select": ["Select"],
+    "kaspersky select": ["Select"],
+    "endpoint security select": ["Select"],
+    "kesb advanced": ["Advanced"],
+    "kaspersky advanced": ["Advanced"],
+    "endpoint security advanced": ["Advanced"],
+    "kesb total": ["Total"],
+    "kaspersky total": ["Total"],
+    "next edr foundations": ["EDR", "Foundations"],
+    "edr foundations": ["EDR", "Foundations"],
+    "next edr optimum": ["EDR", "Optimum"],
+    "edr optimum": ["EDR", "Optimum"],
+    "next xdr expert": ["XDR", "Expert"],
+    "xdr expert": ["XDR", "Expert"],
+    "ksos": ["Small Office"],
+    "small office security": ["Small Office"],
+    "kaspersky small office": ["Small Office"],
+    "kesc": ["Cloud"],
+    "kesc plus": ["Cloud", "Plus"],
+    "kesc pro": ["Cloud", "Pro"]
   },
 
   TOKEN_TYPO_MAP: {
@@ -42,7 +236,9 @@ window.Cotador.core = {
     "std": "Standard",
     "entprise": "Enterprise",
     "enterpise": "Enterprise",
+    "ent": "Enterprise",
     "datacent": "Datacenter",
+    "dc": "Datacenter",
     "foudation": "Foundations",
     "foudations": "Foundations",
     "foundation": "Foundations",
@@ -50,7 +246,18 @@ window.Cotador.core = {
     "busines": "Business",
     "exchenge": "Exchange",
     "projet": "Project",
-    "projec": "Project"
+    "projec": "Project",
+    "m365": "365",
+    "o365": "365",
+    "win": "Windows",
+    "ws": "Windows Server",
+    "powerbi": "Power BI",
+    "pbi": "Power BI",
+    "phothosop": "Photoshop",
+    "photshop": "Photoshop",
+    "photosop": "Photoshop",
+    "ilustrator": "Illustrator",
+    "indesing": "InDesign"
   },
 
   escapeHTML(str) {
@@ -58,6 +265,40 @@ window.Cotador.core = {
     return str.replace(/[&<>'"]/g, tag => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
     }[tag] || tag));
+  },
+
+  sanitizarTermoPostgrest(termo) {
+    return String(termo || '')
+      .replace(/[,()*%]/g, ' ') // Remove caracteres reservados do operador or/and do PostgREST
+      .replace(/\s+/g, ' ')
+      .trim();
+  },
+
+  construirFiltroAndKeywords(columnName, keywords) {
+    return keywords
+      .map(kw => this.sanitizarTermoPostgrest(kw))
+      .filter(Boolean)
+      .map(kw => [columnName, `ilike.*${kw}*`]);
+  },
+
+  isPartNumber(str) {
+    const s = String(str || '').trim();
+    if (!s || /\s/.test(s)) return false;
+    // Microsoft NCE / CSP (ex: CFQ7TTC0LH18, CFQ7TTC0LH18:0001, CFQ7TTC0LH18-0001-P1Y-Monthly)
+    if (/^[A-Z0-9]{12}(?:[-:][A-Z0-9\-:]+)?$/i.test(s)) return true;
+    // Microsoft Open / Perpétuo / Server SKU (ex: AAA-12345, 9EM-00652, DG7GMGF0D7FX)
+    if (/^[A-Z0-9]{3,5}-[A-Z0-9]{4,8}(?:-[A-Z0-9]+)*$/i.test(s)) return true;
+    // Adobe VIP MP SKU (ex: 65304878BC01A12, 65304878BC)
+    if (/^\d{7,8}[A-Z]{2}[A-Z0-9]{0,6}$/i.test(s)) return true;
+    // Kaspersky SKU (ex: KL4541X5KFS-12M, KL4867X5MFS)
+    if (/^KL[A-Z0-9\-]{4,}$/i.test(s)) return true;
+    // Outros SKUs alfanuméricos (>= 7 caracteres misturando letras e dígitos sem espaços)
+    if (s.length >= 7 && /[A-Z]/i.test(s) && /\d/.test(s) && /^[A-Z0-9\-:_./]+$/i.test(s)) {
+      if (!/^(windows|office|microsoft|kaspersky|photoshop|acrobat)\d*$/i.test(s)) {
+        return true;
+      }
+    }
+    return false;
   },
 
   normalizarChaveProdutoMS(rawName, itemIndex) {
@@ -71,49 +312,76 @@ window.Cotador.core = {
   },
 
   extrairKeywords(prodName) {
-    const lower = prodName.toLowerCase().trim();
+    const rawTrimmed = String(prodName || '').trim();
+    if (!rawTrimmed) return [];
 
-    if (this.SEARCH_KEYWORDS[lower]) {
-      return [...this.SEARCH_KEYWORDS[lower]];
+    // Se for um Part Number (SKU), preserva o código ou extrai o radical NCE de 12 caracteres
+    if (this.isPartNumber(rawTrimmed)) {
+      const nceMatch = rawTrimmed.match(/^([A-Z0-9]{12})(?:[-:]\d{3,4}(?:[-:][A-Z0-9]+)*)$/i);
+      if (nceMatch) {
+        return [this.sanitizarTermoPostgrest(nceMatch[1])];
+      }
+      return [this.sanitizarTermoPostgrest(rawTrimmed)];
     }
 
-    let normalized = prodName
-      .replace(/[()]/g, ' ')
+    const lower = this.sanitizarTermoPostgrest(rawTrimmed).toLowerCase();
+
+    if (this.SEARCH_KEYWORDS[lower]) {
+      return this.SEARCH_KEYWORDS[lower]
+        .map(kw => this.sanitizarTermoPostgrest(kw))
+        .filter(Boolean);
+    }
+
+    let normalized = this.sanitizarTermoPostgrest(rawTrimmed)
       .replace(/\bexchenge\b/gi, 'Exchange')
-      .replace(/\bexchange\s+(?:online\s+)?plan(?:o)?\s*(\d+)\b/gi, 'Exchange Online __PLAN_$1__')
+      .replace(/\bexchange\s+(?:online\s+)?(?:plan(?:o)?|p)\s*(\d+)\b/gi, 'Exchange Online __PLAN_$1__')
+      .replace(/\b(project|visio|planner|intune)\s+(?:plan(?:o)?|p)\s*(\d+)\b/gi, '$1 __PLAN_$2__')
       .replace(/\bplan(?:o)?\s*(\d+)\b/gi, '__PLAN_$1__');
 
     const lowerNorm = normalized.toLowerCase().trim();
     for (const [key, kwList] of Object.entries(this.SEARCH_KEYWORDS)) {
-      if (lowerNorm === key) return [...kwList];
+      if (lowerNorm === key) {
+        return kwList
+          .map(kw => this.sanitizarTermoPostgrest(kw))
+          .filter(Boolean);
+      }
     }
 
     return normalized
       .split(/\s+/)
       .filter(w => w.length > 0)
-      .map(w => {
+      .flatMap(w => {
         const planMatch = w.match(/^__PLAN_(\d+)__$/i);
-        if (planMatch) return `Plan ${planMatch[1]}`;
+        if (planMatch) return [`Plan ${planMatch[1]}`];
         const cleanW = w.toLowerCase();
-        return this.TOKEN_TYPO_MAP[cleanW] || w;
-      });
+        const mapped = this.TOKEN_TYPO_MAP[cleanW] || w;
+        return [this.sanitizarTermoPostgrest(mapped)];
+      })
+      .filter(Boolean);
   },
 
   // ==========================================================================
-  // PARSER SEMÂNTICO DE INPUT: DIFERENCIA VERSÃO/PLANO/ANO DE QUANTIDADE
+  // PARSER SEMÂNTICO DE INPUT: DIFERENCIA VERSÃO/PLANO/ANO/SKU DE QUANTIDADE
   // ==========================================================================
   isNumeroParteDoProduto(prefixText, numStr) {
     const n = parseInt(numStr, 10);
     if (isNaN(n)) return false;
 
-    const cleanPrefix = (prefixText || '').trim().toLowerCase();
+    const cleanPrefix = (prefixText || '').trim();
     if (!cleanPrefix) return false;
 
-    const tokens = cleanPrefix.split(/\s+/).filter(Boolean);
+    // Se o prefixo já é um Part Number completo (ex: 65304878BC01A12 ou CFQ7TTC0LH18-0001-P1Y-Monthly),
+    // o número separado por espaço após ele é sempre a quantidade.
+    if (this.isPartNumber(cleanPrefix)) {
+      return false;
+    }
+
+    const lowerPrefix = cleanPrefix.toLowerCase();
+    const tokens = lowerPrefix.split(/\s+/).filter(Boolean);
     const lastWord = (tokens[tokens.length - 1] || '').replace(/[^a-z0-9\-áéíóúâêôãõç]/g, '');
     const prevWord = (tokens[tokens.length - 2] || '').replace(/[^a-z0-9\-áéíóúâêôãõç]/g, '');
 
-    const prefixHasYear = /\b20[0-3]\d\b/.test(cleanPrefix);
+    const prefixHasYear = /\b20[0-3]\d\b/.test(lowerPrefix);
     if (n >= 2005 && n <= 2035 && !prefixHasYear) {
       return true;
     }
@@ -159,8 +427,26 @@ window.Cotador.core = {
       let qty = null;
       let prodName = line.trim();
 
-      const explicitUnitEnd = prodName.match(/^(.*?)(?:[\s\-:|=\t]+|\b(?:qtd|qtde|quant)\s*[:=]?\s*)(\d+)\s*(?:x|un|unid|unidades?|lic|licen[cç]as?|users?|usu[aá]rios?|pcs?|seats?|disp|dispositivos?)\.?$/i);
-      const explicitDelimEnd = !explicitUnitEnd && prodName.match(/^(.*?)(?:\t+|\s*[:|=]\s*|\s+-\s+)(\d+)\s*$/);
+      // Se a linha inteira for apenas um Part Number sem espaços (ex: 65304878BC01A12, CFQ7TTC0LH18:0001, CFQ7TTC0LH18-0001),
+      // preserva o SKU integralmente sem confundir seus números finais com quantidade.
+      if (!/\s/.test(prodName) && this.isPartNumber(prodName)) {
+        items.push({
+          itemIndex: idx,
+          original: this.escapeHTML(prodName),
+          rawSearch: prodName,
+          keywords: this.extrairKeywords(prodName),
+          qty: '-'
+        });
+        return;
+      }
+
+      // 1) Quantidade explícita no final com unidade (ex: "CFQ7TTC0LH18-0001-P1Y-Monthly 15 un", "Produto - 10x", "SKU qtd: 5")
+      const explicitUnitEnd = prodName.match(/^(.*?)(?:[\s:|=\t]+|\s+-\s+|\b(?:qtd|qtde|quant)\s*[:=]?\s*)(\d+)\s*(?:x|un|unid|unidades?|lic|licen[cç]as?|users?|usu[aá]rios?|pcs?|seats?|disp|dispositivos?)\.?$/i);
+
+      // 2) Quantidade no final com delimitador explícito (tab, " - ", "=", "|", ou ":" quando não for sufixo de SKU ":0001")
+      const explicitDelimEnd = !explicitUnitEnd && prodName.match(/^(.*?)(?:\t+|\s+[|=]\s*|\s*:\s+|\s+:\s*|\s+-\s+)(\d+)\s*$/);
+
+      // 3) Quantidade explícita no início (ex: "15x CFQ7TTC0LH18-0001-P1Y-Monthly", "5 un 65304878BC01A12", "10 - Produto")
       const explicitStart = !explicitUnitEnd && !explicitDelimEnd && prodName.match(/^(\d+)\s*(?:x\b|un\b|unid\b|unidades?\b|lic\b|licen[cç]as?\b|\s*-\s+)\s*(.+)$/i);
 
       if (explicitUnitEnd && explicitUnitEnd[1].trim()) {
@@ -173,9 +459,13 @@ window.Cotador.core = {
         qty = parseInt(explicitStart[1], 10);
         prodName = explicitStart[2].trim();
       } else {
-        const clean = prodName.replace(/\b(unidades|unidade|licenças|licencas|lic|unid|un)\b/gi, '').replace(/\s+/g, ' ').trim();
+        const clean = prodName
+          .replace(/\s+\b(unidades|unidade|licenças|licencas|lic|unid|un)\b\.?$/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim();
         prodName = clean;
 
+        // 4) Produto ou PN seguido de espaço e número (ex: "CFQ7TTC0LH18-0001-P1Y-Monthly 15" ou "65304878BC01A12 5")
         const matchEnd = clean.match(/^(.*?)\s+(\d+)$/);
         if (matchEnd && matchEnd[1].trim()) {
           const candidateProd = matchEnd[1].trim();
@@ -186,6 +476,7 @@ window.Cotador.core = {
             qty = parseInt(candidateNum, 10);
           }
         } else {
+          // 5) Número no início seguido de espaço e Produto ou PN (ex: "15 CFQ7TTC0LH18-0001-P1Y-Monthly" ou "5 65304878BC01A12")
           const matchStart = clean.match(/^(\d+)\s+(.+)$/);
           if (matchStart && matchStart[2].trim()) {
             const startNum = parseInt(matchStart[1], 10);
@@ -504,42 +795,19 @@ window.Cotador.core = {
   // RENDERIZADORES DE DETALHES MENSAIS (12x COM 5% E SEM 5%) E MARGEM
   // ==========================================================================
   renderDetalhesSoloCSP(contratoId, custoCom5, mensalSem5, anualSem5, fator = 1, isMarginCol = false) {
-    const c5 = custoCom5 * fator;
-    const mSem5 = mensalSem5 * fator;
-    const aSem5 = anualSem5 * fator;
+    if (contratoId !== 'am' && contratoId !== 'mm' && contratoId !== 'tm') return '';
+    const anualCom5 = (custoCom5 * fator) * 12;
+    const fmtAnualCom5 = `R$ ${this.formatBRL(anualCom5)}`;
+    const labelInterno = `12x c/ 5%: ${fmtAnualCom5}`;
+    const labelCliente = `Total 12x: ${fmtAnualCom5}`;
 
-    // Contratos com ciclo mensal (Anual/Mensal 'am' ou Mensal/Mensal 'mm')
-    if (contratoId === 'am' || contratoId === 'mm') {
-      const anualCom5 = c5 * 12;
-      const fmtAnualCom5 = `R$ ${this.formatBRL(anualCom5)}`;
-      const fmtMensalSem5 = `R$ ${this.formatBRL(mSem5)}`;
-      const fmtAnualSem5 = `R$ ${this.formatBRL(aSem5 > 0 ? aSem5 : mSem5 * 12)}`;
-
-      // Linha 1: Valor Total multiplicado por 12 JÁ COM O 5% (visível na visão interna e no Modo Cliente)
-      const label12xInterno = `12x c/ 5%: ${fmtAnualCom5}`;
-      const label12xCliente = `Total 12x: ${fmtAnualCom5}`;
-
-      const linhaCom5 = isMarginCol
-        ? `<div class="sec-detail text-[11px] font-medium text-slate-600 mt-0.5">
-             <span class="internal-only-text">${this.renderCopyLink(label12xInterno, fmtAnualCom5, 'Total 12x c/ 5%')}</span>
-             <span class="client-only-text">${this.renderCopyLink(label12xCliente, fmtAnualCom5, 'Total 12 meses')}</span>
-           </div>`
-        : `<div class="sec-detail text-[11px] font-medium text-slate-600 mt-0.5">${this.renderCopyLink(label12xInterno, fmtAnualCom5, 'Total 12x c/ 5%')}</div>`;
-
-      // Linha 2: Valor SEM o 5% (Mensal e 12x) junto aos detalhes (oculto automaticamente no Modo Cliente)
-      const linhaSem5 = mSem5 > 0
-        ? `<div class="sec-detail internal-only-detail text-[10.5px] font-normal text-slate-400 mt-0.5">${this.renderCopyLink(`Sem 5%: ${fmtMensalSem5}/mês`, fmtMensalSem5, 'Mensal sem 5%')} &bull; ${this.renderCopyLink(`12x s/ 5%: ${fmtAnualSem5}`, fmtAnualSem5, 'Total 12x sem 5%')}</div>`
-        : '';
-
-      return `${linhaCom5}${linhaSem5}`;
+    if (isMarginCol) {
+      return `<div class="sec-detail text-[11px] font-medium text-slate-600 mt-0.5">
+        <span class="internal-only-text">${this.renderCopyLink(labelInterno, fmtAnualCom5, 'Total 12x c/ 5%')}</span>
+        <span class="client-only-text">${this.renderCopyLink(labelCliente, fmtAnualCom5, 'Total 12 meses')}</span>
+      </div>`;
     }
-
-    // Contratos Anual/Anual ou Trienais: exibe o valor Sem 5% nos detalhes internos
-    if (aSem5 > 0) {
-      const fmtSem5 = `R$ ${this.formatBRL(aSem5)}`;
-      return `<div class="sec-detail internal-only-detail text-[10.5px] font-normal text-slate-400 mt-0.5">${this.renderCopyLink(`Sem 5%: ${fmtSem5}`, fmtSem5, 'Valor sem 5%')}</div>`;
-    }
-    return '';
+    return `<div class="sec-detail text-[11px] font-medium text-slate-600 mt-0.5">${this.renderCopyLink(labelInterno, fmtAnualCom5, 'Total 12x c/ 5%')}</div>`;
   },
 
   renderDetalhesScanCSP(contratoId, valorUnitario, fator = 1) {
@@ -550,12 +818,28 @@ window.Cotador.core = {
   },
 
   renderRowActions() {
-    return `<div class="flex items-center justify-end gap-1 whitespace-nowrap"><button type="button" onclick="Cotador.core.removerLinhaUnica(this)" title="Remover apenas este item desta tabela" class="text-[11px] font-normal text-slate-400 hover:text-red-600 hover:bg-red-50 rounded px-1.5 py-1 transition flex items-center gap-1"><span>&#10005;</span> <span class="hidden sm:inline">Remover</span></button><button type="button" onclick="Cotador.core.removerLinhasSemelhantes(this)" title="Remover este produto de todas as tabelas e contratos" class="text-[11px] font-medium text-slate-400 hover:text-red-700 hover:bg-red-100/80 border border-transparent hover:border-red-200 rounded px-1.5 py-1 transition flex items-center gap-1"><svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg><span class="hidden sm:inline">Semelhantes</span></button></div>`;
+    return `<div class="flex items-center justify-end gap-1 whitespace-nowrap"><button type="button" onclick="Cotador.core.removerLinhaUnica(this)" title="Remover apenas este item desta tabela" class="text-[11px] font-normal text-slate-400 hover:text-red-600 hover:bg-red-50 rounded px-1.5 py-1 transition flex items-center gap-1"><span>&#10005;</span> <span class="hidden sm:inline">Remover</span></button><button type="button" onclick="Cotador.core.removerLinhasSemelhantes(this)" title="Remover este produto de todas as tabelas e contratos" class="text-[11px] font-medium text-slate-400 hover:text-red-700 hover:bg-red-100/80 border border-transparent hover:border-red-200 rounded px-1.5 py-1 transition flex items-center gap-1"><svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1h-4a1 1 0 00-1 1v3M4 7h16"/></svg><span class="hidden sm:inline">Semelhantes</span></button></div>`;
   },
 
   renderBlockHeader(title, blockId) {
     const safeTitle = this.escapeHTML(title);
-    return `<div onclick="Cotador.core.toggleBlock('${blockId}')" class="block-header-bar flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none" title="Clique na barra para recolher ou expandir esta tabela"><div class="flex items-center gap-2"><svg class="w-4 h-4 text-slate-400 chevron-icon transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg><h3 onclick="Cotador.core.copiarBlocoAoClicarTitulo(event, '${blockId}')" title="Clique no título para copiar toda esta tabela" class="copy-link text-xs font-semibold text-slate-700 uppercase tracking-wide">${safeTitle}</h3></div><div class="flex items-center gap-1.5" onclick="event.stopPropagation()"><span id="total-${blockId}" onclick="Cotador.core.copiarElemento(event, this)" data-copy="" data-label="Total da Tabela" title="Clique para copiar o valor Total desta tabela (Shift+Clique para número puro)" class="copy-link block-total-badge text-xs font-semibold theme-badge px-2.5 py-0.5 rounded tabular-nums hidden"></span></div></div>`;
+    let tabelaRef = null;
+    if (blockId.startsWith('blk-scan')) tabelaRef = 'microsoft_scan';
+    else if (blockId.startsWith('blk-solo')) tabelaRef = 'microsoft_solo';
+    else if (blockId.startsWith('blk-perpetuo')) tabelaRef = 'microsoft_perpetuo';
+    else if (blockId.startsWith('blk-mpsa')) tabelaRef = 'microsoft_mpsa';
+    else if (blockId.startsWith('blk-adobe_base')) tabelaRef = 'adobe_base';
+    else if (blockId.startsWith('blk-adobe_promo')) tabelaRef = 'adobe_promo';
+    else if (blockId.startsWith('blk-kaspersky')) tabelaRef = 'kaspersky';
+
+    const infoData = tabelaRef ? this.ultimasAtualizacoes[tabelaRef] : null;
+    const dataCurta = infoData ? this.formatarDataCurta(infoData.iso) : null;
+    const dataCompleta = infoData ? this.formatarDataHoraCompleta(infoData.iso) : '';
+    const badgeDataHTML = dataCurta
+      ? `<span title="Última atualização desta tabela no Supabase: ${dataCompleta}" class="sec-detail no-export text-[10px] font-normal text-slate-400 bg-white/80 border border-slate-200/80 px-2 py-0.5 rounded-full whitespace-nowrap">Atualizado em ${dataCurta}</span>`
+      : '';
+
+    return `<div onclick="Cotador.core.toggleBlock('${blockId}')" class="block-header-bar flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none" title="Clique na barra para recolher ou expandir esta tabela"><div class="flex items-center gap-2"><svg class="w-4 h-4 text-slate-400 chevron-icon transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg><h3 onclick="Cotador.core.copiarBlocoAoClicarTitulo(event, '${blockId}')" title="Clique no título para copiar toda esta tabela" class="copy-link text-xs font-semibold text-slate-700 uppercase tracking-wide">${safeTitle}</h3></div><div class="flex items-center gap-2" onclick="event.stopPropagation()">${badgeDataHTML}<span id="total-${blockId}" onclick="Cotador.core.copiarElemento(event, this)" data-copy="" data-label="Total da Tabela" title="Clique para copiar o valor Total desta tabela (Shift+Clique para número puro)" class="copy-link block-total-badge text-xs font-semibold theme-badge px-2.5 py-0.5 rounded tabular-nums hidden"></span></div></div>`;
   },
 
   renderUnmatchedWarning(missingItems) {
@@ -853,7 +1137,7 @@ window.Cotador.core = {
         const novoBrlBase = baseUsd * taxa;
         tr.setAttribute('data-base-unit-price-brl', String(novoBrlBase));
 
-        // Atualiza también a célula de Custo Normal (BRL) sem margem
+        // Atualiza também a célula de Custo Normal (BRL) sem margem
         const costBrlTd = tr.querySelector('td.col-cost-brl');
         if (costBrlTd) {
           const fmtCostBrl = `R$ ${this.formatBRL(novoBrlBase)}`;
@@ -877,6 +1161,8 @@ window.Cotador.core = {
     document.querySelectorAll('.col-subtotal').forEach(el => el.classList.toggle('hidden', !showSub));
 
     const fatorMarkup = 1 + ((parseFloat(this.markupPercent) || 0) / 100);
+    const temMargemAtiva = (parseFloat(this.markupPercent) || 0) !== 0;
+    document.body.classList.toggle('has-active-markup', temMargemAtiva);
 
     document.querySelectorAll('.quote-block').forEach(block => {
       const isUSD = block.getAttribute('data-currency') === 'USD';
