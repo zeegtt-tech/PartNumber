@@ -102,7 +102,6 @@
             <div class="flex justify-between items-center mb-1">
               <label class="section-label !mb-0">2. Lista de Produtos</label>
               <div class="flex gap-2.5 text-[11px] font-medium">
-                <button onclick="Cotador.app.preencherExemplo()" class="theme-text hover:underline">Exemplo</button>
                 <button onclick="Cotador.app.limparInput()" class="text-slate-400 hover:text-slate-600">Limpar</button>
               </div>
             </div>
@@ -195,9 +194,9 @@
                       <input type="checkbox" id="chk-show-noteams">
                       <span>Exibir variantes "Sem Teams" (No Teams)</span>
                     </label>
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
-                      <input type="checkbox" id="chk-show-copilot" checked>
-                      <span>Exibir "Copilot / Add-on / Attach"</span>
+                    <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900" title="Exibe bundles (with Copilot) e licenças do tipo Add-on/Attach">
+                      <input type="checkbox" id="chk-show-copilot">
+                      <span>Exibir Bundles e Add-ons ("with Copilot" / Attach)</span>
                     </label>
                     <label class="flex items-center gap-2 cursor-pointer hover:text-slate-900">
                       <input type="checkbox" id="chk-show-trial">

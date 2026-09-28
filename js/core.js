@@ -196,8 +196,11 @@ window.Cotador.core = {
     "power bi ppu": ["Power BI", "Premium", "User"],
     "pbi ppu": ["Power BI", "Premium", "User"],
     "copilot": ["Copilot"],
+    "copilot business": ["Copilot"],
     "m365 copilot": ["Microsoft 365", "Copilot"],
     "microsoft 365 copilot": ["Microsoft 365", "Copilot"],
+    "copilot studio": ["Copilot Studio"],
+    "microsoft copilot studio": ["Copilot Studio"],
     "defender for business": ["Defender", "Business"],
     "defender business": ["Defender", "Business"],
     "defender endpoint p1": ["Defender", "Endpoint", "Plan 1"],
@@ -824,20 +827,44 @@ window.Cotador.core = {
   },
 
   toggleModoCliente() {
+    const pct = this.obterMarkupEfetivo();
+    
+    // BLOQUEIO DE SEGURANÇA: Impede ligar Modo Cliente se não houver margem positiva aplicada
+    if (!this.modoCliente) {
+      if (!this.markupEnabled || pct <= 0) {
+        this.mostrarToast('⚠️ Defina uma margem maior que 0% antes de ativar o Modo Cliente.');
+        const inputMarkup = document.getElementById('input-markup-pct');
+        if (inputMarkup) inputMarkup.focus();
+        return;
+      }
+    }
+
     this.modoCliente = !this.modoCliente;
     document.body.classList.toggle('client-proposal-mode', this.modoCliente);
+    
     const btn = document.getElementById('btn-modo-cliente');
     if (btn) btn.classList.toggle('active', this.modoCliente);
-
+    
     this.atualizarTitulosColunasModoCliente();
     this.recalcularSubtotais();
   },
 
   toggleMarkupAtivo() {
     this.markupEnabled = !this.markupEnabled;
+    
+    // Proteção: se desligar a margem enquanto o Modo Cliente estiver ligado, encerra o Modo Cliente imediatamente
+    if (!this.markupEnabled && this.modoCliente) {
+      this.modoCliente = false;
+      document.body.classList.remove('client-proposal-mode');
+      const btnCli = document.getElementById('btn-modo-cliente');
+      if (btnCli) btnCli.classList.remove('active');
+      this.mostrarToast('⚠️ Modo Cliente desativado por segurança: Margem desligada.');
+    }
+
     const btn = document.getElementById('btn-toggle-markup');
     if (btn) btn.classList.toggle('active', this.markupEnabled);
     document.body.classList.toggle('markup-disabled', !this.markupEnabled);
+    
     this.atualizarTitulosColunasModoCliente();
     this.recalcularSubtotais();
   },
@@ -845,12 +872,21 @@ window.Cotador.core = {
   setMarkupPercent(val) {
     const parsed = parseFloat(val);
     this.markupPercent = isNaN(parsed) ? 0 : parsed;
-
-    if (this.markupPercent !== 0 && !this.markupEnabled) {
+    
+    if (this.markupPercent > 0 && !this.markupEnabled) {
       this.markupEnabled = true;
       const btn = document.getElementById('btn-toggle-markup');
       if (btn) btn.classList.add('active');
       document.body.classList.remove('markup-disabled');
+    }
+
+    // Proteção: se o percentual for zerado ou negativo com Modo Cliente ativo, desativa-o
+    if (this.markupPercent <= 0 && this.modoCliente) {
+      this.modoCliente = false;
+      document.body.classList.remove('client-proposal-mode');
+      const btnCli = document.getElementById('btn-modo-cliente');
+      if (btnCli) btnCli.classList.remove('active');
+      this.mostrarToast('⚠️ Modo Cliente desativado: Margem zerada ou inválida.');
     }
 
     this.atualizarTitulosColunasModoCliente();

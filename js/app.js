@@ -39,9 +39,7 @@ window.Cotador.app = {
     this.atualizarUIMsSegmentos();
     this.atualizarUIAdobeSegmentos();
 
-    if (!inputItens || !inputItens.value.trim()) {
-      this.preencherExemplo();
-    } else {
+    if (inputItens && inputItens.value.trim()) {
       this.analisarInput();
     }
 
@@ -357,18 +355,6 @@ window.Cotador.app = {
     document.getElementById('input-itens').value = '';
     this.analisarInput();
     document.getElementById('input-itens').focus();
-  },
-
-  preencherExemplo() {
-    const area = document.getElementById('input-itens');
-    if (this.currentVendor === 'microsoft') {
-      area.value = "business basic 10\nbusiness standard 26\nExchange plan 1 80";
-    } else if (this.currentVendor === 'adobe') {
-      area.value = "Illustrator 2\nphotoshop 6\nCreative Cloud Pro 3";
-    } else {
-      area.value = "Foundations 120";
-    }
-    this.analisarInput();
   },
 
   getAdobeAutoLevel(sum) {

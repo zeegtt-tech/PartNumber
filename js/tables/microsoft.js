@@ -50,10 +50,31 @@ window.Cotador.tables.ms_scan = {
         const preco = core.parsePrice(r.preco_unitario);
         if (preco <= 0) return false;
         if (!core.isItemSegmentoValido(r.offer_display_name, r, flags.segmentos, preco)) return false;
+        
+        // 1. Filtro No Teams
         if (!flags.showNoTeams && /\b(no|sem|without)\s+teams\b/i.test(nome)) return false;
-        if (!flags.showCopilot && (nome.includes('copilot') || /\badd[\s\-]?on\b/i.test(nome) || nome.includes('attach'))) return false;
+        
+        // 2. Classificação de Copilot / Bundles / Add-ons
+        const isBundleWithCopilot = /\b(?:with|w\/)\s+.*copilot\b/i.test(nome);
+        const isGenericAddonOrAttach = /\b(attach|add[\s\-]?on)\b/i.test(nome);
+        const isNativeCopilotProduct = /^(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome) ||
+                                       /\bcopilot\s+(?:studio|for\s+sales|for\s+service|for\s+security|business)\b/i.test(nome);
+
+        if (!flags.showCopilot) {
+          // Descarta bundles tipo "Business Standard with Copilot"
+          if (isBundleWithCopilot) return false;
+          
+          // Descarta add-ons e attaches secundários genéricos, mas PRESERVA o Copilot nativo
+          if (isGenericAddonOrAttach && !isNativeCopilotProduct) return false;
+          
+          // Se tiver 'copilot' no nome mas for uma suíte composta (não nativa autônoma)
+          if (nome.includes('copilot') && !isNativeCopilotProduct) return false;
+        }
+        
+        // 3. Flags de Trial e Frontline
         if (!flags.showTrial && /\b(trial|free|gratuito|promo)\b/i.test(nome)) return false;
         if (!flags.showFrontline && /\b(frontline|kiosk|f1|f3|flw)\b/i.test(nome)) return false;
+        
         return true;
       });
 
@@ -151,10 +172,26 @@ window.Cotador.tables.ms_solo = {
         const preco = core.getSoloPrice(r);
         if (preco <= 0) return false;
         if (!core.isItemSegmentoValido(r.titulo_sku, r, flags.segmentos, preco)) return false;
+        
+        // 1. Filtro No Teams
         if (!flags.showNoTeams && /\b(no|sem|without)\s+teams\b/i.test(nome)) return false;
-        if (!flags.showCopilot && (nome.includes('copilot') || /\badd[\s\-]?on\b/i.test(nome) || nome.includes('attach'))) return false;
+        
+        // 2. Classificação de Copilot / Bundles / Add-ons
+        const isBundleWithCopilot = /\b(?:with|w\/)\s+.*copilot\b/i.test(nome);
+        const isGenericAddonOrAttach = /\b(attach|add[\s\-]?on)\b/i.test(nome);
+        const isNativeCopilotProduct = /^(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome) ||
+                                       /\bcopilot\s+(?:studio|for\s+sales|for\s+service|for\s+security|business)\b/i.test(nome);
+
+        if (!flags.showCopilot) {
+          if (isBundleWithCopilot) return false;
+          if (isGenericAddonOrAttach && !isNativeCopilotProduct) return false;
+          if (nome.includes('copilot') && !isNativeCopilotProduct) return false;
+        }
+        
+        // 3. Flags de Trial e Frontline
         if (!flags.showTrial && /\b(trial|free|gratuito|promo)\b/i.test(nome)) return false;
         if (!flags.showFrontline && /\b(frontline|kiosk|f1|f3|flw)\b/i.test(nome)) return false;
+        
         return true;
       });
 
