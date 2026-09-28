@@ -98,7 +98,7 @@ window.Cotador.app = {
       }
       if (prefs.calcMode === 'margin' || prefs.calcMode === 'markup') {
         if (typeof window.Cotador.core?.setCalcMode === 'function') {
-          window.Cotador.core.setCalcMode(prefs.calcMode);
+          window.Cotador.core.setCalcMode(prefs.calcMode, true);
         } else if (window.Cotador.core) {
           window.Cotador.core.calcMode = prefs.calcMode;
         }

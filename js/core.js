@@ -213,7 +213,9 @@ window.Cotador.core = {
     "power bi ppu": ["Power BI", "Premium", "User"],
     "pbi ppu": ["Power BI", "Premium", "User"],
     "copilot": ["Copilot"],
-    "copilot business": ["Copilot"],
+    "copilot business": ["Copilot", "Business"],
+    "m365 copilot business": ["Copilot", "Business"],
+    "microsoft 365 copilot business": ["Copilot", "Business"],
     "m365 copilot": ["Microsoft 365", "Copilot"],
     "microsoft 365 copilot": ["Microsoft 365", "Copilot"],
     "copilot studio": ["Copilot Studio"],
@@ -792,10 +794,11 @@ window.Cotador.core = {
     return 1 + (pct / 100);
   },
 
-  toggleCalcMode() {
-    this.calcMode = this.calcMode === 'markup' ? 'margin' : 'markup';
+  setCalcMode(mode, silent = false) {
+    this.calcMode = mode === 'margin' ? 'margin' : 'markup';
     const btnMode = document.getElementById('btn-calc-mode');
     const inputMarkup = document.getElementById('input-markup-pct');
+
     if (btnMode) {
       const isMargin = this.calcMode === 'margin';
       btnMode.textContent = isMargin ? 'Margem Real' : 'Markup';
@@ -803,6 +806,7 @@ window.Cotador.core = {
         ? 'Fórmula ativa: MARGEM BRUTA REAL [ Preço = Custo / (1 - %/100) ]. Clique para alternar para Markup.'
         : 'Fórmula ativa: MARKUP [ Preço = Custo * (1 + %/100) ]. Clique para alternar para Margem Bruta Real.';
     }
+
     if (inputMarkup) {
       inputMarkup.max = this.calcMode === 'margin' ? '95' : '500';
       if (this.calcMode === 'margin' && parseFloat(inputMarkup.value) > 95) {
@@ -810,13 +814,23 @@ window.Cotador.core = {
         inputMarkup.value = '95';
       }
     }
+
     this.atualizarTitulosColunasModoCliente();
     this.recalcularSubtotais();
-    this.mostrarToast(
-      this.calcMode === 'margin'
-        ? '📊 Cálculo alterado para Margem Bruta: Custo ÷ (1 - %)'
-        : '📊 Cálculo alterado para Markup: Custo × (1 + %)'
-    );
+
+    if (!silent) {
+      window.Cotador.app?.salvarPreferencias?.();
+      this.mostrarToast(
+        this.calcMode === 'margin'
+          ? '📊 Cálculo alterado para Margem Bruta: Custo ÷ (1 - %)'
+          : '📊 Cálculo alterado para Markup: Custo × (1 + %)'
+      );
+    }
+  },
+
+  toggleCalcMode() {
+    const nextMode = this.calcMode === 'markup' ? 'margin' : 'markup';
+    this.setCalcMode(nextMode, false);
   },
 
   aplicarMarkup(valor) {
@@ -860,11 +874,11 @@ window.Cotador.core = {
     bar.id = 'commercial-mode-bar';
     bar.className = 'unified-view-control';
     bar.innerHTML = `
-      <button type="button" id="btn-modo-cliente" onclick="Cotador.core.toggleModoCliente()" title="Quando ativo: oculta PN e colunas de Custo Normal, exibindo apenas o Valor Unitário comercial (Exige margem > 0%)" class="mini-toggle-btn">
+      <button type="button" id="btn-modo-cliente" onclick="Cotador.core.toggleModoCliente()" title="Quando ativo: oculta PN, colunas de Custo e controles de percentual, exibindo apenas o Valor Unitário comercial (Exige margem > 0%)" class="mini-toggle-btn">
         <span class="dot"></span>
         <span>Modo Cliente</span>
       </button>
-      <div class="flex items-center gap-1 pl-1 pr-1.5 border-l border-slate-200/80 text-[11px] text-slate-600">
+      <div class="markup-controls-group flex items-center gap-1 pl-1 pr-1.5 border-l border-slate-200/80 text-[11px] text-slate-600">
         <button type="button" id="btn-toggle-markup" onclick="Cotador.core.toggleMarkupAtivo()" title="Ligar ou desligar a aplicação de rentabilidade" class="mini-toggle-btn">
           <span class="dot"></span>
           <span>Aplicar</span>

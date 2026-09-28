@@ -34,7 +34,8 @@ window.Cotador.tables.ms_scan = {
       let data = [];
       try {
         data = await core.fetchSupabase('microsoft_scan', params);
-      } catch (_) {
+      } catch (err) {
+        if (err?.name === 'AbortError') throw err;
         const fallback = [['select', '*'], ['limit', '1000']];
         if (isPnQuery) {
           const term = item.keywords[0];
@@ -152,7 +153,8 @@ window.Cotador.tables.ms_solo = {
       let data = [];
       try {
         data = await core.fetchSupabase('microsoft_solo', params);
-      } catch (_) {
+      } catch (err) {
+        if (err?.name === 'AbortError') throw err;
         const fallback = [['select', '*'], ['limit', '1500']];
         if (isPnQuery) {
           const term = item.keywords[0];
@@ -302,7 +304,8 @@ window.Cotador.tables.ms_perpetuo = {
       let data = [];
       try {
         data = await core.fetchSupabase('microsoft_perpetuo', params);
-      } catch (_) {
+      } catch (err) {
+        if (err?.name === 'AbortError') throw err;
         const fallbackParams = [['select', '*'], ['limit', '800']];
         if (isPnQuery) {
           const term = item.keywords[0];
@@ -460,7 +463,8 @@ window.Cotador.tables.ms_mpsa = {
       p1.push(['order', 'categoria_precos.asc']);
 
       queries.push(
-        core.fetchSupabase('microsoft_mpsa', p1).catch(() => {
+        core.fetchSupabase('microsoft_mpsa', p1).catch((err) => {
+          if (err?.name === 'AbortError') throw err;
           const fallbackP1 = [['select', '*'], ['limit', '800']];
           if (isPnQuery) {
             const term = item.keywords[0];
@@ -482,7 +486,8 @@ window.Cotador.tables.ms_mpsa = {
           p2.push(['order', 'categoria_precos.asc']);
 
           queries.push(
-            core.fetchSupabase('microsoft_mpsa', p2).catch(() => {
+            core.fetchSupabase('microsoft_mpsa', p2).catch((err) => {
+              if (err?.name === 'AbortError') throw err;
               const fallbackP2 = [['select', '*'], ['limit', '800']];
               abrevTerms.forEach(kw => fallbackP2.push(['nome_curto_peca', `ilike.*${kw}*`]));
               return core.fetchSupabase('microsoft_mpsa', fallbackP2);

@@ -490,6 +490,22 @@ body.has-active-markup:not(.client-proposal-mode) tfoot.block-table-tfoot td.col
   color: #7c3aed !important;
 }
 
+/* Oculta controles de percentual de Markup/Margem no cabeçalho quando Modo Cliente está ativo */
+body.client-proposal-mode .markup-controls-group {
+  display: none !important;
+}
+
+/* Estilização do botão seletor Markup / Margem Real quando a margem está ativa */
+body.markup-disabled #btn-calc-mode {
+  opacity: 0.65;
+  color: #94a3b8;
+}
+body.has-active-markup:not(.client-proposal-mode) #btn-calc-mode {
+  border-color: #c4b5fd !important;
+  color: #6d28d9 !important;
+  background-color: #f5f3ff !important;
+}
+
 /* ============================================================================
    SWITCH LIGA/DESLIGA DE CÂMBIO ADOBE (4,80 TRAVADO vs PTAX DO DIA)
    ============================================================================ */
