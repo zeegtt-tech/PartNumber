@@ -378,7 +378,8 @@ window.Cotador.app = {
           showAdobeStock: document.getElementById('chk-adobe-show-stock')?.checked ?? false,
           hide3YCommit: document.getElementById('chk-adobe-hide-3y').checked
         };
-        await window.Cotador.tables[tabela].processar(this.parsedItems, flags);
+        const resAdobe = await window.Cotador.tables[tabela].processar(this.parsedItems, flags);
+        missingItems = this.parsedItems.filter(it => !resAdobe?.matchedItemIndices?.has(it.itemIndex));
       } else {
         const todosPeriodos = [
           { id: '1a', label: '1 ANO', match: '1 ANO' },
@@ -411,7 +412,8 @@ window.Cotador.app = {
           showPublic: document.getElementById('chk-kasp-show-public')?.checked ?? false,
           showTraining: document.getElementById('chk-kasp-show-training')?.checked ?? false
         };
-        await window.Cotador.tables.kaspersky.processar(this.parsedItems, flags);
+        const resKasp = await window.Cotador.tables.kaspersky.processar(this.parsedItems, flags);
+        missingItems = this.parsedItems.filter(it => !resKasp?.matchedItemIndices?.has(it.itemIndex));
       }
 
       window.Cotador.core.limparBlocosVazios();

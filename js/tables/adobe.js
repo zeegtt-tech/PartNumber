@@ -230,7 +230,6 @@ function enriquecerDiferencasIrmaosAdobe(rows) {
   rows.forEach(r => {
     const qual = extrairQualificadorAdobe(r);
     r._qualCache = qual;
-    // Agrupa SKUs que possuem o mesmo nome, mesmo level E os mesmos badges iniciais
     const key = `${(r.product_family || '').trim().toLowerCase()}__${(r.level_detail || '').trim().toLowerCase()}__${qual.badges.join('|').toLowerCase()}`;
     if (!grupos.has(key)) grupos.set(key, []);
     grupos.get(key).push(r);
@@ -307,7 +306,6 @@ function pertenceAoSegmentoAdobe(prodFamily, seg, totalSegmentosAtivos) {
   const pf = String(prodFamily || '').toLowerCase();
   if (pf.includes(seg)) return true;
   const semSegmentoExplicito = !pf.includes('teams') && !pf.includes('enterprise');
-  // Se não tiver 'teams' nem 'enterprise', exibe em 'teams' (ou no único segmento selecionado)
   return semSegmentoExplicito && (seg === 'teams' || totalSegmentosAtivos === 1);
 }
 
@@ -392,7 +390,6 @@ function criarModuloAdobe(tableName, labelTitulo) {
           if (isTargetVipSelect) {
             return infoLvl.exactCode === target;
           }
-          // Se filtrou por 1, 2, 3 ou 4 e hide3YCommit estiver ativo, já restringe aos níveis normais
           return infoLvl.groupCode === target;
         });
 
@@ -465,7 +462,6 @@ function criarModuloAdobe(tableName, labelTitulo) {
                   }
                 });
               }
-              // Se ainda assim todas as colunas descritivas do CSV forem idênticas no banco, diferencia pelo sufixo do PN
               if (todosBadges.length === 0 && filtrados.length > 1 && pn) {
                 todosBadges.push(`SKU ${pn.slice(-4)}`);
               }
@@ -483,7 +479,7 @@ function criarModuloAdobe(tableName, labelTitulo) {
                 .map(b => `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${core.escapeHTML(b)}" data-label="Detalhe SKU" title="${core.escapeHTML(qual.fullDetail || b)}" class="copy-link sec-detail ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200">${core.escapeHTML(b)}</span>`)
                 .join('');
 
-              const produtoDisplayHTML = `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${core.escapeHTML(nomeComLevel)}" data-label="Produto" title="Clique para copiar produto com level" class="copy-link"><span>${core.escapeHTML(nomeBase)}</span>${infoLvl.label ? ` <span class="theme-text font-semibold">- ${core.escapeHTML(infoLvl.label)}</span>` : ''}</span>${badgesHTML}`;
+              const produtoDisplayHTML = `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${core.escapeHTML(nomeComLevel)}" data-label="Produto" title="Clique para copiar produto com level" class="copy-link copy-link-product"><span>${core.escapeHTML(nomeBase)}</span>${infoLvl.label ? ` <span class="theme-text font-semibold">- ${core.escapeHTML(infoLvl.label)}</span>` : ''}</span>${badgesHTML}`;
 
               const celulaQtdHTML = renderizarCelulaQtdAdobe(core, item.qty, qual.moq, qual.fullDetail);
 
@@ -512,8 +508,6 @@ function criarModuloAdobe(tableName, labelTitulo) {
         }
       }
 
-      const missingItems = parsedItems.filter(it => !matchedItemIndices.has(it.itemIndex));
-      queueMicrotask(() => core.renderUnmatchedWarning(missingItems));
       return { matchedItemIndices };
     }
   };

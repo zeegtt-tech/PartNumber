@@ -124,13 +124,12 @@ window.Cotador.tables.kaspersky = {
       periodosAtivos.unshift({ id: '1m', label: '1 MÊS', match: '1 MÊS' });
     }
 
-    // Soma total de quantidades válidas para o modo 'auto_sum' (Cross-Band)
+    // Soma total de quantidades válidas para o modo 'auto' / 'auto_sum' (Automático pela Soma)
     const somaTotalQtd = parsedItems.reduce((acc, it) => {
       const q = parseInt(it.qty, 10);
       return acc + (!isNaN(q) && q > 0 ? q : 0);
     }, 0);
-
-    const modoBanda = flags.bandaSelect || flags.targetBanda || 'auto_item';
+    const modoBanda = flags.bandaSelect || flags.targetBanda || 'auto';
 
     const promessas = parsedItems.map(async item => {
       let data = [];
@@ -166,6 +165,7 @@ window.Cotador.tables.kaspersky = {
         const nome = (r.sale_item_name || '').toLowerCase();
         const tipo = (r.tipo || '').toLowerCase().trim();
         const family = (r.family || '').toLowerCase().trim();
+
         const isBasePlus = nome.includes('base plus') || tipo.includes('base plus');
         const isSuccessive = nome.includes('successive') || tipo.includes('successive');
         const isPublic = nome.includes('public sector') || tipo.includes('public sector') || tipo.includes('gov');
@@ -195,17 +195,16 @@ window.Cotador.tables.kaspersky = {
             if (!matchRenew) return false;
           }
         }
-
         return true;
       });
 
       const semQuantidade = item.qty === '-' || item.qty === null || item.qty === '' || isNaN(item.qty);
       let effectiveBanda = flags.targetBanda;
 
-      if (modoBanda === 'auto' || modoBanda === 'auto_item') {
+      if (modoBanda === 'auto' || modoBanda === 'auto_sum') {
+        effectiveBanda = somaTotalQtd > 0 ? obterBandaAutoPorQtdKaspersky(somaTotalQtd) : 'all';
+      } else if (modoBanda === 'auto_item') {
         effectiveBanda = semQuantidade ? 'all' : obterBandaAutoPorQtdKaspersky(item.qty);
-      } else if (modoBanda === 'auto_sum') {
-        effectiveBanda = (semQuantidade || somaTotalQtd <= 0) ? 'all' : obterBandaAutoPorQtdKaspersky(somaTotalQtd);
       }
 
       if (effectiveBanda && effectiveBanda !== 'all') {
@@ -339,8 +338,6 @@ window.Cotador.tables.kaspersky = {
       }
     }
 
-    const missingItems = parsedItems.filter(it => !matchedItemIndices.has(it.itemIndex));
-    queueMicrotask(() => core.renderUnmatchedWarning(missingItems));
     return { matchedItemIndices };
   }
 };

@@ -709,7 +709,7 @@ window.Cotador.core = {
   },
 
   async fetchSupabase(table, paramsArray) {
-    const qs = paramsArray.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+    const qs = paramsArray.map(([k, v]) => `${encodeIComponent(k)}=${encodeURIComponent(v)}`).join('&');
     const url = `${this.SUPABASE_URL}/${table}?${qs}`;
     const headers = {
       'apikey': this.SUPABASE_KEY,
@@ -966,8 +966,9 @@ window.Cotador.core = {
     const old = document.getElementById('unmatched-items-banner');
     if (old) old.remove();
     if (!Array.isArray(missingItems) || missingItems.length === 0) return;
+
     const container = document.getElementById('resultado-container');
-    if (!container || container.querySelectorAll('.quote-block').length === 0) return;
+    if (!container) return;
 
     const tags = missingItems
       .map(it => `<span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-mono text-[11px] border border-amber-300">${this.escapeHTML(it.rawSearch)}</span>`)
