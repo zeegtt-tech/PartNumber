@@ -8,6 +8,9 @@ window.Cotador.app = {
   msModalidades: new Set(['scan']),
   msSegmentos: new Set(['commercial']),
   adobeSegmentos: new Set(['teams']),
+  adobeCambioMode: 'fixo',
+  ptaxRateCache: null,
+  ptaxDateCache: null,
   trienaisVisiveis: false,
   STORAGE_KEY: 'cotador_enterprise_prefs_v58',
 
@@ -24,22 +27,8 @@ window.Cotador.app = {
       });
     }
 
-    // Câmbio Dólar Adobe reativo em tempo real (sem nova requisição ao banco)
-    const inputDolar = document.getElementById('adobe-dolar');
-    if (inputDolar) {
-      inputDolar.addEventListener('input', (e) => {
-        this.salvarPreferencias();
-        window.Cotador.core.atualizarCambioAdobeEmTempoReal(e.target.value);
-      });
-    }
-
-    // Persistência do Desconto Scansource (%)
-    const inputScanDiscount = document.getElementById('ms-scan-discount');
-    if (inputScanDiscount) {
-      inputScanDiscount.addEventListener('input', () => {
-        this.salvarPreferencias();
-      });
-    }
+    // Inicializa o câmbio Adobe travado na flag padrão (R$ 4,80)
+    this.setAdobeCambioMode('fixo');
 
     // Marca "License Only" como padrão inicial para MPSA
     const chkMpsaLicOnly = document.getElementById('chk-mpsa-show-liconly');
@@ -63,7 +52,6 @@ window.Cotador.app = {
     try {
       const prefs = {
         vendor: this.currentVendor,
-        dolar: document.getElementById('adobe-dolar')?.value || '4.80',
         scanDiscount: document.getElementById('ms-scan-discount')?.value ?? '7',
         msModalidades: Array.from(this.msModalidades)
       };
@@ -76,9 +64,6 @@ window.Cotador.app = {
       const raw = localStorage.getItem(this.STORAGE_KEY);
       if (!raw) return;
       const prefs = JSON.parse(raw);
-      if (prefs.dolar && document.getElementById('adobe-dolar')) {
-        document.getElementById('adobe-dolar').value = prefs.dolar;
-      }
       if (prefs.scanDiscount !== undefined && document.getElementById('ms-scan-discount')) {
         document.getElementById('ms-scan-discount').value = prefs.scanDiscount;
       }
@@ -225,6 +210,94 @@ window.Cotador.app = {
       const btn = document.getElementById(`btn-adobe-seg-${s}`);
       if (btn) btn.classList.toggle('active', this.adobeSegmentos.has(s));
     });
+  },
+
+  async setAdobeCambioMode(mode) {
+    const modoEfetivo = mode === 'ptax' ? 'ptax' : 'fixo';
+    this.adobeCambioMode = modoEfetivo;
+
+    const btnFixo = document.getElementById('btn-adobe-cambio-fixo');
+    const btnPtax = document.getElementById('btn-adobe-cambio-ptax');
+    const statusEl = document.getElementById('adobe-ptax-status');
+    const ptaxLabelEl = document.getElementById('btn-adobe-ptax-label');
+    const inputDolar = document.getElementById('adobe-dolar');
+
+    if (btnFixo) btnFixo.classList.toggle('active', modoEfetivo === 'fixo');
+    if (btnPtax) btnPtax.classList.toggle('active', modoEfetivo === 'ptax');
+
+    if (modoEfetivo === 'fixo') {
+      if (inputDolar) inputDolar.value = '4.80';
+      if (statusEl) statusEl.textContent = 'Travado: R$ 4,80';
+      window.Cotador.core.atualizarCambioAdobeEmTempoReal(4.80);
+      return;
+    }
+
+    // Modo PTAX do Dia: busca cotação oficial sem permitir edição manual
+    if (statusEl) statusEl.textContent = 'Consultando BCB...';
+    if (btnPtax) btnPtax.disabled = true;
+
+    try {
+      const { rate, dateStr } = await this.obterCotacaoPtaxDia();
+      const rateFixed = Number(rate).toFixed(4);
+      const rateDisplay = Number(rate).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+
+      if (inputDolar) inputDolar.value = rateFixed;
+      if (ptaxLabelEl) ptaxLabelEl.textContent = `PTAX (R$ ${Number(rate).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+      if (statusEl) statusEl.textContent = `PTAX${dateStr ? ` (${dateStr})` : ''}: R$ ${rateDisplay}`;
+
+      window.Cotador.core.atualizarCambioAdobeEmTempoReal(rate);
+    } catch (err) {
+      // Se houver bloqueio de rede na API externa, reverte com segurança para Fixo 4,80
+      this.adobeCambioMode = 'fixo';
+      if (btnFixo) btnFixo.classList.add('active');
+      if (btnPtax) btnPtax.classList.remove('active');
+      if (inputDolar) inputDolar.value = '4.80';
+      if (statusEl) statusEl.textContent = 'Erro PTAX • Mantido R$ 4,80';
+      window.Cotador.core.mostrarToast('Não foi possível obter o PTAX do BCB agora. Mantido R$ 4,80.');
+      window.Cotador.core.atualizarCambioAdobeEmTempoReal(4.80);
+    } finally {
+      if (btnPtax) btnPtax.disabled = false;
+    }
+  },
+
+  async obterCotacaoPtaxDia() {
+    if (this.ptaxRateCache && this.ptaxRateCache > 0) {
+      return { rate: this.ptaxRateCache, dateStr: this.ptaxDateCache };
+    }
+
+    // 1ª Tentativa: API Oficial Olinda do Banco Central do Brasil (últimos 7 dias para cobrir fins de semana/feriados)
+    try {
+      const hoje = new Date();
+      const inicio = new Date(hoje);
+      inicio.setDate(hoje.getDate() - 7);
+      const fmtMDY = (d) => `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}-${d.getFullYear()}`;
+      const urlBcb = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@dataInicial='${fmtMDY(inicio)}'&@dataFinalCotacao='${fmtMDY(hoje)}'&$orderby=dataHoraCotacao%20desc&$top=1&$format=json`;
+
+      const resp = await fetch(urlBcb, { cache: 'no-store' });
+      if (resp.ok) {
+        const json = await resp.json();
+        const ultimo = json?.value?.[0];
+        const cotacaoVenda = parseFloat(ultimo?.cotacaoVenda);
+        if (!isNaN(cotacaoVenda) && cotacaoVenda > 0) {
+          this.ptaxRateCache = cotacaoVenda;
+          const rawDate = String(ultimo.dataHoraCotacao || '').split(' ')[0];
+          const parts = rawDate.split('-');
+          this.ptaxDateCache = parts.length === 3 ? `${parts[2]}/${parts[1]}` : '';
+          return { rate: this.ptaxRateCache, dateStr: this.ptaxDateCache };
+        }
+      }
+    } catch (_) {}
+
+    // 2ª Tentativa (Contingência): AwesomeAPI USD-BRL
+    const respFallback = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL', { cache: 'no-store' });
+    if (!respFallback.ok) throw new Error('Falha ao consultar PTAX');
+    const dataFallback = await respFallback.json();
+    const ask = parseFloat(dataFallback?.USDBRL?.ask);
+    if (isNaN(ask) || ask <= 0) throw new Error('Cotação inválida');
+
+    this.ptaxRateCache = ask;
+    this.ptaxDateCache = 'Hoje';
+    return { rate: ask, dateStr: 'Hoje' };
   },
 
   setKaspTipo(tipo) {

@@ -12,7 +12,7 @@
   <script defer src="./js/tables/kaspersky.js"></script>
   <script defer src="./js/app.js"></script>
 </head>
-<body data-vendor="microsoft" class="min-h-screen p-3 md:p-5 lg:px-6 lg:py-4 text-slate-800">
+<body data-vendor="microsoft" class="min-h-screen p-3 md:p-5 lg:px-6 lg:py-4 text-slate-800 hide-secondary-details hide-subtotals markup-disabled">
   <div class="max-w-[1600px] mx-auto space-y-3.5">
     
     <!-- CABEÇALHO CORPORATIVO MINIMALISTA -->
@@ -39,8 +39,8 @@
       </div>
 
       <div class="flex flex-wrap items-center gap-2.5">
-        <input type="checkbox" id="chk-mostrar-subtotal" class="sr-only" checked onchange="Cotador.core.recalcularSubtotais()">
-        <input type="checkbox" id="chk-mostrar-detalhes" class="sr-only" checked onchange="Cotador.core.atualizarVisibilidadeDetalhes()">
+        <input type="checkbox" id="chk-mostrar-subtotal" class="sr-only" onchange="Cotador.core.recalcularSubtotais()">
+        <input type="checkbox" id="chk-mostrar-detalhes" class="sr-only" onchange="Cotador.core.atualizarVisibilidadeDetalhes()">
         
         <div class="unified-view-control" role="group" aria-label="Controle de exibição da tabela">
           <button type="button" id="btn-toggle-all-view" onclick="Cotador.core.alternarVisaoUnificada()" title="Alternar visão completa ou enxuta (Detalhes + Subtotais)" class="mini-toggle-btn text-slate-500 hover:text-slate-800 px-2 border-r border-slate-200/80 rounded-none">
@@ -49,11 +49,11 @@
             </svg>
             <span>Visão</span>
           </button>
-          <button type="button" id="btn-toggle-detalhes" onclick="Cotador.core.toggleDetalhesSecundarios()" title="Habilitar/desabilitar colunas e informações secundárias" class="mini-toggle-btn active">
+          <button type="button" id="btn-toggle-detalhes" onclick="Cotador.core.toggleDetalhesSecundarios()" title="Habilitar/desabilitar colunas e informações secundárias" class="mini-toggle-btn">
             <span class="dot"></span>
             <span>Detalhes</span>
           </button>
-          <button type="button" id="btn-toggle-subtotal" onclick="Cotador.core.toggleMostrarSubtotal()" title="Habilitar/desabilitar coluna de Subtotal e valor Total da tabela" class="mini-toggle-btn active">
+          <button type="button" id="btn-toggle-subtotal" onclick="Cotador.core.toggleMostrarSubtotal()" title="Habilitar/desabilitar coluna de Subtotal e valor Total da tabela" class="mini-toggle-btn">
             <span class="dot"></span>
             <span>Subtotais</span>
           </button>
@@ -124,14 +124,18 @@
               </div>
             </div>
 
-            <!-- 3.1.1 DESCONTO SCANSOURCE (%) -->
-            <div id="ms-box-scan-discount" class="flex items-center justify-between gap-2 bg-amber-50/60 border border-amber-200/80 rounded-lg px-2.5 py-1.5">
-              <label for="ms-scan-discount" class="text-[11px] font-medium text-amber-900 cursor-pointer">
-                Desconto Scansource (%)
-              </label>
-              <div class="w-20">
-                <input type="number" id="ms-scan-discount" value="7" min="0" max="100" step="0.5" class="select-input tabular-nums text-right !py-1 !px-2">
-              </div>
+            <!-- 3.1.1 DESCONTO SCANSOURCE (%) - FIXO EM 7% -->
+            <div id="ms-box-scan-discount" class="flex items-center justify-between gap-2 bg-amber-50/60 border border-amber-200/80 rounded-lg px-2.5 py-1.5 select-none" title="Desconto padrão Scansource travado em 7% para evitar erros operacionais">
+              <span class="text-[11px] font-medium text-amber-900 flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 text-amber-700 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+                <span>Desconto Scansource</span>
+              </span>
+              <span class="text-xs font-bold text-amber-900 bg-amber-100/80 border border-amber-300/80 rounded px-2 py-0.5 tabular-nums">
+                7% (Fixo)
+              </span>
+              <input type="hidden" id="ms-scan-discount" value="7" readonly disabled>
             </div>
 
             <!-- 3.2 SEGMENTO DE MERCADO (SELEÇÃO ÚNICA) -->

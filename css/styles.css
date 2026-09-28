@@ -382,9 +382,9 @@ body.hide-secondary-details .col-secondary,
 body.hide-secondary-details .sec-detail {
   display: none !important;
 }
-body.hide-subtotals:not(.client-proposal-mode) .col-subtotal,
-body.hide-subtotals:not(.client-proposal-mode) .block-total-badge,
-body.hide-subtotals:not(.client-proposal-mode) .block-table-tfoot {
+body.hide-subtotals .col-subtotal,
+body.hide-subtotals .block-total-badge,
+body.hide-subtotals .block-table-tfoot {
   display: none !important;
 }
 body.client-proposal-mode .col-internal-cost {
@@ -443,11 +443,14 @@ DESTAQUE EXCLUSIVO: MODALIDADE E TABELA SCAN (FUNDO PADRÃO + TÍTULO ÂMBAR)
 /* ============================================================================
 DESTAQUE ROXO SUTIL DE MARGEM APLICADA (APENAS NÚMEROS, FUNDO INALTERADO)
 ============================================================================ */
-/* Estado quando o botão de Margem está desligado */
+/* Estado quando o botão de Margem está desligado: oculta coluna de margem no modo interno */
 body.markup-disabled #input-markup-pct {
   opacity: 0.55;
   background-color: #f8fafc;
   color: #94a3b8;
+}
+body.markup-disabled:not(.client-proposal-mode) .col-margin-price {
+  display: none !important;
 }
 
 /* Bolinha do botão de margem fica roxa quando a margem está ativa e != 0% */

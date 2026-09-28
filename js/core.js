@@ -12,7 +12,7 @@ window.Cotador.core = {
   _lastMouseDownTarget: null,
   modoCliente: false,
   markupPercent: 0,
-  markupEnabled: true,
+  markupEnabled: false,
   ultimasAtualizacoes: {},
 
   formatarDataCurta(isoStr) {
@@ -709,7 +709,7 @@ window.Cotador.core = {
   },
 
   async fetchSupabase(table, paramsArray) {
-    const qs = paramsArray.map(([k, v]) => `${encodeIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+    const qs = paramsArray.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
     const url = `${this.SUPABASE_URL}/${table}?${qs}`;
     const headers = {
       'apikey': this.SUPABASE_KEY,
@@ -779,12 +779,12 @@ window.Cotador.core = {
     bar.id = 'commercial-mode-bar';
     bar.className = 'unified-view-control';
     bar.innerHTML = `
-      <button type="button" id="btn-modo-cliente" onclick="Cotador.core.toggleModoCliente()" title="Quando ativo: oculta PN, oculta colunas de Custo Normal e exibe apenas o Valor Unitário já com Margem e o Total" class="mini-toggle-btn">
+      <button type="button" id="btn-modo-cliente" onclick="Cotador.core.toggleModoCliente()" title="Quando ativo: oculta PN e colunas de Custo Normal, exibindo apenas o Valor Unitário comercial" class="mini-toggle-btn">
         <span class="dot"></span>
         <span>Modo Cliente</span>
       </button>
       <div class="flex items-center gap-1 pl-1 pr-1.5 border-l border-slate-200/80 text-[11px] text-slate-600">
-        <button type="button" id="btn-toggle-markup" onclick="Cotador.core.toggleMarkupAtivo()" title="Ligar ou desligar a aplicação da margem sem apagar o percentual digitado" class="mini-toggle-btn active">
+        <button type="button" id="btn-toggle-markup" onclick="Cotador.core.toggleMarkupAtivo()" title="Ligar ou desligar a exibição e aplicação da margem" class="mini-toggle-btn">
           <span class="dot"></span>
           <span>Margem</span>
         </button>
@@ -796,6 +796,13 @@ window.Cotador.core = {
       </div>
     `;
     viewCtrl.parentElement.insertBefore(bar, viewCtrl);
+
+    // Garante que Modo Cliente, Margem, Detalhes e Subtotais iniciem desmarcados nativamente
+    this.modoCliente = false;
+    this.markupEnabled = false;
+    document.body.classList.remove('client-proposal-mode');
+    document.body.classList.add('markup-disabled', 'hide-secondary-details', 'hide-subtotals');
+    this.atualizarVisibilidadeDetalhes();
   },
 
   toggleModoCliente() {
@@ -803,16 +810,6 @@ window.Cotador.core = {
     document.body.classList.toggle('client-proposal-mode', this.modoCliente);
     const btn = document.getElementById('btn-modo-cliente');
     if (btn) btn.classList.toggle('active', this.modoCliente);
-
-    // Garante que Subtotais e Total estejam ativos ao entrar no Modo Cliente
-    if (this.modoCliente) {
-      const chkSub = document.getElementById('chk-mostrar-subtotal');
-      if (chkSub && !chkSub.checked) {
-        chkSub.checked = true;
-      }
-      const btnSub = document.getElementById('btn-toggle-subtotal');
-      if (btnSub) btnSub.classList.add('active');
-    }
 
     this.atualizarTitulosColunasModoCliente();
     this.recalcularSubtotais();
