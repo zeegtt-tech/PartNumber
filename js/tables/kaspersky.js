@@ -1,6 +1,6 @@
 // ============================================================================
 // MÓDULO DE TABELAS: KASPERSKY (Separado por Produto, Período e Faixa) - v5.9
-// Ficheiro: js/tables/kaspersky.js
+// Arquivo: js/tables/kaspersky.js
 // ============================================================================
 
 function extrairOrdemBandaKaspersky(bandaStr) {

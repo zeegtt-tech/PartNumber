@@ -1,5 +1,5 @@
 // ============================================================================
-// CONTROLADOR DA APLICAÇÃO (APP) - COTADOR v5.9 ENTERPRISE (js/app.js)
+// CONTROLADOR DA APLICAÇÃO (APP) - COTADOR v5.9 (Arquivo: js/app.js)
 // ============================================================================
 window.Cotador.app = {
   currentVendor: 'microsoft',
@@ -429,6 +429,36 @@ window.Cotador.app = {
       return;
     }
 
+    // Pré-validação de contratos CSP (Microsoft) antes de alterar o estado visual da tela
+    let modalidadesMs = [];
+    let contratosMs = [];
+    if (this.currentVendor === 'microsoft') {
+      modalidadesMs = this.obterModalidadesAtivas();
+      if (document.getElementById('chk-anual-anual')?.checked) {
+        contratosMs.push({ id: 'aa', label: 'Anual / Anual', scanTempo: 'Anual', scanCiclo: 'Anual', soloTermo: 'P1Y', soloPlano: 'Annual' });
+      }
+      if (document.getElementById('chk-anual-mensal')?.checked) {
+        contratosMs.push({ id: 'am', label: 'Anual / Mensal', scanTempo: 'Anual', scanCiclo: 'Mensal', soloTermo: 'P1Y', soloPlano: 'Monthly' });
+      }
+      if (document.getElementById('chk-mensal-mensal')?.checked) {
+        contratosMs.push({ id: 'mm', label: 'Mensal / Mensal', scanTempo: 'Mensal', scanCiclo: 'Mensal', soloTermo: 'P1M', soloPlano: 'Monthly' });
+      }
+      if (document.getElementById('chk-trienal-anual')?.checked) {
+        contratosMs.push({ id: 'ta', label: 'Trienal / Anual', scanTempo: 'Trienal', scanCiclo: 'Anual', soloTermo: 'P3Y', soloPlano: 'Annual' });
+      }
+      if (document.getElementById('chk-trienal-mensal')?.checked) {
+        contratosMs.push({ id: 'tm', label: 'Trienal / Mensal', scanTempo: 'Trienal', scanCiclo: 'Mensal', soloTermo: 'P3Y', soloPlano: 'Monthly' });
+      }
+      if (document.getElementById('chk-trienal-trienal')?.checked) {
+        contratosMs.push({ id: 'tt', label: 'Trienal / Total', scanTempo: 'Trienal', scanCiclo: 'Trienal', soloTermo: 'P3Y', soloPlano: 'Triennial' });
+      }
+      const precisaCSP = modalidadesMs.includes('scan') || modalidadesMs.includes('solo');
+      if (precisaCSP && contratosMs.length === 0) {
+        alert('Selecione pelo menos um Contrato CSP (Vigência / Ciclo)!');
+        return;
+      }
+    }
+
     // Cancela qualquer consulta anterior que ainda esteja pendente em rede
     const searchSignal = window.Cotador.core.iniciarNovaSessaoBusca();
 
@@ -442,32 +472,8 @@ window.Cotador.app = {
       let missingItems = [];
 
       if (this.currentVendor === 'microsoft') {
-        const modalidades = this.obterModalidadesAtivas();
-        const contratos = [];
-        if (document.getElementById('chk-anual-anual')?.checked) {
-          contratos.push({ id: 'aa', label: 'Anual / Anual', scanTempo: 'Anual', scanCiclo: 'Anual', soloTermo: 'P1Y', soloPlano: 'Annual' });
-        }
-        if (document.getElementById('chk-anual-mensal')?.checked) {
-          contratos.push({ id: 'am', label: 'Anual / Mensal', scanTempo: 'Anual', scanCiclo: 'Mensal', soloTermo: 'P1Y', soloPlano: 'Monthly' });
-        }
-        if (document.getElementById('chk-mensal-mensal')?.checked) {
-          contratos.push({ id: 'mm', label: 'Mensal / Mensal', scanTempo: 'Mensal', scanCiclo: 'Mensal', soloTermo: 'P1M', soloPlano: 'Monthly' });
-        }
-        if (document.getElementById('chk-trienal-anual')?.checked) {
-          contratos.push({ id: 'ta', label: 'Trienal / Anual', scanTempo: 'Trienal', scanCiclo: 'Anual', soloTermo: 'P3Y', soloPlano: 'Annual' });
-        }
-        if (document.getElementById('chk-trienal-mensal')?.checked) {
-          contratos.push({ id: 'tm', label: 'Trienal / Mensal', scanTempo: 'Trienal', scanCiclo: 'Mensal', soloTermo: 'P3Y', soloPlano: 'Monthly' });
-        }
-        if (document.getElementById('chk-trienal-trienal')?.checked) {
-          contratos.push({ id: 'tt', label: 'Trienal / Total', scanTempo: 'Trienal', scanCiclo: 'Trienal', soloTermo: 'P3Y', soloPlano: 'Triennial' });
-        }
-
-        const precisaCSP = modalidades.includes('scan') || modalidades.includes('solo');
-        if (precisaCSP && contratos.length === 0) {
-          alert('Selecione pelo menos um Contrato CSP (Vigência / Ciclo)!');
-          return;
-        }
+        const modalidades = modalidadesMs;
+        const contratos = contratosMs;
 
         const flags = {
           contratos,

@@ -1,10 +1,10 @@
 // ============================================================================
-// NÚCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.8.3 ENTERPRISE (js/core.js)
+// NÚCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.9 ENTERPRISE (Arquivo: js/core.js)
 // ============================================================================
-
 window.Cotador = { core: {}, tables: {}, app: {} };
 
 window.Cotador.core = {
+  VERSION: '5.9.0',
   SUPABASE_URL: "https://rftvbxlbltmiwamjhgzl.supabase.co/rest/v1",
   SUPABASE_KEY: "sb_publishable_fN_BXmhXXod2gpeyJ8u38Q_rvgDPl7N",
   _dragInitialized: false,
@@ -949,21 +949,20 @@ window.Cotador.core = {
   setMarkupPercent(val) {
     const parsed = parseFloat(val);
     this.markupPercent = isNaN(parsed) ? 0 : parsed;
-    
+
     if (this.markupPercent > 0 && !this.markupEnabled) {
       this.markupEnabled = true;
       const btn = document.getElementById('btn-toggle-markup');
       if (btn) btn.classList.add('active');
       document.body.classList.remove('markup-disabled');
-    }
-
-    // Proteção: se o percentual for zerado ou negativo com Modo Cliente ativo, desativa-o
-    if (this.markupPercent <= 0 && this.modoCliente) {
-      this.modoCliente = false;
-      document.body.classList.remove('client-proposal-mode');
-      const btnCli = document.getElementById('btn-modo-cliente');
-      if (btnCli) btnCli.classList.remove('active');
-      this.mostrarToast('⚠️ Modo Cliente desativado: Margem zerada ou inválida.');
+    } else if (this.markupPercent <= 0) {
+      if (this.modoCliente) {
+        this.modoCliente = false;
+        document.body.classList.remove('client-proposal-mode');
+        const btnCli = document.getElementById('btn-modo-cliente');
+        if (btnCli) btnCli.classList.remove('active');
+        this.mostrarToast('⚠️ Modo Cliente desativado: Margem zerada ou inválida.');
+      }
     }
 
     this.atualizarTitulosColunasModoCliente();
@@ -1571,6 +1570,7 @@ window.Cotador.core = {
     const showDet = !document.body.classList.contains('hide-secondary-details');
     if (!showSub && cell.classList.contains('col-subtotal')) return false;
     if (!showDet && cell.classList.contains('col-secondary')) return false;
+    if (!this.markupEnabled && !this.modoCliente && cell.classList.contains('col-margin-price')) return false;
     if (this.modoCliente) {
       if (cell.classList.contains('col-pn')) return false;
       if (cell.classList.contains('col-cost-normal')) return false;

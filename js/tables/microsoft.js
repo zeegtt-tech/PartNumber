@@ -1,5 +1,5 @@
 // ============================================================================
-// MÓDULO DE TABELAS: MICROSOFT (Scan, Solo, Perpétuo, MPSA) - v5.8 ENTERPRISE
+// MÓDULO DE TABELAS: MICROSOFT (Scan, Solo, Perpétuo, MPSA) - v5.9
 // Arquivo: js/tables/microsoft.js
 // ============================================================================
 

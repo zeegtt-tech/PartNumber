@@ -1,6 +1,6 @@
 // ============================================================================
-// MÓDULO DE TABELAS: ADOBE (Base Padrão & Promo Novos Clientes) - v5.9 ENTERPRISE
-// Ficheiro: js/tables/adobe.js
+// MÓDULO DE TABELAS: ADOBE (Base Padrão & Promo Novos Clientes) - v5.9
+// Arquivo: js/tables/adobe.js
 // ============================================================================
 
 function obterInfoLevelAdobe(levelDetail) {
