@@ -287,11 +287,12 @@ window.Cotador.tables.kaspersky = {
               rowsHTML += `<tr data-unit-price="${unitarioRef}" data-pn="${core.escapeHTML(pn)}" data-prod-key="${core.escapeHTML(prodKey)}">
                 <td class="font-medium text-slate-800">${core.renderCopyLink(r.sale_item_name, r.sale_item_name, 'Produto')}${badgeSemEdr}</td>
                 <td>${core.renderQtyInput(item.qty)}</td>
-                <td>${core.renderPnBadge(pn)}</td>
+                <td class="col-pn">${core.renderPnBadge(pn)}</td>
                 <td class="col-secondary text-xs text-slate-500 font-normal whitespace-nowrap">${core.renderCopyLink(bandaTxt, bandaAtual, 'Faixa / Banda')}</td>
-                ${showRevenda ? `<td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">${revenda > 0 ? core.renderCopyLink(fmtRevenda, fmtRevenda, 'Custo Revenda') : '-'}</td>` : ''}
-                ${showRO ? `<td class="font-medium theme-text-dark whitespace-nowrap tabular-nums">${roOficial > 0 ? core.renderCopyLink(fmtRO, fmtRO, 'Custo com RO') : '-'}</td>` : ''}
-                ${showNaoPrime ? `<td class="font-medium text-slate-700 whitespace-nowrap tabular-nums">${naoPrime > 0 ? core.renderCopyLink(fmtNaoPrime, fmtNaoPrime, 'Custo Não Prime sem RO') : '-'}</td>` : ''}
+                ${showRevenda ? `<td class="col-cost-normal font-medium text-slate-800 whitespace-nowrap tabular-nums">${revenda > 0 ? core.renderCopyLink(fmtRevenda, fmtRevenda, 'Custo Revenda') : '-'}</td>` : ''}
+                ${showRO ? `<td class="col-cost-normal font-medium theme-text-dark whitespace-nowrap tabular-nums">${roOficial > 0 ? core.renderCopyLink(fmtRO, fmtRO, 'Custo com RO') : '-'}</td>` : ''}
+                ${showNaoPrime ? `<td class="col-cost-normal font-medium text-slate-700 whitespace-nowrap tabular-nums">${naoPrime > 0 ? core.renderCopyLink(fmtNaoPrime, fmtNaoPrime, 'Custo Não Prime sem RO') : '-'}</td>` : ''}
+                <td class="col-margin-price font-semibold text-slate-900 whitespace-nowrap tabular-nums">-</td>
                 <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
                 <td class="text-right">${core.renderRowActions()}</td>
               </tr>`;
@@ -304,7 +305,7 @@ window.Cotador.tables.kaspersky = {
           const bId = `blk-kaspersky-${prodInfo.id}-${p.id}-${bandaSlug}`;
           const headerTitle = `${prodInfo.titulo} (${tipoLabel}) | Período: ${p.label} | Faixa: ${bandaAtual}`;
 
-          container.insertAdjacentHTML('beforeend', `<div id="${bId}" class="quote-block" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN</th><th class="col-secondary">Faixa / Banda</th>${showRevenda ? '<th>Custo Revenda</th>' : ''}${showRO ? '<th>Custo com RO</th>' : ''}${showNaoPrime ? '<th>Não Prime (Sem RO)</th>' : ''}<th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`);
+          container.insertAdjacentHTML('beforeend', `<div id="${bId}" class="quote-block" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th class="col-pn">PN</th><th class="col-secondary">Faixa / Banda</th>${showRevenda ? '<th class="col-cost-normal">Custo Revenda</th>' : ''}${showRO ? '<th class="col-cost-normal">Custo com RO</th>' : ''}${showNaoPrime ? '<th class="col-cost-normal">Não Prime (Sem RO)</th>' : ''}<th class="col-margin-price">Valor c/ Margem</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`);
         }
       }
     }

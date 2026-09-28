@@ -13,7 +13,14 @@ window.Cotador.tables.ms_scan = {
 
     const promessas = parsedItems.map(async item => {
       const params = [['select', '*'], ['limit', '1000']];
-      item.keywords.forEach(kw => params.push(['offer_display_name', `ilike.*${kw}*`]));
+      const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z\-]{5,22}$/i.test(item.keywords[0]) && /\d/.test(item.keywords[0]);
+
+      if (isPnQuery) {
+        const term = item.keywords[0];
+        params.push(['or', `(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*)`]);
+      } else {
+        item.keywords.forEach(kw => params.push(['offer_display_name', `ilike.*${kw}*`]));
+      }
       if (segOrFilter) params.push(['or', segOrFilter]);
 
       let data = [];
@@ -21,7 +28,12 @@ window.Cotador.tables.ms_scan = {
         data = await core.fetchSupabase('microsoft_scan', params);
       } catch (_) {
         const fallback = [['select', '*'], ['limit', '1000']];
-        item.keywords.forEach(kw => fallback.push(['offer_display_name', `ilike.*${kw}*`]));
+        if (isPnQuery) {
+          const term = item.keywords[0];
+          fallback.push(['or', `(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*)`]);
+        } else {
+          item.keywords.forEach(kw => fallback.push(['offer_display_name', `ilike.*${kw}*`]));
+        }
         data = await core.fetchSupabase('microsoft_scan', fallback);
       }
 
@@ -62,13 +74,15 @@ window.Cotador.tables.ms_scan = {
           const fmtFinal = `R$ ${core.formatBRL(finalDesc)}`;
           const segBadge = core.renderSegmentBadge(r.offer_display_name, r, flags.segmentos);
           const prodKey = core.normalizarChaveProdutoMS(r.offer_display_name, item.itemIndex);
+          const detalhesScanCusto = core.renderDetalhesScanCSP(c.id, finalDesc, 1);
 
-          rowsHTML += `<tr data-unit-price="${finalDesc}" data-pn="${core.escapeHTML(pn)}" data-prod-key="${core.escapeHTML(prodKey)}">
+          rowsHTML += `<tr data-row-kind="ms_scan" data-contract-id="${c.id}" data-unit-price="${finalDesc}" data-pn="${core.escapeHTML(pn)}" data-prod-key="${core.escapeHTML(prodKey)}">
             <td class="font-medium text-slate-800">${core.renderCopyLink(r.offer_display_name, r.offer_display_name, 'Produto')}${segBadge}</td>
             <td>${core.renderQtyInput(item.qty)}</td>
-            <td>${core.renderPnBadge(pn)}</td>
+            <td class="col-pn">${core.renderPnBadge(pn)}</td>
             <td class="col-secondary col-internal-cost text-slate-400 font-normal whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtTabela, fmtTabela, 'Custo Tabela')}</td>
-            <td class="font-medium text-amber-900 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtFinal, fmtFinal, 'Custo Final (-7%)')}</td>
+            <td class="col-cost-normal font-medium text-amber-900 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtFinal, fmtFinal, 'Custo Final (-7%)')}${detalhesScanCusto}</td>
+            <td class="col-margin-price font-semibold text-amber-950 whitespace-nowrap tabular-nums">-</td>
             <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
             <td class="text-right">${core.renderRowActions()}</td>
           </tr>`;
@@ -78,7 +92,7 @@ window.Cotador.tables.ms_scan = {
       if (!rowsHTML) continue;
       const bId = `blk-scan-${c.id}`;
       const headerTitle = `Contrato: ${c.label} (Faturamento: Scansource)`;
-      blocksHTML += `<div id="${bId}" class="quote-block quote-block-scan" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th class="col-secondary col-internal-cost">Custo Tabela</th><th>Custo Final (-7%)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
+      blocksHTML += `<div id="${bId}" class="quote-block quote-block-scan" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th class="col-pn">PN (SKU)</th><th class="col-secondary col-internal-cost">Custo Tabela</th><th class="col-cost-normal">Custo Final (-7%)</th><th class="col-margin-price">Valor c/ Margem</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
     }
 
     if (!flags.returnHTML && blocksHTML) {
@@ -98,7 +112,15 @@ window.Cotador.tables.ms_solo = {
 
     const promessas = parsedItems.map(async item => {
       const params = [['select', '*'], ['limit', '1500']];
-      item.keywords.forEach(kw => params.push(['titulo_sku', `ilike.*${kw}*`]));
+      const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z\-]{5,35}$/i.test(item.keywords[0]) && /\d/.test(item.keywords[0]);
+
+      if (isPnQuery) {
+        const term = item.keywords[0];
+        const basePn = term.split('-')[0];
+        params.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
+      } else {
+        item.keywords.forEach(kw => params.push(['titulo_sku', `ilike.*${kw}*`]));
+      }
       if (segOrFilter) params.push(['or', segOrFilter]);
 
       let data = [];
@@ -106,7 +128,13 @@ window.Cotador.tables.ms_solo = {
         data = await core.fetchSupabase('microsoft_solo', params);
       } catch (_) {
         const fallback = [['select', '*'], ['limit', '1500']];
-        item.keywords.forEach(kw => fallback.push(['titulo_sku', `ilike.*${kw}*`]));
+        if (isPnQuery) {
+          const term = item.keywords[0];
+          const basePn = term.split('-')[0];
+          fallback.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
+        } else {
+          item.keywords.forEach(kw => fallback.push(['titulo_sku', `ilike.*${kw}*`]));
+        }
         data = await core.fetchSupabase('microsoft_solo', fallback);
       }
 
@@ -141,23 +169,40 @@ window.Cotador.tables.ms_solo = {
           matchedItemIndices.add(item.itemIndex);
           const skuId = String(r.sku_id || '').padStart(4, '0');
           const pn = `${r.id_produto}-${skuId}-${r.termo_duracao}-${r.plano_pagamento}`;
-          const custo = core.getSoloPrice(r);
-          const fmtCusto = `R$ ${core.formatBRL(custo)}`;
-          const mensalFob = core.parsePrice(r.termo_anual_pagamento_mensal);
-          const fmtFobMensal = `R$ ${core.formatBRL(mensalFob)}`;
-          const totalAnualEquiv = `R$ ${core.formatBRL(custo * 12)}`;
+          const rawCusto = core.getSoloPrice(r);
+          const rawFob = core.parsePrice(r.fob_impostos);
+          const rawMensalAnual = core.parsePrice(r.termo_anual_pagamento_mensal);
 
-          const infoMensal = (c.id === 'am' && mensalFob > 0)
-            ? `<div class="sec-detail text-[11px] font-normal text-slate-500 mt-0.5">${core.renderCopyLink(`FOB s/ 5%: ${fmtFobMensal}/mês`, fmtFobMensal, 'Parcela FOB Mensal')} &bull; ${core.renderCopyLink(`Anual: ${totalAnualEquiv}`, totalAnualEquiv, 'Equivalente Anual (12x)')}</div>`
-            : '';
+          // Corrige escala P3Y do CSV Solo (onde Annual e Monthly vêm com o total de 36 meses)
+          const divisor = c.id === 'ta' ? 3 : (c.id === 'tm' ? 36 : 1);
+          const custo = rawCusto / divisor;
+
+          let mensalSem5 = 0;
+          let anualSem5 = 0;
+          if (c.id === 'am') {
+            mensalSem5 = rawMensalAnual > 0 ? rawMensalAnual : (rawFob / 12);
+            anualSem5 = rawFob;
+          } else if (c.id === 'mm') {
+            mensalSem5 = rawFob;
+            anualSem5 = rawFob * 12;
+          } else if (c.id === 'tm') {
+            mensalSem5 = rawFob / 36;
+            anualSem5 = (rawFob / 36) * 12;
+          } else {
+            anualSem5 = rawFob / divisor;
+          }
+
+          const fmtCusto = `R$ ${core.formatBRL(custo)}`;
+          const infoMensal = core.renderDetalhesSoloCSP(c.id, custo, mensalSem5, anualSem5, 1, false);
           const segBadge = core.renderSegmentBadge(r.titulo_sku, r, flags.segmentos);
           const prodKey = core.normalizarChaveProdutoMS(r.titulo_sku, item.itemIndex);
 
-          rowsHTML += `<tr data-unit-price="${custo}" data-pn="${core.escapeHTML(pn)}" data-prod-key="${core.escapeHTML(prodKey)}">
+          rowsHTML += `<tr data-row-kind="ms_solo" data-contract-id="${c.id}" data-mensal-sem5="${mensalSem5}" data-anual-sem5="${anualSem5}" data-unit-price="${custo}" data-pn="${core.escapeHTML(pn)}" data-prod-key="${core.escapeHTML(prodKey)}">
             <td class="font-medium text-slate-800">${core.renderCopyLink(r.titulo_sku, r.titulo_sku, 'Produto')}${segBadge}</td>
             <td>${core.renderQtyInput(item.qty)}</td>
-            <td>${core.renderPnBadge(pn)}</td>
-            <td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtCusto, fmtCusto, 'Valor com 5% Serviços')}${infoMensal}</td>
+            <td class="col-pn">${core.renderPnBadge(pn)}</td>
+            <td class="col-cost-normal font-medium text-slate-800 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtCusto, fmtCusto, 'Valor com 5% Serviços')}${infoMensal}</td>
+            <td class="col-margin-price font-semibold text-slate-900 whitespace-nowrap tabular-nums">-</td>
             <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
             <td class="text-right">${core.renderRowActions()}</td>
           </tr>`;
@@ -167,7 +212,7 @@ window.Cotador.tables.ms_solo = {
       if (!rowsHTML) continue;
       const bId = `blk-solo-${c.id}`;
       const headerTitle = `Contrato: ${c.label} (Faturamento: Solo CSP)`;
-      blocksHTML += `<div id="${bId}" class="quote-block" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th>Valor com 5% Serviços</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
+      blocksHTML += `<div id="${bId}" class="quote-block" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th class="col-pn">PN (SKU)</th><th class="col-cost-normal">Valor com 5% Serviços</th><th class="col-margin-price">Valor c/ Margem</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
     }
 
     if (!flags.returnHTML && blocksHTML) {
@@ -189,7 +234,15 @@ window.Cotador.tables.ms_perpetuo = {
 
     const promessas = parsedItems.map(async item => {
       const params = [['select', '*'], ['limit', '800']];
-      item.keywords.forEach(kw => params.push(['nome_produto', `ilike.*${kw}*`]));
+      const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z\-]{5,25}$/i.test(item.keywords[0]) && /\d/.test(item.keywords[0]);
+
+      if (isPnQuery) {
+        const term = item.keywords[0];
+        const basePn = term.split('-')[0];
+        params.push(['or', `(product_id.ilike.*${basePn}*,nome_produto.ilike.*${term}*)`]);
+      } else {
+        item.keywords.forEach(kw => params.push(['nome_produto', `ilike.*${kw}*`]));
+      }
       if (segOrFilter) params.push(['or', segOrFilter]);
 
       let data = [];
@@ -197,7 +250,13 @@ window.Cotador.tables.ms_perpetuo = {
         data = await core.fetchSupabase('microsoft_perpetuo', params);
       } catch (_) {
         const fallbackParams = [['select', '*'], ['limit', '800']];
-        item.keywords.forEach(kw => fallbackParams.push(['nome_produto', `ilike.*${kw}*`]));
+        if (isPnQuery) {
+          const term = item.keywords[0];
+          const basePn = term.split('-')[0];
+          fallbackParams.push(['or', `(product_id.ilike.*${basePn}*,nome_produto.ilike.*${term}*)`]);
+        } else {
+          item.keywords.forEach(kw => fallbackParams.push(['nome_produto', `ilike.*${kw}*`]));
+        }
         data = await core.fetchSupabase('microsoft_perpetuo', fallbackParams);
       }
 
@@ -208,9 +267,9 @@ window.Cotador.tables.ms_perpetuo = {
         if (preco <= 0) return false;
         if (!core.isItemSegmentoValido(r.nome_produto, r, flags.segmentos, preco)) return false;
 
-        const isMensal = plano === 'monthly' || /\b(1\s*m|month|mensal|p1m)\b/i.test(nome);
-        const isAnual = plano === 'annual' || (plano !== 'monthly' && /\b(1\s*y|1\s*year|1\s*ano|annual|anual|p1y)\b/i.test(nome));
         const isTrienal = plano === 'triennial' || /\b(3\s*y|3\s*year|3\s*anos|trienal|triennial|p3y)\b/i.test(nome);
+        const isMensal = plano === 'monthly' || /\b(1\s*m|month|mensal|p1m)\b/i.test(nome);
+        const isAnual = !isTrienal && !isMensal && (plano === 'annual' || /\b(1\s*y|1\s*year|1\s*ano|annual|anual|p1y)\b/i.test(nome));
 
         if (!flags.pmShowMensal && isMensal) return false;
         if (!flags.pmShowAnual && isAnual) return false;
@@ -235,11 +294,17 @@ window.Cotador.tables.ms_perpetuo = {
         const segBadge = core.renderSegmentBadge(row.nome_produto, row, flags.segmentos);
         const prodKey = core.normalizarChaveProdutoMS(row.nome_produto, item.itemIndex);
 
+        const planoRaw = String(row.plano_pagamento || '').trim();
+        const planoBadge = (planoRaw && planoRaw.toLowerCase() !== 'onetime')
+          ? `<span class="sec-detail ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-sky-50 text-sky-700 border border-sky-200">Ciclo: ${core.escapeHTML(planoRaw)}</span>`
+          : '';
+
         rowsHTML += `<tr data-unit-price="${preco}" data-pn="${core.escapeHTML(pn)}" data-prod-key="${core.escapeHTML(prodKey)}">
-          <td class="font-medium text-slate-800">${core.renderCopyLink(row.nome_produto, row.nome_produto, 'Produto')}${segBadge}</td>
+          <td class="font-medium text-slate-800">${core.renderCopyLink(row.nome_produto, row.nome_produto, 'Produto')}${planoBadge}${segBadge}</td>
           <td>${core.renderQtyInput(item.qty)}</td>
-          <td>${core.renderPnBadge(pn)}</td>
-          <td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtPreco, fmtPreco, 'Custo Final')}</td>
+          <td class="col-pn">${core.renderPnBadge(pn)}</td>
+          <td class="col-cost-normal font-medium text-slate-800 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtPreco, fmtPreco, 'Custo Final')}</td>
+          <td class="col-margin-price font-semibold text-slate-900 whitespace-nowrap tabular-nums">-</td>
           <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
           <td class="text-right">${core.renderRowActions()}</td>
         </tr>`;
@@ -249,7 +314,7 @@ window.Cotador.tables.ms_perpetuo = {
     if (!rowsHTML) return { html: '', matchedItemIndices };
     const bId = 'blk-perpetuo';
     const title = 'Microsoft CSP Perpétuo (Faturamento: Solo)';
-    const blockHTML = `<div id="${bId}" class="quote-block" data-title="### ${title}">${core.renderBlockHeader(title, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (SKU)</th><th>Custo Final (FOB+Impostos)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
+    const blockHTML = `<div id="${bId}" class="quote-block" data-title="### ${title}">${core.renderBlockHeader(title, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th class="col-pn">PN (SKU)</th><th class="col-cost-normal">Custo Final (FOB+Impostos)</th><th class="col-margin-price">Valor c/ Margem</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
 
     if (!flags.returnHTML) {
       container.insertAdjacentHTML('beforeend', blockHTML);
@@ -319,18 +384,26 @@ window.Cotador.tables.ms_mpsa = {
 
     const promessas = parsedItems.map(async item => {
       const queries = [];
+      const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z\-]{5,22}$/i.test(item.keywords[0]) && /\d/.test(item.keywords[0]);
 
-      // 1. Busca pelas keywords originais em nome_curto_peca
+      // 1. Busca por PN (numero_item) ou pelas keywords originais em nome_curto_peca
       const p1 = [['select', '*'], ['limit', '800']];
-      item.keywords.forEach(kw => p1.push(['nome_curto_peca', `ilike.*${kw}*`]));
+      if (isPnQuery) {
+        const term = item.keywords[0];
+        p1.push(['or', `(numero_item.ilike.*${term}*,nome_curto_peca.ilike.*${term}*)`]);
+      } else {
+        item.keywords.forEach(kw => p1.push(['nome_curto_peca', `ilike.*${kw}*`]));
+      }
       queries.push(core.fetchSupabase('microsoft_mpsa', p1));
 
-      // 2. Busca pelos termos abreviados reais do catálogo MPSA (ex: Win Server Std, Office Std, ExchOnline Plan1)
-      const abrevTerms = this.gerarTermosAbreviadosMPSA(item.rawSearch, item.keywords);
-      if (abrevTerms.length > 0) {
-        const p2 = [['select', '*'], ['limit', '800']];
-        abrevTerms.forEach(kw => p2.push(['nome_curto_peca', `ilike.*${kw}*`]));
-        queries.push(core.fetchSupabase('microsoft_mpsa', p2));
+      // 2. Busca pelos termos abreviados reais do catálogo MPSA (apenas quando não for PN direto)
+      if (!isPnQuery) {
+        const abrevTerms = this.gerarTermosAbreviadosMPSA(item.rawSearch, item.keywords);
+        if (abrevTerms.length > 0) {
+          const p2 = [['select', '*'], ['limit', '800']];
+          abrevTerms.forEach(kw => p2.push(['nome_curto_peca', `ilike.*${kw}*`]));
+          queries.push(core.fetchSupabase('microsoft_mpsa', p2));
+        }
       }
 
       const listas = await Promise.all(queries);
@@ -407,9 +480,10 @@ window.Cotador.tables.ms_mpsa = {
         rowsHTML += `<tr data-unit-price="${custoImp}" data-pn="${core.escapeHTML(pn)}" data-prod-key="${core.escapeHTML(prodKey)}">
           <td class="font-medium text-slate-800">${core.renderCopyLink(r.nome_curto_peca, r.nome_curto_peca, 'Produto')}${usoLink}${segBadge}</td>
           <td>${core.renderQtyInput(item.qty)}</td>
-          <td>${core.renderPnBadge(pn)}</td>
+          <td class="col-pn">${core.renderPnBadge(pn)}</td>
           <td class="col-secondary text-xs text-slate-500 font-normal whitespace-nowrap">${core.renderCopyLink(poolTxt, poolTxt, 'Pool / Categoria')}</td>
-          <td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtCusto, fmtCusto, 'Custo c/ Imposto')}</td>
+          <td class="col-cost-normal font-medium text-slate-800 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtCusto, fmtCusto, 'Custo c/ Imposto')}</td>
+          <td class="col-margin-price font-semibold text-slate-900 whitespace-nowrap tabular-nums">-</td>
           <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
           <td class="text-right">${core.renderRowActions()}</td>
         </tr>`;
@@ -419,7 +493,7 @@ window.Cotador.tables.ms_mpsa = {
     if (!rowsHTML) return { html: '', matchedItemIndices };
     const bId = 'blk-mpsa';
     const title = 'Microsoft MPSA (Faturamento: Solo)';
-    const blockHTML = `<div id="${bId}" class="quote-block" data-title="### ${title}">${core.renderBlockHeader(title, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN (Item)</th><th class="col-secondary">Pool / Cat.</th><th>Custo c/ Imposto</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
+    const blockHTML = `<div id="${bId}" class="quote-block" data-title="### ${title}">${core.renderBlockHeader(title, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th class="col-pn">PN (Item)</th><th class="col-secondary">Pool / Cat.</th><th class="col-cost-normal">Custo c/ Imposto</th><th class="col-margin-price">Valor c/ Margem</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`;
 
     if (!flags.returnHTML) {
       container.insertAdjacentHTML('beforeend', blockHTML);

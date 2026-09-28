@@ -123,6 +123,15 @@ function extrairQualificadorAdobe(row) {
   };
 }
 
+// Auxiliar para não descartar "Acrobat Sign Solutions for business" nem "Elements 2026"
+function pertenceAoSegmentoAdobe(prodFamily, seg, totalSegmentosAtivos) {
+  const pf = String(prodFamily || '').toLowerCase();
+  if (pf.includes(seg)) return true;
+  const semSegmentoExplicito = !pf.includes('teams') && !pf.includes('enterprise');
+  // Se não tiver 'teams' nem 'enterprise', exibe em 'teams' (ou no único segmento selecionado)
+  return semSegmentoExplicito && (seg === 'teams' || totalSegmentosAtivos === 1);
+}
+
 function criarModuloAdobe(tableName, labelTitulo) {
   return {
     async processar(parsedItems, flags) {
@@ -186,7 +195,7 @@ function criarModuloAdobe(tableName, labelTitulo) {
 
         resultados.forEach(({ data }) => {
           data.forEach(r => {
-            if (!(r.product_family || '').toLowerCase().includes(seg)) return;
+            if (!pertenceAoSegmentoAdobe(r.product_family, seg, segmentosAtivos.length)) return;
             const infoLvl = obterInfoLevelAdobe(r.level_detail);
             if (!levelsMap.has(infoLvl.id)) {
               levelsMap.set(infoLvl.id, infoLvl);
@@ -204,7 +213,7 @@ function criarModuloAdobe(tableName, labelTitulo) {
 
           resultados.forEach(({ item, data }) => {
             const filtrados = data.filter(r => {
-              const matchSeg = (r.product_family || '').toLowerCase().includes(seg);
+              const matchSeg = pertenceAoSegmentoAdobe(r.product_family, seg, segmentosAtivos.length);
               const info = obterInfoLevelAdobe(r.level_detail);
               return matchSeg && info.id === lvl.id;
             });
@@ -252,10 +261,12 @@ function criarModuloAdobe(tableName, labelTitulo) {
               rowsHTML += `<tr data-unit-price="${usd}" data-unit-price-brl="${brl}" data-currency="USD" data-pn="${core.escapeHTML(pn)}" data-prod-key="${core.escapeHTML(prodKey)}">
                 <td class="font-medium text-slate-800">${produtoDisplayHTML}</td>
                 <td>${core.renderQtyInput(item.qty)}</td>
-                <td>${core.renderPnBadge(pn)}</td>
+                <td class="col-pn">${core.renderPnBadge(pn)}</td>
                 <td class="col-secondary text-xs text-slate-500 font-normal whitespace-nowrap">${core.renderCopyLink(r.level_detail, r.level_detail, 'Level')}</td>
-                <td class="font-medium text-slate-800 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtUSD, fmtUSD, 'Custo USD')}</td>
-                <td class="col-secondary text-slate-400 font-normal whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtBRL, fmtBRL, 'Custo BRL')}</td>
+                <td class="col-cost-normal font-medium text-slate-800 whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtUSD, fmtUSD, 'Custo USD')}</td>
+                <td class="col-secondary col-cost-brl text-slate-400 font-normal whitespace-nowrap tabular-nums">${core.renderCopyLink(fmtBRL, fmtBRL, 'Custo BRL')}</td>
+                <td class="col-margin-price col-margin-usd font-semibold text-slate-900 whitespace-nowrap tabular-nums">-</td>
+                <td class="col-margin-price col-margin-brl font-semibold text-slate-700 whitespace-nowrap tabular-nums">-</td>
                 <td class="col-subtotal font-semibold theme-subtotal whitespace-nowrap tabular-nums">-</td>
                 <td class="text-right">${core.renderRowActions()}</td>
               </tr>`;
@@ -268,7 +279,7 @@ function criarModuloAdobe(tableName, labelTitulo) {
           const bId = `blk-${tableName}-${seg}-${lvl.id}`;
           const headerTitle = `${labelTitulo} (${segLabel}) | Faixa: ${lvl.label} | Câmbio: R$ ${core.formatBRL(flags.taxaDolar)}`;
 
-          container.insertAdjacentHTML('beforeend', `<div id="${bId}" class="quote-block" data-currency="USD" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th>PN</th><th class="col-secondary">Level</th><th>Custo (USD)</th><th class="col-secondary">Custo (BRL)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`);
+          container.insertAdjacentHTML('beforeend', `<div id="${bId}" class="quote-block" data-currency="USD" data-title="### ${headerTitle}">${core.renderBlockHeader(headerTitle, bId)}<div class="block-table-wrapper overflow-x-auto rounded-b-lg border border-slate-200"><table><thead><tr><th>Produto</th><th>Qtd</th><th class="col-pn">PN</th><th class="col-secondary">Level</th><th class="col-cost-normal">Custo (USD)</th><th class="col-secondary col-cost-brl">Custo (BRL)</th><th class="col-margin-price col-margin-usd">Valor c/ Margem (USD)</th><th class="col-margin-price col-margin-brl">Valor c/ Margem (BRL)</th><th class="col-subtotal">Subtotal</th><th></th></tr></thead><tbody>${rowsHTML}</tbody></table></div></div>`);
         }
       }
 

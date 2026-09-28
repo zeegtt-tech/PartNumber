@@ -481,3 +481,16 @@ input[type="checkbox"] {
   accent-color: var(--accent-primary);
   cursor: pointer;
 }
+
+/* Sincronização com core.js v5.8.1: Modo Cliente e Textos Condicionais */
+.client-only-text { display: none; }
+body.client-proposal-mode .internal-only-text,
+body.client-proposal-mode .internal-only-detail,
+body.client-proposal-mode .col-pn,
+body.client-proposal-mode .col-cost-normal,
+body.client-proposal-mode .col-internal-cost {
+  display: none !important;
+}
+body.client-proposal-mode .client-only-text {
+  display: inline !important;
+}
