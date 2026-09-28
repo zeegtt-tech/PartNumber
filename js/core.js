@@ -11,6 +11,7 @@ window.Cotador.core = {
   _lastMouseDownTarget: null,
   modoCliente: false,
   markupPercent: 0,
+  markupEnabled: true,
   ultimasAtualizacoes: {},
 
   formatarDataCurta(isoStr) {
@@ -667,15 +668,20 @@ window.Cotador.core = {
   aplicarMarkup(valor) {
     const n = parseFloat(valor);
     if (isNaN(n) || n <= 0) return 0;
-    const pct = parseFloat(this.markupPercent) || 0;
+    const pct = this.obterMarkupEfetivo();
     return n * (1 + pct / 100);
+  },
+
+  obterMarkupEfetivo() {
+    if (!this.markupEnabled) return 0;
+    return parseFloat(this.markupPercent) || 0;
   },
 
   formatBRL(num) { return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
   formatUSD(num) { return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
 
   // ==========================================================================
-  // BARRA DE PRODUTIVIDADE COMERCIAL: MODO CLIENTE & MARGEM (%)
+  // BARRA DE PRODUTIVIDADE COMERCIAL: MODO CLIENTE & MARGEM (%) COM LIGA/DESLIGA
   // ==========================================================================
   injetarControlesComerciaisHeader() {
     if (document.getElementById('commercial-mode-bar')) return;
@@ -690,11 +696,15 @@ window.Cotador.core = {
         <span class="dot"></span>
         <span>Modo Cliente</span>
       </button>
-      <div class="flex items-center gap-1 px-2 border-l border-slate-200/80 text-[11px] text-slate-600" title="Aplica margem percentual na coluna 'Valor c/ Margem' e nos Subtotais (mantendo o Custo Normal intacto para comparativo)">
-        <span class="font-medium text-slate-500">Margem:</span>
+      <div class="flex items-center gap-1 pl-1 pr-1.5 border-l border-slate-200/80 text-[11px] text-slate-600">
+        <button type="button" id="btn-toggle-markup" onclick="Cotador.core.toggleMarkupAtivo()" title="Ligar ou desligar a aplicação da margem sem apagar o percentual digitado" class="mini-toggle-btn active">
+          <span class="dot"></span>
+          <span>Margem</span>
+        </button>
         <input type="number" id="input-markup-pct" value="0" step="1" min="-50" max="500"
           oninput="Cotador.core.setMarkupPercent(this.value)"
-          class="w-12 bg-white border border-slate-200 rounded px-1 py-0.5 text-center text-[11px] font-semibold text-slate-800 tabular-nums focus:outline-none">
+          title="Define o percentual de margem aplicado sobre o custo"
+          class="w-12 bg-white border border-slate-200 rounded px-1 py-0.5 text-center text-[11px] font-semibold text-slate-800 tabular-nums focus:outline-none transition-colors">
         <span class="text-slate-400 font-medium">%</span>
       </div>
     `;
@@ -710,17 +720,34 @@ window.Cotador.core = {
     this.recalcularSubtotais();
   },
 
+  toggleMarkupAtivo() {
+    this.markupEnabled = !this.markupEnabled;
+    const btn = document.getElementById('btn-toggle-markup');
+    if (btn) btn.classList.toggle('active', this.markupEnabled);
+    document.body.classList.toggle('markup-disabled', !this.markupEnabled);
+    this.atualizarTitulosColunasModoCliente();
+    this.recalcularSubtotais();
+  },
+
   setMarkupPercent(val) {
     const parsed = parseFloat(val);
     this.markupPercent = isNaN(parsed) ? 0 : parsed;
+
+    // Se o usuário digitar um valor diferente de 0 enquanto estava desligado, religa automaticamente
+    if (this.markupPercent !== 0 && !this.markupEnabled) {
+      this.markupEnabled = true;
+      const btn = document.getElementById('btn-toggle-markup');
+      if (btn) btn.classList.add('active');
+      document.body.classList.remove('markup-disabled');
+    }
+
     this.atualizarTitulosColunasModoCliente();
     this.recalcularSubtotais();
   },
 
   atualizarTitulosColunasModoCliente() {
-    const pct = parseFloat(this.markupPercent) || 0;
+    const pct = this.obterMarkupEfetivo();
     const sufixoPct = pct !== 0 ? ` (${pct > 0 ? '+' : ''}${pct}%)` : '';
-
     document.querySelectorAll('.quote-block thead th').forEach(th => {
       if (!th.dataset.originalHeader) {
         th.dataset.originalHeader = th.innerText.trim();
@@ -1160,8 +1187,9 @@ window.Cotador.core = {
 
     document.querySelectorAll('.col-subtotal').forEach(el => el.classList.toggle('hidden', !showSub));
 
-    const fatorMarkup = 1 + ((parseFloat(this.markupPercent) || 0) / 100);
-    const temMargemAtiva = (parseFloat(this.markupPercent) || 0) !== 0;
+    const pctEfetivo = this.obterMarkupEfetivo();
+    const fatorMarkup = 1 + (pctEfetivo / 100);
+    const temMargemAtiva = pctEfetivo !== 0;
     document.body.classList.toggle('has-active-markup', temMargemAtiva);
 
     document.querySelectorAll('.quote-block').forEach(block => {

@@ -135,68 +135,6 @@ body {
   font-weight: 600;
 }
 
-/* ============================================================================
- * DESTAQUE EXCLUSIVO: MODALIDADE E TABELA SCAN (ÂMBAR / LARANJA)
- * ============================================================================ */
-.modality-chip-scan.active {
-  background-color: #f8fafc !important;
-  border-color: #cbd5e1 !important;
-  color: #b45309 !important;
-  font-weight: 700;
-}
-
-.quote-block-scan .block-header-bar h3 {
-  color: #b45309 !important;
-}
-
-.quote-block-scan {
-  --accent-primary: #d97706;
-  --accent-hover: #b45309;
-  --accent-dark: #92400e;
-  --accent-bright: #f59e0b;
-  --accent-light: #fef3c7;
-  --accent-tint: #fffbeb;
-  --accent-row-hover: #fffbeb;
-  --accent-border: #fde68a;
-  --accent-ring: rgba(245, 158, 11, 0.2);
-  --accent-shadow: rgba(217, 119, 6, 0.15);
-}
-
-.quote-block-scan .block-header-bar {
-  background-color: #fffbeb;
-  border-color: #fde68a;
-  border-left: 4px solid #d97706;
-}
-
-.quote-block-scan .block-header-bar:hover {
-  background-color: #fef3c7;
-}
-
-.quote-block-scan .block-header-bar h3 {
-  color: #92400e;
-}
-
-.quote-block-scan .block-header-bar .chevron-icon {
-  color: #d97706;
-}
-
-.quote-block-scan .block-table-wrapper {
-  border-color: #fde68a;
-}
-
-.quote-block-scan thead th {
-  background-color: rgba(255, 251, 235, 0.55);
-  border-bottom-color: #fde68a;
-  color: #92400e;
-}
-
-.quote-block-scan .theme-subtotal {
-  color: #92400e;
-  background-color: rgba(254, 243, 199, 0.35);
-}
-
-/* ============================================================================ */
-
 .flag-mini-pill {
   display: flex;
   align-items: center;
@@ -498,21 +436,88 @@ body.client-proposal-mode .client-only-text {
   display: inline !important;
 }
 
-/* Alerta visual subtil de margem aplicada (ignorado no Modo Cliente) */
+/* ============================================================================
+ * DESTAQUE EXCLUSIVO: MODALIDADE E TABELA SCAN (FUNDO PADRÃO + TÍTULO ÂMBAR)
+ * ============================================================================ */
+.modality-chip-scan.active {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #b45309 !important;
+  font-weight: 700;
+}
+
+.quote-block-scan {
+  background-color: transparent !important;
+}
+
+.quote-block-scan .block-header-bar {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  border-left: 3px solid #b45309 !important;
+}
+
+.quote-block-scan .block-header-bar:hover {
+  background-color: #f1f5f9 !important;
+}
+
+.quote-block-scan .block-header-bar h3 {
+  color: #b45309 !important;
+  font-weight: 700;
+}
+
+.quote-block-scan table,
+.quote-block-scan th,
+.quote-block-scan td {
+  background-color: #ffffff;
+}
+
+/* ============================================================================
+ * DESTAQUE ROXO DISCRETO DE MARGEM APLICADA (IGNORADO NO MODO CLIENTE)
+ * ============================================================================ */
+/* Estado quando o botão de Margem está desligado */
+body.markup-disabled #input-markup-pct {
+  opacity: 0.55;
+  background-color: #f8fafc;
+  color: #94a3b8;
+}
+
+/* Bolinha do botão de margem fica roxa quando a margem está ativa e != 0% */
+body.has-active-markup #btn-toggle-markup.active .dot {
+  background-color: #7c3aed !important;
+}
+
+/* Quadrado do input de margem com tom roxo discreto quando != 0% */
+body.has-active-markup:not(.client-proposal-mode) #input-markup-pct {
+  border-color: #c4b5fd !important;
+  color: #6d28d9 !important;
+  background-color: #f5f3ff !important;
+}
+
+/* Coluna de Valor c/ Margem na tabela com tom roxo discreto quando != 0% */
+body.has-active-markup:not(.client-proposal-mode) th.col-margin-price {
+  color: #6d28d9 !important;
+}
+
+body.has-active-markup:not(.client-proposal-mode) td.col-margin-price,
+body.has-active-markup:not(.client-proposal-mode) td.col-margin-price > .copy-link {
+  color: #6d28d9 !important;
+  background-color: rgba(245, 243, 255, 0.55) !important;
+}
+
+body.has-active-markup:not(.client-proposal-mode) td.col-margin-price .sec-detail,
+body.has-active-markup:not(.client-proposal-mode) td.col-margin-price .sec-detail .copy-link {
+  color: #7c3aed !important;
+}
+
+/* Subtotais e Total da tabela acompanhando o tom roxo discreto */
 body.has-active-markup:not(.client-proposal-mode) td.col-subtotal,
 body.has-active-markup:not(.client-proposal-mode) td.col-subtotal > .copy-link {
-  color: #dc2626 !important;
-  background-color: rgba(254, 226, 226, 0.35) !important;
+  color: #6d28d9 !important;
+  background-color: rgba(245, 243, 255, 0.4) !important;
 }
 
 body.has-active-markup:not(.client-proposal-mode) .block-total-badge {
-  background-color: #fef2f2 !important;
-  color: #dc2626 !important;
-  border-color: #fecaca !important;
-}
-
-body.has-active-markup:not(.client-proposal-mode) #input-markup-pct {
-  border-color: #f87171;
-  color: #dc2626;
-  background-color: #fef2f2;
+  background-color: #f5f3ff !important;
+  color: #6d28d9 !important;
+  border-color: #ddd6fe !important;
 }

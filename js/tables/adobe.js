@@ -182,12 +182,15 @@ function extrairQualificadorAdobe(row) {
     }
   }
 
-  // 4. Idioma (diferencia Multi Brazilian Portuguese de ALL / Multi Latin American / English)
+  // 4. Idioma (diferencia PT-BR, LATAM, North American, European e ALL/MUL)
   if (lang) {
     if (/brazil|portuguese|pt[\s\-_]?br/i.test(lang)) badges.push('PT-BR');
-    else if (/latin|spanish|es\b/i.test(lang)) badges.push('LATAM/ES');
-    else if (/english|en\b/i.test(lang) && !/multi|all/i.test(lang)) badges.push('EN');
-    else if (/all|mul|multiple/i.test(lang)) badges.push('Multi-Idioma');
+    else if (/latin|latam/i.test(lang)) badges.push('LATAM');
+    else if (/north\s*america|\bna\b/i.test(lang)) badges.push('North America');
+    else if (/europ|\beu\b/i.test(lang)) badges.push('European');
+    else if (/spanish|\bes\b/i.test(lang)) badges.push('ES');
+    else if (/english|\ben\b/i.test(lang) && !/multi|all/i.test(lang)) badges.push('EN');
+    else if (/all|mul|multiple/i.test(lang)) badges.push('Multi-Idioma (ALL)');
     else badges.push(lang);
   }
 
@@ -225,7 +228,10 @@ function extrairQualificadorAdobe(row) {
 function enriquecerDiferencasIrmaosAdobe(rows) {
   const grupos = new Map();
   rows.forEach(r => {
-    const key = `${(r.product_family || '').trim().toLowerCase()}__${(r.level_detail || '').trim().toLowerCase()}`;
+    const qual = extrairQualificadorAdobe(r);
+    r._qualCache = qual;
+    // Agrupa SKUs que possuem o mesmo nome, mesmo level E os mesmos badges iniciais
+    const key = `${(r.product_family || '').trim().toLowerCase()}__${(r.level_detail || '').trim().toLowerCase()}__${qual.badges.join('|').toLowerCase()}`;
     if (!grupos.has(key)) grupos.set(key, []);
     grupos.get(key).push(r);
   });
@@ -248,7 +254,6 @@ function enriquecerDiferencasIrmaosAdobe(rows) {
 
   grupos.forEach(lista => {
     if (lista.length <= 1) return;
-    // Verifica quais colunas possuem valores distintos dentro do mesmo grupo
     const colsDiferentes = colsCandidatas.filter(({ col }) => {
       const vals = new Set(lista.map(r => String(r[col] || '').trim().toLowerCase()));
       return vals.size > 1;
@@ -449,7 +454,7 @@ function criarModuloAdobe(tableName, labelTitulo) {
               const fmtBRL = `R$ ${core.formatBRL(brl)}`;
               const nomeBase = (r.product_family || '').trim();
               const infoLvl = obterInfoLevelAdobe(r.level_detail);
-              const qual = extrairQualificadorAdobe(r);
+              const qual = r._qualCache || extrairQualificadorAdobe(r);
 
               // Mescla os badges extraídos com eventuais colunas divergentes entre SKUs irmãos
               const todosBadges = [...qual.badges];
