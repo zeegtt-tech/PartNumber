@@ -1,6 +1,7 @@
 // ============================================================================
-// NÚCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.8.1 ENTERPRISE (js/core.js)
+// NÚCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.8.2 ENTERPRISE (js/core.js)
 // ============================================================================
+
 window.Cotador = { core: {}, tables: {}, app: {} };
 
 window.Cotador.core = {
@@ -48,7 +49,6 @@ window.Cotador.core = {
         });
       }
     } catch (_) {
-      // Fallback automático: consulta updated_at direto nas tabelas caso catalogo_atualizacoes ainda não exista
       const tabelas = [
         { id: 'microsoft_scan', fab: 'microsoft', nome: 'Scan' },
         { id: 'microsoft_solo', fab: 'microsoft', nome: 'CSP Solo' },
@@ -79,12 +79,10 @@ window.Cotador.core = {
       return;
     }
 
-    // Pega a atualização mais recente do fabricante ativo
     entradas.sort((a, b) => new Date(b.iso) - new Date(a.iso));
     const maisRecente = this.formatarDataCurta(entradas[0].iso);
     txtEl.textContent = `Base: ${maisRecente}`;
 
-    // Tooltip detalhado com todas as tabelas daquele fabricante
     badgeEl.title = entradas
       .map(e => `${e.nome}: ${this.formatarDataHoraCompleta(e.iso)}`)
       .join('\n');
@@ -123,7 +121,6 @@ window.Cotador.core = {
     "incopy": ["InCopy"],
     "captivate": ["Captivate"],
     "firefly": ["Firefly"],
-
     // Microsoft 365 / Office 365 / Suites Comerciais
     "business basic": ["Business Basic"],
     "m365 business basic": ["Business Basic"],
@@ -158,7 +155,6 @@ window.Cotador.core = {
     "o365 e3": ["Office 365", "E3"],
     "o365 e5": ["Office 365", "E5"],
     "o365 f3": ["Office 365", "F3"],
-
     // Microsoft Exchange / Teams / Colaboração / Segurança / BI
     "exchange plan 1": ["Exchange Online", "Plan 1"],
     "exchange plan 2": ["Exchange Online", "Plan 2"],
@@ -207,7 +203,6 @@ window.Cotador.core = {
     "entra id p2": ["Entra ID", "P2"],
     "azure ad p2": ["Entra ID", "P2"],
     "intune plan 1": ["Intune", "Plan 1"],
-
     // Kaspersky
     "kesb select": ["Select"],
     "kaspersky select": ["Select"],
@@ -270,7 +265,7 @@ window.Cotador.core = {
 
   sanitizarTermoPostgrest(termo) {
     return String(termo || '')
-      .replace(/[,()*%]/g, ' ') // Remove caracteres reservados do operador or/and do PostgREST
+      .replace(/[,()*%]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
   },
@@ -285,15 +280,10 @@ window.Cotador.core = {
   isPartNumber(str) {
     const s = String(str || '').trim();
     if (!s || /\s/.test(s)) return false;
-    // Microsoft NCE / CSP (ex: CFQ7TTC0LH18, CFQ7TTC0LH18:0001, CFQ7TTC0LH18-0001-P1Y-Monthly)
     if (/^[A-Z0-9]{12}(?:[-:][A-Z0-9\-:]+)?$/i.test(s)) return true;
-    // Microsoft Open / Perpétuo / Server SKU (ex: AAA-12345, 9EM-00652, DG7GMGF0D7FX)
     if (/^[A-Z0-9]{3,5}-[A-Z0-9]{4,8}(?:-[A-Z0-9]+)*$/i.test(s)) return true;
-    // Adobe VIP MP SKU (ex: 65304878BC01A12, 65304878BC)
     if (/^\d{7,8}[A-Z]{2}[A-Z0-9]{0,6}$/i.test(s)) return true;
-    // Kaspersky SKU (ex: KL4541X5KFS-12M, KL4867X5MFS)
     if (/^KL[A-Z0-9\-]{4,}$/i.test(s)) return true;
-    // Outros SKUs alfanuméricos (>= 7 caracteres misturando letras e dígitos sem espaços)
     if (s.length >= 7 && /[A-Z]/i.test(s) && /\d/.test(s) && /^[A-Z0-9\-:_./]+$/i.test(s)) {
       if (!/^(windows|office|microsoft|kaspersky|photoshop|acrobat)\d*$/i.test(s)) {
         return true;
@@ -316,7 +306,6 @@ window.Cotador.core = {
     const rawTrimmed = String(prodName || '').trim();
     if (!rawTrimmed) return [];
 
-    // Se for um Part Number (SKU), preserva o código ou extrai o radical NCE de 12 caracteres
     if (this.isPartNumber(rawTrimmed)) {
       const nceMatch = rawTrimmed.match(/^([A-Z0-9]{12})(?:[-:]\d{3,4}(?:[-:][A-Z0-9]+)*)$/i);
       if (nceMatch) {
@@ -326,7 +315,6 @@ window.Cotador.core = {
     }
 
     const lower = this.sanitizarTermoPostgrest(rawTrimmed).toLowerCase();
-
     if (this.SEARCH_KEYWORDS[lower]) {
       return this.SEARCH_KEYWORDS[lower]
         .map(kw => this.sanitizarTermoPostgrest(kw))
@@ -361,26 +349,20 @@ window.Cotador.core = {
       .filter(Boolean);
   },
 
-  // ==========================================================================
-  // PARSER SEMÂNTICO DE INPUT: DIFERENCIA VERSÃO/PLANO/ANO/SKU DE QUANTIDADE
-  // ==========================================================================
   isNumeroParteDoProduto(prefixText, numStr) {
     const n = parseInt(numStr, 10);
     if (isNaN(n)) return false;
-
     const cleanPrefix = (prefixText || '').trim();
     if (!cleanPrefix) return false;
 
-    // Se o prefixo já é um Part Number completo (ex: 65304878BC01A12 ou CFQ7TTC0LH18-0001-P1Y-Monthly),
-    // o número separado por espaço após ele é sempre a quantidade.
     if (this.isPartNumber(cleanPrefix)) {
       return false;
     }
 
     const lowerPrefix = cleanPrefix.toLowerCase();
     const tokens = lowerPrefix.split(/\s+/).filter(Boolean);
-    const lastWord = (tokens[tokens.length - 1] || '').replace(/[^a-z0-9\-áéíóúâêôãõç]/g, '');
-    const prevWord = (tokens[tokens.length - 2] || '').replace(/[^a-z0-9\-áéíóúâêôãõç]/g, '');
+    const lastWord = (tokens[tokens.length - 1] || '').replace(/[^a-z0-9\-]/g, '');
+    const prevWord = (tokens[tokens.length - 2] || '').replace(/[^a-z0-9\-]/g, '');
 
     const prefixHasYear = /\b20[0-3]\d\b/.test(lowerPrefix);
     if (n >= 2005 && n <= 2035 && !prefixHasYear) {
@@ -428,8 +410,6 @@ window.Cotador.core = {
       let qty = null;
       let prodName = line.trim();
 
-      // Se a linha inteira for apenas um Part Number sem espaços (ex: 65304878BC01A12, CFQ7TTC0LH18:0001, CFQ7TTC0LH18-0001),
-      // preserva o SKU integralmente sem confundir seus números finais com quantidade.
       if (!/\s/.test(prodName) && this.isPartNumber(prodName)) {
         items.push({
           itemIndex: idx,
@@ -441,13 +421,8 @@ window.Cotador.core = {
         return;
       }
 
-      // 1) Quantidade explícita no final com unidade (ex: "CFQ7TTC0LH18-0001-P1Y-Monthly 15 un", "Produto - 10x", "SKU qtd: 5")
       const explicitUnitEnd = prodName.match(/^(.*?)(?:[\s:|=\t]+|\s+-\s+|\b(?:qtd|qtde|quant)\s*[:=]?\s*)(\d+)\s*(?:x|un|unid|unidades?|lic|licen[cç]as?|users?|usu[aá]rios?|pcs?|seats?|disp|dispositivos?)\.?$/i);
-
-      // 2) Quantidade no final com delimitador explícito (tab, " - ", "=", "|", ou ":" quando não for sufixo de SKU ":0001")
       const explicitDelimEnd = !explicitUnitEnd && prodName.match(/^(.*?)(?:\t+|\s+[|=]\s*|\s*:\s+|\s+:\s*|\s+-\s+)(\d+)\s*$/);
-
-      // 3) Quantidade explícita no início (ex: "15x CFQ7TTC0LH18-0001-P1Y-Monthly", "5 un 65304878BC01A12", "10 - Produto")
       const explicitStart = !explicitUnitEnd && !explicitDelimEnd && prodName.match(/^(\d+)\s*(?:x\b|un\b|unid\b|unidades?\b|lic\b|licen[cç]as?\b|\s*-\s+)\s*(.+)$/i);
 
       if (explicitUnitEnd && explicitUnitEnd[1].trim()) {
@@ -466,18 +441,15 @@ window.Cotador.core = {
           .trim();
         prodName = clean;
 
-        // 4) Produto ou PN seguido de espaço e número (ex: "CFQ7TTC0LH18-0001-P1Y-Monthly 15" ou "65304878BC01A12 5")
         const matchEnd = clean.match(/^(.*?)\s+(\d+)$/);
         if (matchEnd && matchEnd[1].trim()) {
           const candidateProd = matchEnd[1].trim();
           const candidateNum = matchEnd[2];
-
           if (!this.isNumeroParteDoProduto(candidateProd, candidateNum)) {
             prodName = candidateProd;
             qty = parseInt(candidateNum, 10);
           }
         } else {
-          // 5) Número no início seguido de espaço e Produto ou PN (ex: "15 CFQ7TTC0LH18-0001-P1Y-Monthly" ou "5 65304878BC01A12")
           const matchStart = clean.match(/^(\d+)\s+(.+)$/);
           if (matchStart && matchStart[2].trim()) {
             const startNum = parseInt(matchStart[1], 10);
@@ -505,9 +477,6 @@ window.Cotador.core = {
     return { items, sumLicenses };
   },
 
-  // ==========================================================================
-  // DETECÇÃO E FILTRAGEM EFICIENTE DE SEGMENTO (COLUNA SEGMENT + NOME)
-  // ==========================================================================
   extrairSegmentoRow(rowOrVal) {
     if (!rowOrVal) return '';
     if (typeof rowOrVal === 'string') return rowOrVal.trim();
@@ -603,7 +572,6 @@ window.Cotador.core = {
     if (/\b(government|gov|governo|public sector|setor publico|setor público|gcc)\b/i.test(nome)) {
       return 'government';
     }
-
     return 'commercial';
   },
 
@@ -620,6 +588,7 @@ window.Cotador.core = {
     const seg = this.detectarSegmentoItem(nomeProduto, rowOrSegmento);
     const multiOrNonComm = (Array.isArray(allowedSegments) && allowedSegments.length > 1) || seg !== 'commercial';
     if (!multiOrNonComm) return '';
+
     const map = {
       commercial: { label: 'Comercial', cls: 'bg-slate-100 text-slate-600 border-slate-200' },
       education: { label: 'Educação', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
@@ -680,9 +649,6 @@ window.Cotador.core = {
   formatBRL(num) { return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
   formatUSD(num) { return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
 
-  // ==========================================================================
-  // BARRA DE PRODUTIVIDADE COMERCIAL: MODO CLIENTE & MARGEM (%) COM LIGA/DESLIGA
-  // ==========================================================================
   injetarControlesComerciaisHeader() {
     if (document.getElementById('commercial-mode-bar')) return;
     const viewCtrl = document.querySelector('.unified-view-control');
@@ -692,7 +658,7 @@ window.Cotador.core = {
     bar.id = 'commercial-mode-bar';
     bar.className = 'unified-view-control';
     bar.innerHTML = `
-      <button type="button" id="btn-modo-cliente" onclick="Cotador.core.toggleModoCliente()" title="Quando ativo: oculta PN, oculta colunas de Custo Normal e exibe apenas o Valor Unitário já com Margem" class="mini-toggle-btn">
+      <button type="button" id="btn-modo-cliente" onclick="Cotador.core.toggleModoCliente()" title="Quando ativo: oculta PN, oculta colunas de Custo Normal e exibe apenas o Valor Unitário já com Margem e o Total" class="mini-toggle-btn">
         <span class="dot"></span>
         <span>Modo Cliente</span>
       </button>
@@ -716,6 +682,17 @@ window.Cotador.core = {
     document.body.classList.toggle('client-proposal-mode', this.modoCliente);
     const btn = document.getElementById('btn-modo-cliente');
     if (btn) btn.classList.toggle('active', this.modoCliente);
+
+    // Garante que Subtotais e Total estejam ativos ao entrar no Modo Cliente
+    if (this.modoCliente) {
+      const chkSub = document.getElementById('chk-mostrar-subtotal');
+      if (chkSub && !chkSub.checked) {
+        chkSub.checked = true;
+      }
+      const btnSub = document.getElementById('btn-toggle-subtotal');
+      if (btnSub) btnSub.classList.add('active');
+    }
+
     this.atualizarTitulosColunasModoCliente();
     this.recalcularSubtotais();
   },
@@ -733,7 +710,6 @@ window.Cotador.core = {
     const parsed = parseFloat(val);
     this.markupPercent = isNaN(parsed) ? 0 : parsed;
 
-    // Se o usuário digitar um valor diferente de 0 enquanto estava desligado, religa automaticamente
     if (this.markupPercent !== 0 && !this.markupEnabled) {
       this.markupEnabled = true;
       const btn = document.getElementById('btn-toggle-markup');
@@ -748,6 +724,7 @@ window.Cotador.core = {
   atualizarTitulosColunasModoCliente() {
     const pct = this.obterMarkupEfetivo();
     const sufixoPct = pct !== 0 ? ` (${pct > 0 ? '+' : ''}${pct}%)` : '';
+
     document.querySelectorAll('.quote-block thead th').forEach(th => {
       if (!th.dataset.originalHeader) {
         th.dataset.originalHeader = th.innerText.trim();
@@ -771,9 +748,6 @@ window.Cotador.core = {
     });
   },
 
-  // ==========================================================================
-  // COMPONENTES INTERATIVOS DE CÓPIA DIRETA (CLICK-TO-COPY)
-  // ==========================================================================
   renderCopyLink(displayText, copyValue, label = 'Valor', extraClass = '') {
     const safeDisplay = this.escapeHTML(String(displayText ?? ''));
     const safeCopy = this.escapeHTML(String(copyValue ?? displayText ?? ''));
@@ -818,9 +792,6 @@ window.Cotador.core = {
     this.recalcularSubtotais();
   },
 
-  // ==========================================================================
-  // RENDERIZADORES DE DETALHES MENSAIS (12x COM 5% E SEM 5%) E MARGEM
-  // ==========================================================================
   renderDetalhesSoloCSP(contratoId, custoCom5, mensalSem5, anualSem5, fator = 1, isMarginCol = false) {
     if (contratoId !== 'am' && contratoId !== 'mm' && contratoId !== 'tm') return '';
     const anualCom5 = (custoCom5 * fator) * 12;
@@ -862,6 +833,7 @@ window.Cotador.core = {
     const infoData = tabelaRef ? this.ultimasAtualizacoes[tabelaRef] : null;
     const dataCurta = infoData ? this.formatarDataCurta(infoData.iso) : null;
     const dataCompleta = infoData ? this.formatarDataHoraCompleta(infoData.iso) : '';
+
     const badgeDataHTML = dataCurta
       ? `<span title="Última atualização desta tabela no Supabase: ${dataCompleta}" class="sec-detail no-export text-[10px] font-normal text-slate-400 bg-white/80 border border-slate-200/80 px-2 py-0.5 rounded-full whitespace-nowrap">Atualizado em ${dataCurta}</span>`
       : '';
@@ -873,7 +845,6 @@ window.Cotador.core = {
     const old = document.getElementById('unmatched-items-banner');
     if (old) old.remove();
     if (!Array.isArray(missingItems) || missingItems.length === 0) return;
-
     const container = document.getElementById('resultado-container');
     if (!container || container.querySelectorAll('.quote-block').length === 0) return;
 
@@ -949,9 +920,6 @@ window.Cotador.core = {
     this.mostrarToast(`Produto removido em ${removidos} linha(s)/tabela(s)!`);
   },
 
-  // ==========================================================================
-  // DRAG & DROP DE LINHAS (SINCRONIZADO ENTRE TABELAS)
-  // ==========================================================================
   initDragEvents() {
     if (this._dragInitialized) return;
     this._dragInitialized = true;
@@ -1005,7 +973,6 @@ window.Cotador.core = {
       const sourceTbody = movedRow.parentElement;
       movedRow.classList.remove('is-dragging');
       this._draggedRow = null;
-
       if (sourceTbody) {
         this.sincronizarOrdemTabelas(sourceTbody, movedRow);
         this.atualizarMarkdownBruto();
@@ -1034,7 +1001,6 @@ window.Cotador.core = {
         if (baseName && !tr.getAttribute('data-prod-key')) {
           tr.setAttribute('data-prod-key', baseName);
         }
-
         if (!tr.getAttribute('data-sync-key')) {
           const count = (keyCounts[baseName] || 0) + 1;
           keyCounts[baseName] = count;
@@ -1098,9 +1064,6 @@ window.Cotador.core = {
     });
   },
 
-  // ==========================================================================
-  // CONTROLES DE VISIBILIDADE, CÂMBIO REATIVO E SUBTOTAIS
-  // ==========================================================================
   toggleBlock(blockId) {
     const block = document.getElementById(blockId);
     if (block) block.classList.toggle('is-collapsed');
@@ -1130,10 +1093,8 @@ window.Cotador.core = {
     const chkSub = document.getElementById('chk-mostrar-subtotal');
     const chkDet = document.getElementById('chk-mostrar-detalhes');
     const ativarAmbos = !(chkSub.checked && chkDet.checked);
-
     chkSub.checked = ativarAmbos;
     chkDet.checked = ativarAmbos;
-
     document.getElementById('btn-toggle-subtotal').classList.toggle('active', ativarAmbos);
     this.atualizarVisibilidadeDetalhes();
     this.recalcularSubtotais();
@@ -1164,7 +1125,6 @@ window.Cotador.core = {
         const novoBrlBase = baseUsd * taxa;
         tr.setAttribute('data-base-unit-price-brl', String(novoBrlBase));
 
-        // Atualiza também a célula de Custo Normal (BRL) sem margem
         const costBrlTd = tr.querySelector('td.col-cost-brl');
         if (costBrlTd) {
           const fmtCostBrl = `R$ ${this.formatBRL(novoBrlBase)}`;
@@ -1179,12 +1139,11 @@ window.Cotador.core = {
   recalcularSubtotais() {
     this.prepararLinhasDrag();
     this.atualizarTitulosColunasModoCliente();
-
-    const showSub = document.getElementById('chk-mostrar-subtotal').checked;
+    const chkSub = document.getElementById('chk-mostrar-subtotal');
+    const showSub = Boolean((chkSub && chkSub.checked) || this.modoCliente);
     document.body.classList.toggle('hide-subtotals', !showSub);
     const btnSub = document.getElementById('btn-toggle-subtotal');
     if (btnSub) btnSub.classList.toggle('active', showSub);
-
     document.querySelectorAll('.col-subtotal').forEach(el => el.classList.toggle('hidden', !showSub));
 
     const pctEfetivo = this.obterMarkupEfetivo();
@@ -1196,6 +1155,7 @@ window.Cotador.core = {
       const isUSD = block.getAttribute('data-currency') === 'USD';
       let somaBloco = 0;
       let somaBlocoBrl = 0;
+      let somaQtd = 0;
       let temQtd = false;
 
       block.querySelectorAll('tbody tr').forEach(tr => {
@@ -1214,7 +1174,6 @@ window.Cotador.core = {
         tr.setAttribute('data-unit-price', String(unitComMargem));
         if (isUSD) tr.setAttribute('data-unit-price-brl', String(unitBrlComMargem));
 
-        // Atualiza a coluna dedicada de "Valor c/ Margem" (mantendo a coluna de Custo Normal intacta!)
         if (isUSD) {
           const tdMarginUsd = tr.querySelector('td.col-margin-usd');
           const tdMarginBrl = tr.querySelector('td.col-margin-brl');
@@ -1231,7 +1190,6 @@ window.Cotador.core = {
           if (tdMargin && !isNaN(unitComMargem) && unitComMargem > 0) {
             const fmtMargin = `R$ ${this.formatBRL(unitComMargem)}`;
             let detalhesMarginHTML = '';
-
             const rowKind = tr.getAttribute('data-row-kind');
             const contratoId = tr.getAttribute('data-contract-id') || '';
             if (rowKind === 'ms_solo') {
@@ -1241,7 +1199,6 @@ window.Cotador.core = {
             } else if (rowKind === 'ms_scan') {
               detalhesMarginHTML = this.renderDetalhesScanCSP(contratoId, baseUnit, fatorMarkup);
             }
-
             tdMargin.innerHTML = `${this.renderCopyLink(fmtMargin, fmtMargin, 'Valor Unitário')}${detalhesMarginHTML}`;
           } else if (tdMargin && (isNaN(unitComMargem) || unitComMargem <= 0)) {
             tdMargin.textContent = '-';
@@ -1256,6 +1213,7 @@ window.Cotador.core = {
         if (!isNaN(qty) && qty > 0) {
           const sub = unitComMargem * qty;
           somaBloco += sub;
+          somaQtd += qty;
           temQtd = true;
 
           if (isUSD) {
@@ -1283,7 +1241,7 @@ window.Cotador.core = {
         if (isUSD) {
           const valorUSD = `US$ ${this.formatUSD(somaBloco)}`;
           const valorBRL = `R$ ${this.formatBRL(somaBlocoBrl)}`;
-          badgeTotal.innerHTML = `Total: ${valorUSD}<span class="sec-detail font-normal opacity-80 ml-1.5">(${valorBRL})</span>`;
+          badgeTotal.innerHTML = `Total: ${valorUSD}<span class="font-normal opacity-80 ml-1.5">(${valorBRL})</span>`;
           badgeTotal.setAttribute('data-copy', valorUSD);
         } else {
           const valorFormatado = `R$ ${this.formatBRL(somaBloco)}`;
@@ -1291,6 +1249,51 @@ window.Cotador.core = {
           badgeTotal.setAttribute('data-copy', valorFormatado);
         }
         badgeTotal.classList.toggle('hidden', !temQtd || !showSub);
+      }
+
+      // Renderiza ou atualiza o rodapé (tfoot) com a soma total na própria tabela
+      const table = block.querySelector('table');
+      if (table) {
+        let tfoot = table.querySelector('tfoot.block-table-tfoot');
+        if (!temQtd || !showSub) {
+          if (tfoot) tfoot.remove();
+        } else {
+          if (!tfoot) {
+            tfoot = document.createElement('tfoot');
+            tfoot.className = 'block-table-tfoot';
+            table.appendChild(tfoot);
+          }
+          const ths = Array.from(table.querySelectorAll('thead th'));
+          const cellsHTML = ths.map((th, idx) => {
+            if (idx === 0) {
+              return `<td class="font-semibold text-slate-800">Total Geral</td>`;
+            }
+            if (idx === 1) {
+              return `<td class="font-semibold text-slate-700 text-center tabular-nums">${somaQtd}</td>`;
+            }
+            if (th.classList.contains('col-subtotal')) {
+              if (isUSD) {
+                const fmtTotUSD = `US$ ${this.formatUSD(somaBloco)}`;
+                const fmtTotBRL = `R$ ${this.formatBRL(somaBlocoBrl)}`;
+                const brlSubLine = somaBlocoBrl > 0
+                  ? `<div class="text-[11px] font-normal text-slate-500 mt-0.5">${this.renderCopyLink(fmtTotBRL, fmtTotBRL, 'Total Geral BRL')}</div>`
+                  : '';
+                return `<td class="col-subtotal font-bold theme-subtotal whitespace-nowrap tabular-nums">${this.renderCopyLink(fmtTotUSD, fmtTotUSD, 'Total Geral USD')}${brlSubLine}</td>`;
+              }
+              const fmtTot = `R$ ${this.formatBRL(somaBloco)}`;
+              return `<td class="col-subtotal font-bold theme-subtotal whitespace-nowrap tabular-nums">${this.renderCopyLink(fmtTot, fmtTot, 'Total Geral')}</td>`;
+            }
+            if (idx === ths.length - 1) {
+              return `<td></td>`;
+            }
+            const classesVisibilidade = ['col-pn', 'col-secondary', 'col-cost-normal', 'col-internal-cost', 'col-margin-price']
+              .filter(c => th.classList.contains(c))
+              .join(' ');
+            return `<td class="${classesVisibilidade}"></td>`;
+          }).join('');
+
+          tfoot.innerHTML = `<tr>${cellsHTML}</tr>`;
+        }
       }
     });
 
@@ -1302,16 +1305,13 @@ window.Cotador.core = {
     if (input) return input.value ? input.value : '-';
     const pnEl = td.querySelector('[data-pn-val]');
     if (pnEl) return pnEl.getAttribute('data-pn-val') || pnEl.innerText.trim();
-
     const clone = td.cloneNode(true);
     clone.querySelectorAll('.no-export').forEach(el => el.remove());
-
     if (this.modoCliente) {
       clone.querySelectorAll('.internal-only-detail, .internal-only-text').forEach(el => el.remove());
     } else {
       clone.querySelectorAll('.client-only-text').forEach(el => el.remove());
     }
-
     if (document.body.classList.contains('hide-secondary-details')) {
       clone.querySelectorAll('.sec-detail').forEach(el => el.remove());
     }
@@ -1319,7 +1319,8 @@ window.Cotador.core = {
   },
 
   isColunaVisivel(cell) {
-    const showSub = document.getElementById('chk-mostrar-subtotal').checked;
+    const chkSub = document.getElementById('chk-mostrar-subtotal');
+    const showSub = Boolean((chkSub && chkSub.checked) || this.modoCliente);
     const showDet = !document.body.classList.contains('hide-secondary-details');
     if (!showSub && cell.classList.contains('col-subtotal')) return false;
     if (!showDet && cell.classList.contains('col-secondary')) return false;
@@ -1347,7 +1348,6 @@ window.Cotador.core = {
       const headers = Array.from(table.querySelectorAll('thead th'))
         .slice(0, -1).filter(th => this.isColunaVisivel(th))
         .map(th => th.innerText.trim());
-
       md += `| ${headers.join(' | ')} |\n|${headers.map(() => '---').join('|')}|\n`;
 
       table.querySelectorAll('tbody tr').forEach(tr => {
@@ -1355,15 +1355,24 @@ window.Cotador.core = {
           .slice(0, -1).filter(td => this.isColunaVisivel(td));
         if (cells.length > 0) md += `| ${cells.map(td => this.extrairValorCelula(td)).join(' | ')} |\n`;
       });
+
+      const tfootTr = table.querySelector('tfoot.block-table-tfoot tr');
+      if (tfootTr) {
+        const footCells = Array.from(tfootTr.querySelectorAll('td'))
+          .slice(0, -1).filter(td => this.isColunaVisivel(td))
+          .map(td => {
+            const val = this.extrairValorCelula(td);
+            return val ? `**${val}**` : '';
+          });
+        if (footCells.length > 0) md += `| ${footCells.join(' | ')} |\n`;
+      }
+
       md += '\n';
     });
     const out = document.getElementById('markdown-output');
     if (out) out.textContent = md.trim();
   },
 
-  // ==========================================================================
-  // FUNÇÕES DE CÓPIA INTERATIVA E FEEDBACK VISUAL
-  // ==========================================================================
   mostrarToast(msg) {
     const t = document.getElementById('copy-toast');
     if (!t) return;
@@ -1378,12 +1387,10 @@ window.Cotador.core = {
     if (!el) return;
     let txt = el.getAttribute('data-copy') ?? el.innerText.trim();
     const label = el.getAttribute('data-label') || 'Item';
-
     if (event && (event.shiftKey || event.altKey) && /[R$US$]/i.test(txt)) {
       txt = txt.replace(/[R$US$\s]/gi, '').trim();
     }
     if (!txt || txt === '-') return;
-
     navigator.clipboard.writeText(txt);
     el.classList.add('is-copied');
     setTimeout(() => el.classList.remove('is-copied'), 450);
@@ -1432,12 +1439,23 @@ window.Cotador.core = {
         .slice(0, -1)
         .filter(td => this.isColunaVisivel(td))
         .map(td => this.extrairValorCelula(td));
-
       if (cells.length > 0) {
         tsv += `${cells.join('\t')}\n`;
         html += `<tr>${cells.map(c => `<td style="border:1px solid #e2e8f0;">${c}</td>`).join('')}</tr>`;
       }
     });
+
+    const tfootTr = table.querySelector('tfoot.block-table-tfoot tr');
+    if (tfootTr) {
+      const footCells = Array.from(tfootTr.querySelectorAll('td'))
+        .slice(0, -1)
+        .filter(td => this.isColunaVisivel(td))
+        .map(td => this.extrairValorCelula(td));
+      if (footCells.length > 0) {
+        tsv += `${footCells.join('\t')}\n`;
+        html += `<tr style="background:#f8fafc;font-weight:bold;">${footCells.map(c => `<td style="border:1px solid #e2e8f0;font-weight:bold;">${c}</td>`).join('')}</tr>`;
+      }
+    }
 
     html += `</tbody></table><br>`;
     return { tsv, html };
