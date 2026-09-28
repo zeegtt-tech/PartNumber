@@ -23,7 +23,7 @@ window.Cotador.app = {
   VENDOR_PLACEHOLDERS: {
     microsoft: "Ex:\nbusiness basic 10\nbusiness standard 26\nExchange plan 1 80",
     adobe: "Ex:\nCreative Cloud 5\nAdobe Acrobat Pro 12\nIllustrator 3",
-    kaspersky: "Ex:\nEDR Optimum 50\nNext EDR Foundations 30\nSmall Office Security 10"
+    kaspersky: "Ex:\nEDR Optimum 50\nNext EDR Foundations 30"
   },
 
   atualizarPlaceholderFabricante(vendor) {
