@@ -415,10 +415,11 @@ DESTAQUE EXCLUSIVO: MODALIDADE E TABELA SCAN (FUNDO PADRÃO + TÍTULO ÂMBAR)
 
 ============================================================================ */
 .modality-chip-scan.active {
-background-color: #f8fafc !important;
-border-color: #cbd5e1 !important;
-color: #b45309 !important;
-font-weight: 700;
+  background-color: #fffbeb !important;
+  border-color: #d97706 !important;
+  color: #b45309 !important;
+  font-weight: 700;
+  box-shadow: 0 0 0 1px rgba(217, 119, 6, 0.15);
 }
 .quote-block-scan {
 background-color: transparent !important;

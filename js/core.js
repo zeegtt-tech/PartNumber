@@ -1,5 +1,5 @@
 // ============================================================================
-// NÚCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.8.2 ENTERPRISE (js/core.js)
+// NÚCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.8.3 ENTERPRISE (js/core.js)
 // ============================================================================
 
 window.Cotador = { core: {}, tables: {}, app: {} };
@@ -93,6 +93,9 @@ window.Cotador.core = {
     "phothosop": ["Photoshop"],
     "photshop": ["Photoshop"],
     "photosop": ["Photoshop"],
+    "photopshop": ["Photoshop"],
+    "phtoshop": ["Photoshop"],
+    "fotoshop": ["Photoshop"],
     "photoshop": ["Photoshop"],
     "ilustrator": ["Illustrator"],
     "illustrator": ["Illustrator"],
@@ -189,6 +192,9 @@ window.Cotador.core = {
     "pbi pro": ["Power BI", "Pro"],
     "power bi premium": ["Power BI", "Premium"],
     "powerbi premium": ["Power BI", "Premium"],
+    "power bi premium per user": ["Power BI", "Premium", "User"],
+    "power bi ppu": ["Power BI", "Premium", "User"],
+    "pbi ppu": ["Power BI", "Premium", "User"],
     "copilot": ["Copilot"],
     "m365 copilot": ["Microsoft 365", "Copilot"],
     "microsoft 365 copilot": ["Microsoft 365", "Copilot"],
@@ -229,18 +235,39 @@ window.Cotador.core = {
   TOKEN_TYPO_MAP: {
     "standar": "Standard",
     "standart": "Standard",
+    "standad": "Standard",
+    "stardard": "Standard",
+    "padrao": "Standard",
     "std": "Standard",
     "entprise": "Enterprise",
     "enterpise": "Enterprise",
+    "enterprize": "Enterprise",
+    "entreprice": "Enterprise",
     "ent": "Enterprise",
     "datacent": "Datacenter",
     "dc": "Datacenter",
     "foudation": "Foundations",
     "foudations": "Foundations",
+    "foudantions": "Foundations",
     "foundation": "Foundations",
     "bussiness": "Business",
     "busines": "Business",
+    "bussines": "Business",
+    "bsiness": "Business",
+    "busness": "Business",
+    "microsft": "Microsoft",
+    "micrsoft": "Microsoft",
+    "micosoft": "Microsoft",
+    "premiun": "Premium",
+    "premuim": "Premium",
+    "premum": "Premium",
     "exchenge": "Exchange",
+    "exchage": "Exchange",
+    "excange": "Exchange",
+    "exhange": "Exchange",
+    "exchagne": "Exchange",
+    "sharepoit": "SharePoint",
+    "sharpoint": "SharePoint",
     "projet": "Project",
     "projec": "Project",
     "m365": "365",
@@ -252,8 +279,76 @@ window.Cotador.core = {
     "phothosop": "Photoshop",
     "photshop": "Photoshop",
     "photosop": "Photoshop",
+    "photopshop": "Photoshop",
+    "phtoshop": "Photoshop",
+    "fotoshop": "Photoshop",
     "ilustrator": "Illustrator",
-    "indesing": "InDesign"
+    "ilustrattor": "Illustrator",
+    "ilustraitor": "Illustrator",
+    "indesing": "InDesign",
+    "indising": "InDesign",
+    "acobrat": "Acrobat",
+    "premier": "Premiere",
+    "kasperky": "Kaspersky",
+    "kasparsky": "Kaspersky"
+  },
+
+  CANONICAL_CATALOG_TOKENS: [
+    "Microsoft", "Business", "Standard", "Basic", "Premium", "Enterprise",
+    "Exchange", "SharePoint", "Project", "Defender", "Copilot", "Photoshop",
+    "Illustrator", "InDesign", "Acrobat", "Creative", "Premiere", "Lightroom",
+    "Substance", "Kaspersky", "Foundations", "Optimum", "Advanced", "Endpoint",
+    "Security", "Datacenter"
+  ],
+
+  STOPWORDS_PT: new Set([
+    "licenca", "licencas", "unidade", "unidades", "usuario", "usuarios",
+    "assinatura", "renovacao", "para", "com", "por"
+  ]),
+
+  calcularLevenshtein(a, b) {
+    const s = a.toLowerCase();
+    const t = b.toLowerCase();
+    const m = s.length;
+    const n = t.length;
+    if (m === 0) return n;
+    if (n === 0) return m;
+
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const cost = s[i - 1] === t[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + cost
+        );
+      }
+    }
+    return dp[m][n];
+  },
+
+  corrigirTokenFuzzy(token) {
+    const clean = String(token || '').trim();
+    if (clean.length < 5 || /\d/.test(clean)) return clean;
+
+    const maxDist = clean.length >= 8 ? 2 : 1;
+    let melhorPalavra = clean;
+    let menorDistancia = maxDist + 1;
+
+    for (const canon of this.CANONICAL_CATALOG_TOKENS) {
+      if (Math.abs(canon.length - clean.length) > maxDist) continue;
+      const dist = this.calcularLevenshtein(clean, canon);
+      if (dist <= maxDist && dist < menorDistancia) {
+        menorDistancia = dist;
+        melhorPalavra = canon;
+        if (dist === 0) break;
+      }
+    }
+    return melhorPalavra;
   },
 
   escapeHTML(str) {
@@ -265,7 +360,8 @@ window.Cotador.core = {
 
   sanitizarTermoPostgrest(termo) {
     return String(termo || '')
-      .replace(/[,()*%]/g, ' ')
+      .replace(/[,()*%\[\]]/g, ' ')
+      .replace(/(?:^|\s)[-–—/\\]+(?=\s|$)/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
   },
@@ -314,15 +410,19 @@ window.Cotador.core = {
       return [this.sanitizarTermoPostgrest(rawTrimmed)];
     }
 
-    const lower = this.sanitizarTermoPostgrest(rawTrimmed).toLowerCase();
+    const deaccented = rawTrimmed
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    const lower = this.sanitizarTermoPostgrest(deaccented).toLowerCase();
     if (this.SEARCH_KEYWORDS[lower]) {
       return this.SEARCH_KEYWORDS[lower]
         .map(kw => this.sanitizarTermoPostgrest(kw))
         .filter(Boolean);
     }
 
-    let normalized = this.sanitizarTermoPostgrest(rawTrimmed)
-      .replace(/\bexchenge\b/gi, 'Exchange')
+    let normalized = this.sanitizarTermoPostgrest(deaccented)
+      .replace(/\b(exchenge|exchage|excange|exhange|exchagne)\b/gi, 'Exchange')
       .replace(/\bexchange\s+(?:online\s+)?(?:plan(?:o)?|p)\s*(\d+)\b/gi, 'Exchange Online __PLAN_$1__')
       .replace(/\b(project|visio|planner|intune)\s+(?:plan(?:o)?|p)\s*(\d+)\b/gi, '$1 __PLAN_$2__')
       .replace(/\bplan(?:o)?\s*(\d+)\b/gi, '__PLAN_$1__');
@@ -343,7 +443,8 @@ window.Cotador.core = {
         const planMatch = w.match(/^__PLAN_(\d+)__$/i);
         if (planMatch) return [`Plan ${planMatch[1]}`];
         const cleanW = w.toLowerCase();
-        const mapped = this.TOKEN_TYPO_MAP[cleanW] || w;
+        if (this.STOPWORDS_PT.has(cleanW)) return [];
+        const mapped = this.TOKEN_TYPO_MAP[cleanW] || this.corrigirTokenFuzzy(w);
         return [this.sanitizarTermoPostgrest(mapped)];
       })
       .filter(Boolean);
@@ -408,7 +509,12 @@ window.Cotador.core = {
 
     lines.forEach((line, idx) => {
       let qty = null;
-      let prodName = line.trim();
+      let prodName = line
+        .replace(/[\u2010-\u2015\u2212]/g, '-')
+        .replace(/^(?:[-•*▪‣◦>]|\d+[.)])\s*/, '')
+        .trim();
+
+      if (!prodName) return;
 
       if (!/\s/.test(prodName) && this.isPartNumber(prodName)) {
         items.push({
@@ -421,9 +527,9 @@ window.Cotador.core = {
         return;
       }
 
-      const explicitUnitEnd = prodName.match(/^(.*?)(?:[\s:|=\t]+|\s+-\s+|\b(?:qtd|qtde|quant)\s*[:=]?\s*)(\d+)\s*(?:x|un|unid|unidades?|lic|licen[cç]as?|users?|usu[aá]rios?|pcs?|seats?|disp|dispositivos?)\.?$/i);
-      const explicitDelimEnd = !explicitUnitEnd && prodName.match(/^(.*?)(?:\t+|\s+[|=]\s*|\s*:\s+|\s+:\s*|\s+-\s+)(\d+)\s*$/);
-      const explicitStart = !explicitUnitEnd && !explicitDelimEnd && prodName.match(/^(\d+)\s*(?:x\b|un\b|unid\b|unidades?\b|lic\b|licen[cç]as?\b|\s*-\s+)\s*(.+)$/i);
+      const explicitUnitEnd = prodName.match(/^(.*?)(?:[\s:|=\t]+|\s*[-–—:|=/]\s*|\b(?:qtd|qtde|quant)\s*[:=]?\s*)(\d+)\s*(?:x|un|unid|unidades?|lic|licen[cç]as?|users?|usu[aá]rios?|pcs?|seats?|disp|dispositivos?)\.?$/i);
+      const explicitDelimEnd = !explicitUnitEnd && prodName.match(/^(.*?)(?:\t+|\s*[-–—:|=/]\s*)(\d+)\s*$/);
+      const explicitStart = !explicitUnitEnd && !explicitDelimEnd && prodName.match(/^(\d+)\s*(?:x\b|un\b|unid\b|unidades?\b|lic\b|licen[cç]as?\b|\s*[-–—:|=/]\s*)\s*(.+)$/i);
 
       if (explicitUnitEnd && explicitUnitEnd[1].trim()) {
         prodName = explicitUnitEnd[1].trim();
@@ -462,6 +568,9 @@ window.Cotador.core = {
           }
         }
       }
+
+      prodName = prodName.replace(/^[\s\-–—:|=/•*+]+|[\s\-–—:|=/•*+]+$/g, '').trim();
+      if (!prodName) return;
 
       if (qty !== null && !isNaN(qty)) sumLicenses += qty;
 
@@ -1361,7 +1470,12 @@ window.Cotador.core = {
     let txt = el.getAttribute('data-copy') ?? el.innerText.trim();
     const label = el.getAttribute('data-label') || 'Item';
     if (event && (event.shiftKey || event.altKey) && /[R$US$]/i.test(txt)) {
-      txt = txt.replace(/[R$US$\s]/gi, '').trim();
+      const num = this.parsePrice(txt);
+      if (num > 0) {
+        txt = num.toFixed(2).replace('.', ',');
+      } else {
+        txt = txt.replace(/[R$US$\s]/gi, '').trim();
+      }
     }
     if (!txt || txt === '-') return;
     navigator.clipboard.writeText(txt);

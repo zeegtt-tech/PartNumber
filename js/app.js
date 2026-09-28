@@ -5,7 +5,7 @@ window.Cotador.app = {
   currentVendor: 'microsoft',
   parsedItems: [],
   totalLicenses: 0,
-  msModalidades: new Set(),
+  msModalidades: new Set(['scan']),
   msSegmentos: new Set(['commercial']),
   adobeSegmentos: new Set(['teams']),
   trienaisVisiveis: false,
@@ -33,6 +33,14 @@ window.Cotador.app = {
       });
     }
 
+    // Persistência do Desconto Scansource (%)
+    const inputScanDiscount = document.getElementById('ms-scan-discount');
+    if (inputScanDiscount) {
+      inputScanDiscount.addEventListener('input', () => {
+        this.salvarPreferencias();
+      });
+    }
+
     // Marca "License Only" como padrão inicial para MPSA
     const chkMpsaLicOnly = document.getElementById('chk-mpsa-show-liconly');
     if (chkMpsaLicOnly) chkMpsaLicOnly.checked = true;
@@ -56,6 +64,7 @@ window.Cotador.app = {
       const prefs = {
         vendor: this.currentVendor,
         dolar: document.getElementById('adobe-dolar')?.value || '4.80',
+        scanDiscount: document.getElementById('ms-scan-discount')?.value ?? '7',
         msModalidades: Array.from(this.msModalidades)
       };
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(prefs));
@@ -70,8 +79,11 @@ window.Cotador.app = {
       if (prefs.dolar && document.getElementById('adobe-dolar')) {
         document.getElementById('adobe-dolar').value = prefs.dolar;
       }
-      if (Array.isArray(prefs.msModalidades)) {
-        this.msModalidades = new Set(prefs.msModalidades);
+      if (prefs.scanDiscount !== undefined && document.getElementById('ms-scan-discount')) {
+        document.getElementById('ms-scan-discount').value = prefs.scanDiscount;
+      }
+      if (Array.isArray(prefs.msModalidades) && prefs.msModalidades.length > 0) {
+        this.msModalidades = new Set([prefs.msModalidades[0] || 'scan']);
       }
     } catch (_) {}
   },
@@ -93,35 +105,22 @@ window.Cotador.app = {
   },
 
   // ==========================================================================
-  // MODALIDADES MICROSOFT (MULTI-SELEÇÃO)
+  // MODALIDADES MICROSOFT (SELEÇÃO ÚNICA - 1 POR VEZ)
   // ==========================================================================
+  setMsModalidade(mod) {
+    this.msModalidades = new Set([mod || 'scan']);
+    this.salvarPreferencias();
+    this.atualizarUIMsModalidades();
+  },
+
   toggleMsModalidade(mod) {
-    if (this.msModalidades.has(mod)) {
-      this.msModalidades.delete(mod);
-    } else {
-      this.msModalidades.add(mod);
-    }
-    this.salvarPreferencias();
-    this.atualizarUIMsModalidades();
-  },
-
-  selecionarTodasMsModalidades() {
-    ['scan', 'solo', 'perpetuo', 'mpsa'].forEach(m => this.msModalidades.add(m));
-    this.salvarPreferencias();
-    this.atualizarUIMsModalidades();
-  },
-
-  limparMsModalidades() {
-    this.msModalidades.clear();
-    this.salvarPreferencias();
-    this.atualizarUIMsModalidades();
+    this.setMsModalidade(mod);
   },
 
   obterModalidadesAtivas() {
     const todas = ['scan', 'solo', 'perpetuo', 'mpsa'];
-    return this.msModalidades.size > 0
-      ? todas.filter(m => this.msModalidades.has(m))
-      : todas;
+    const selecionada = Array.from(this.msModalidades).find(m => todas.includes(m));
+    return [selecionada || 'scan'];
   },
 
   atualizarUIMsModalidades() {
@@ -132,15 +131,18 @@ window.Cotador.app = {
     });
 
     const efetivas = this.obterModalidadesAtivas();
-    const hasCSP = efetivas.includes('scan') || efetivas.includes('solo');
+    const isScan = efetivas.includes('scan');
+    const hasCSP = isScan || efetivas.includes('solo');
     const hasPM = efetivas.includes('perpetuo') || efetivas.includes('mpsa');
     const hasMPSA = efetivas.includes('mpsa');
 
+    const boxScanDiscount = document.getElementById('ms-box-scan-discount');
     const boxContratos = document.getElementById('ms-box-contratos');
     const flagsCSP = document.getElementById('ms-flags-csp');
     const flagsPM = document.getElementById('ms-flags-perpetuo-mpsa');
     const flagsMPSA = document.getElementById('ms-flags-mpsa');
 
+    if (boxScanDiscount) boxScanDiscount.classList.toggle('hidden', !isScan);
     if (boxContratos) boxContratos.classList.toggle('hidden', !hasCSP);
     if (flagsCSP) flagsCSP.classList.toggle('hidden', !hasCSP);
     if (flagsPM) flagsPM.classList.toggle('hidden', !hasPM);
@@ -197,39 +199,27 @@ window.Cotador.app = {
   },
 
   // ==========================================================================
-  // CONTROLES ADOBE (MULTI-SELEÇÃO TEAMS & ENTERPRISE) & KASPERSKY
+  // CONTROLES ADOBE (SELEÇÃO ÚNICA - 1 POR VEZ) & KASPERSKY
   // ==========================================================================
-  toggleAdobeSegmento(seg) {
-    if (this.adobeSegmentos.has(seg)) {
-      if (this.adobeSegmentos.size > 1) {
-        this.adobeSegmentos.delete(seg);
-      }
-    } else {
-      this.adobeSegmentos.add(seg);
-    }
-    this.atualizarUIAdobeSegmentos();
-  },
-
   setAdobeSegmento(seg) {
-    this.toggleAdobeSegmento(seg);
+    this.adobeSegmentos = new Set([seg || 'teams']);
+    this.atualizarUIAdobeSegmentos();
   },
 
-  selecionarTodosAdobeSegmentos() {
-    this.adobeSegmentos = new Set(['teams', 'enterprise']);
-    this.atualizarUIAdobeSegmentos();
+  toggleAdobeSegmento(seg) {
+    this.setAdobeSegmento(seg);
   },
 
   obterAdobeSegmentosAtivos() {
     const ordem = ['teams', 'enterprise'];
-    return this.adobeSegmentos.size > 0
-      ? ordem.filter(s => this.adobeSegmentos.has(s))
-      : ['teams'];
+    const selecionado = Array.from(this.adobeSegmentos).find(s => ordem.includes(s));
+    return [selecionado || 'teams'];
   },
 
   atualizarUIAdobeSegmentos() {
     const ativos = this.obterAdobeSegmentosAtivos();
     const hiddenInput = document.getElementById('adobe-segmento');
-    if (hiddenInput) hiddenInput.value = ativos.join(',');
+    if (hiddenInput) hiddenInput.value = ativos[0];
 
     ['teams', 'enterprise'].forEach(s => {
       const btn = document.getElementById(`btn-adobe-seg-${s}`);
@@ -356,7 +346,6 @@ window.Cotador.app = {
           returnHTML: true
         };
 
-        // Executa todas as modalidades Microsoft em paralelo mantendo a ordem de exibição
         const resultadosMod = await Promise.all(
           modalidades.map(mod => window.Cotador.tables[`ms_${mod}`].processar(this.parsedItems, flags))
         );

@@ -110,25 +110,28 @@
           <!-- 3. FILTROS MICROSOFT -->
           <div id="filtros-microsoft" class="space-y-3.5 pt-3 border-t border-slate-100">
             
-            <!-- 3.1 MODALIDADES (MULTI-SELEÇÃO) -->
+            <!-- 3.1 MODALIDADES (SELEÇÃO ÚNICA - 1 POR VEZ) -->
             <div>
               <div class="flex items-center justify-between mb-1">
                 <label class="section-label !mb-0">Modalidades / Tabelas</label>
-                <div class="flex items-center gap-2 text-[10px] font-medium">
-                  <button type="button" onclick="Cotador.app.selecionarTodasMsModalidades()" class="theme-text hover:underline" title="Marcar todas as 4 modalidades">Todas</button>
-                  <span class="text-slate-300">|</span>
-                  <button type="button" onclick="Cotador.app.limparMsModalidades()" class="text-slate-400 hover:text-slate-600" title="Desmarcar todas (busca todas automaticamente)">Limpar</button>
-                </div>
+                <span class="text-[10px] text-slate-400">1 por vez</span>
               </div>
               <div class="grid grid-cols-2 gap-1.5">
-                <button type="button" onclick="Cotador.app.toggleMsModalidade('scan')" id="btn-ms-mod-scan" class="modality-chip modality-chip-scan" title="Faturamento via Scansource">Scan</button>
+                <button type="button" onclick="Cotador.app.toggleMsModalidade('scan')" id="btn-ms-mod-scan" class="modality-chip modality-chip-scan active" title="Faturamento via Scansource">Scan</button>
                 <button type="button" onclick="Cotador.app.toggleMsModalidade('solo')" id="btn-ms-mod-solo" class="modality-chip">CSP Solo</button>
                 <button type="button" onclick="Cotador.app.toggleMsModalidade('perpetuo')" id="btn-ms-mod-perpetuo" class="modality-chip">CSP Perpetual</button>
                 <button type="button" onclick="Cotador.app.toggleMsModalidade('mpsa')" id="btn-ms-mod-mpsa" class="modality-chip">MPSA</button>
               </div>
-              <p id="ms-mod-hint" class="text-[10px] text-slate-400 mt-1 leading-tight">
-                Dica: selecione mais de uma para comparar ou desmarque todas para buscar nas 4 tabelas.
-              </p>
+            </div>
+
+            <!-- 3.1.1 DESCONTO SCANSOURCE (%) -->
+            <div id="ms-box-scan-discount" class="flex items-center justify-between gap-2 bg-amber-50/60 border border-amber-200/80 rounded-lg px-2.5 py-1.5">
+              <label for="ms-scan-discount" class="text-[11px] font-medium text-amber-900 cursor-pointer">
+                Desconto Scansource (%)
+              </label>
+              <div class="w-20">
+                <input type="number" id="ms-scan-discount" value="7" min="0" max="100" step="0.5" class="select-input tabular-nums text-right !py-1 !px-2">
+              </div>
             </div>
 
             <!-- 3.2 SEGMENTO DE MERCADO (SELEÇÃO ÚNICA) -->
@@ -263,18 +266,13 @@
             <div>
               <div class="flex items-center justify-between mb-1">
                 <label class="section-label !mb-0">Segmento Adobe</label>
-                <div class="flex items-center gap-2 text-[10px] font-medium">
-                  <button type="button" onclick="Cotador.app.selecionarTodosAdobeSegmentos()" class="theme-text hover:underline" title="Selecionar For Teams e For Enterprise juntos para comparativo">Ambos</button>
-                </div>
+                <span class="text-[10px] text-slate-400">1 por vez</span>
               </div>
               <input type="hidden" id="adobe-segmento" value="teams">
               <div class="grid grid-cols-2 gap-1.5">
                 <button type="button" onclick="Cotador.app.toggleAdobeSegmento('teams')" id="btn-adobe-seg-teams" class="modality-chip active">For Teams</button>
                 <button type="button" onclick="Cotador.app.toggleAdobeSegmento('enterprise')" id="btn-adobe-seg-enterprise" class="modality-chip">For Enterprise</button>
               </div>
-              <p class="text-[10px] text-slate-400 mt-1 leading-tight">
-                Dica: selecione as duas opções juntas caso precise de um comparativo.
-              </p>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
