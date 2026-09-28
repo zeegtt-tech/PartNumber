@@ -315,6 +315,13 @@ table td:first-child .copy-link,
   color: #065f46 !important;
 }
 
+/* Mantém o espaçamento original de badge para o Painel PTAX no cabeçalho */
+#header-ptax-panel.copy-link {
+  padding: 0.25rem 0.625rem;
+  margin: 0;
+  border-radius: 0.5rem;
+}
+
 /* ============================================================================
 DRAG AND DROP (APENAS ARRASTAR - SINCRONIZADO ENTRE TABELAS)
 ============================================================================ */
