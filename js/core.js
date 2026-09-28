@@ -10,10 +10,27 @@ window.Cotador.core = {
   _dragInitialized: false,
   _draggedRow: null,
   _lastMouseDownTarget: null,
+  _searchAbortController: null,
   modoCliente: false,
   markupPercent: 0,
   markupEnabled: false,
+  calcMode: 'markup', // 'markup' = Custo * (1 + pct/100) | 'margin' = Custo / (1 - pct/100)
   ultimasAtualizacoes: {},
+
+  iniciarNovaSessaoBusca() {
+    if (this._searchAbortController) {
+      this._searchAbortController.abort();
+    }
+    this._searchAbortController = new AbortController();
+    return this._searchAbortController.signal;
+  },
+
+  cancelarBuscasEmAndamento() {
+    if (this._searchAbortController) {
+      this._searchAbortController.abort();
+      this._searchAbortController = null;
+    }
+  },
 
   formatarDataCurta(isoStr) {
     if (!isoStr) return null;
@@ -36,7 +53,7 @@ window.Cotador.core = {
 
   async carregarDatasAtualizacao() {
     try {
-      const rows = await this.fetchSupabase('catalogo_atualizacoes', [['select', '*']]);
+      const rows = await this.fetchSupabase('catalogo_atualizacoes', [['select', '*']], { useAbort: false });
       if (Array.isArray(rows)) {
         rows.forEach(r => {
           if (r.tabela && r.atualizado_em) {
@@ -59,7 +76,7 @@ window.Cotador.core = {
         { id: 'kaspersky', fab: 'kaspersky', nome: 'Kaspersky' }
       ];
       await Promise.allSettled(tabelas.map(async t => {
-        const res = await this.fetchSupabase(t.id, [['select', 'updated_at'], ['order', 'updated_at.desc'], ['limit', '1']]);
+        const res = await this.fetchSupabase(t.id, [['select', 'updated_at'], ['order', 'updated_at.desc'], ['limit', '1']], { useAbort: false });
         if (res && res[0] && res[0].updated_at) {
           this.ultimasAtualizacoes[t.id] = { iso: res[0].updated_at, fabricante: t.fab, nome: t.nome };
         }
@@ -711,27 +728,33 @@ window.Cotador.core = {
     return `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${info.label}" data-label="Segmento" title="Clique para copiar o segmento" class="copy-link sec-detail ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium border ${info.cls}">${info.label}</span>`;
   },
 
-  async fetchSupabase(table, paramsArray) {
+  async fetchSupabase(table, paramsArray, options = {}) {
     const qs = paramsArray.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
     const url = `${this.SUPABASE_URL}/${table}?${qs}`;
     const headers = {
       'apikey': this.SUPABASE_KEY,
       'Accept': 'application/json'
     };
-    // Só envia Authorization: Bearer se a chave for um token JWT (iniciado por "eyJ")
     if (String(this.SUPABASE_KEY || '').startsWith('eyJ')) {
       headers['Authorization'] = `Bearer ${this.SUPABASE_KEY}`;
     }
 
+    // Usa o signal explícito ou o signal global de busca de produtos (exceto quando useAbort=false, ex: datas de catálogo)
+    const signal = options.signal !== undefined
+      ? options.signal
+      : (options.useAbort === false ? undefined : this._searchAbortController?.signal);
+
     let resp;
     try {
-      resp = await fetch(url, { method: 'GET', headers, mode: 'cors', cache: 'no-store' });
+      resp = await fetch(url, { method: 'GET', headers, mode: 'cors', cache: 'no-store', signal });
     } catch (netErr) {
+      if (netErr.name === 'AbortError') {
+        throw netErr; // Propaga silenciosamente o cancelamento intencional
+      }
       throw new Error(
-        `Falha de conexão com o Supabase (${netErr.message}). Verifique se o projeto rftvbxlbltmiwamjhgzl não está pausado no painel do Supabase ou bloqueado por firewall/extensão.`
+        `Falha de conexão com o Supabase (${netErr.message}). Verifique se o projeto rftvbxlbltmiwamjhgzl não está pausado ou bloqueado.`
       );
     }
-
     if (!resp.ok) {
       const errTxt = await resp.text();
       throw new Error(`Erro HTTP (${resp.status}) na tabela [${table}]: ${errTxt}`);
@@ -758,11 +781,48 @@ window.Cotador.core = {
     return this.parsePrice(raw);
   },
 
+  calcularFatorComercial() {
+    const pct = this.obterMarkupEfetivo();
+    if (!this.markupEnabled || pct === 0) return 1;
+    if (this.calcMode === 'margin') {
+      // Trava de segurança matemática para evitar divisão por zero ou negativo (>= 99%)
+      const pctSeguro = Math.min(pct, 99);
+      return 1 / (1 - (pctSeguro / 100));
+    }
+    return 1 + (pct / 100);
+  },
+
+  toggleCalcMode() {
+    this.calcMode = this.calcMode === 'markup' ? 'margin' : 'markup';
+    const btnMode = document.getElementById('btn-calc-mode');
+    const inputMarkup = document.getElementById('input-markup-pct');
+    if (btnMode) {
+      const isMargin = this.calcMode === 'margin';
+      btnMode.textContent = isMargin ? 'Margem Real' : 'Markup';
+      btnMode.title = isMargin
+        ? 'Fórmula ativa: MARGEM BRUTA REAL [ Preço = Custo / (1 - %/100) ]. Clique para alternar para Markup.'
+        : 'Fórmula ativa: MARKUP [ Preço = Custo * (1 + %/100) ]. Clique para alternar para Margem Bruta Real.';
+    }
+    if (inputMarkup) {
+      inputMarkup.max = this.calcMode === 'margin' ? '95' : '500';
+      if (this.calcMode === 'margin' && parseFloat(inputMarkup.value) > 95) {
+        this.setMarkupPercent(95);
+        inputMarkup.value = '95';
+      }
+    }
+    this.atualizarTitulosColunasModoCliente();
+    this.recalcularSubtotais();
+    this.mostrarToast(
+      this.calcMode === 'margin'
+        ? '📊 Cálculo alterado para Margem Bruta: Custo ÷ (1 - %)'
+        : '📊 Cálculo alterado para Markup: Custo × (1 + %)'
+    );
+  },
+
   aplicarMarkup(valor) {
     const n = parseFloat(valor);
     if (isNaN(n) || n <= 0) return 0;
-    const pct = this.obterMarkupEfetivo();
-    return n * (1 + pct / 100);
+    return n * this.calcularFatorComercial();
   },
 
   obterMarkupEfetivo() {
@@ -800,18 +860,21 @@ window.Cotador.core = {
     bar.id = 'commercial-mode-bar';
     bar.className = 'unified-view-control';
     bar.innerHTML = `
-      <button type="button" id="btn-modo-cliente" onclick="Cotador.core.toggleModoCliente()" title="Quando ativo: oculta PN e colunas de Custo Normal, exibindo apenas o Valor Unitário comercial" class="mini-toggle-btn">
+      <button type="button" id="btn-modo-cliente" onclick="Cotador.core.toggleModoCliente()" title="Quando ativo: oculta PN e colunas de Custo Normal, exibindo apenas o Valor Unitário comercial (Exige margem > 0%)" class="mini-toggle-btn">
         <span class="dot"></span>
         <span>Modo Cliente</span>
       </button>
       <div class="flex items-center gap-1 pl-1 pr-1.5 border-l border-slate-200/80 text-[11px] text-slate-600">
-        <button type="button" id="btn-toggle-markup" onclick="Cotador.core.toggleMarkupAtivo()" title="Ligar ou desligar a exibição e aplicação da margem" class="mini-toggle-btn">
+        <button type="button" id="btn-toggle-markup" onclick="Cotador.core.toggleMarkupAtivo()" title="Ligar ou desligar a aplicação de rentabilidade" class="mini-toggle-btn">
           <span class="dot"></span>
-          <span>Margem</span>
+          <span>Aplicar</span>
         </button>
-        <input type="number" id="input-markup-pct" value="0" step="1" min="-50" max="500"
+        <button type="button" id="btn-calc-mode" onclick="Cotador.core.toggleCalcMode()" title="Fórmula ativa: MARKUP [ Preço = Custo * (1 + %/100) ]. Clique para alternar para Margem Bruta Real." class="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-semibold text-slate-600 hover:text-slate-900 hover:border-slate-300 transition">
+          Markup
+        </button>
+        <input type="number" id="input-markup-pct" value="0" step="1" min="0" max="500"
           oninput="Cotador.core.setMarkupPercent(this.value)"
-          title="Define o percentual de margem aplicado sobre o custo"
+          title="Define o percentual comercial aplicado sobre o custo"
           class="w-12 bg-white border border-slate-200 rounded px-1 py-0.5 text-center text-[11px] font-semibold text-slate-800 tabular-nums focus:outline-none transition-colors">
         <span class="text-slate-400 font-medium">%</span>
       </div>
@@ -895,7 +958,8 @@ window.Cotador.core = {
 
   atualizarTitulosColunasModoCliente() {
     const pct = this.obterMarkupEfetivo();
-    const sufixoPct = pct !== 0 ? ` (${pct > 0 ? '+' : ''}${pct}%)` : '';
+    const tipoTag = this.calcMode === 'margin' ? 'MG' : 'MKP';
+    const sufixoPct = pct !== 0 ? ` (${tipoTag} ${pct > 0 ? '+' : ''}${pct}%)` : '';
 
     document.querySelectorAll('.quote-block thead th').forEach(th => {
       if (!th.dataset.originalHeader) {
@@ -1318,8 +1382,8 @@ window.Cotador.core = {
     document.querySelectorAll('.col-subtotal').forEach(el => el.classList.toggle('hidden', !showSub));
 
     const pctEfetivo = this.obterMarkupEfetivo();
-    const fatorMarkup = 1 + (pctEfetivo / 100);
-    const temMargemAtiva = pctEfetivo !== 0;
+    const fatorMarkup = this.calcularFatorComercial();
+    const temMargemAtiva = pctEfetivo > 0;
     document.body.classList.toggle('has-active-markup', temMargemAtiva);
 
     document.querySelectorAll('.quote-block').forEach(block => {

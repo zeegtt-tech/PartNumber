@@ -1,5 +1,5 @@
 // ============================================================================
-// CONTROLADOR DA APLICAÇÃO (APP) - COTADOR v5.8 ENTERPRISE (js/app.js)
+// CONTROLADOR DA APLICAÇÃO (APP) - COTADOR v5.9 ENTERPRISE (js/app.js)
 // ============================================================================
 window.Cotador.app = {
   currentVendor: 'microsoft',
@@ -12,9 +12,33 @@ window.Cotador.app = {
   ptaxRateCache: null,
   ptaxDateCache: null,
   trienaisVisiveis: false,
-  STORAGE_KEY: 'cotador_enterprise_prefs_v58',
+  STORAGE_KEY: 'cotador_enterprise_prefs_v59',
+  LEGACY_STORAGE_KEYS: [
+    'cotador_enterprise_prefs',
+    'cotador_enterprise_prefs_v56',
+    'cotador_enterprise_prefs_v57',
+    'cotador_enterprise_prefs_v58'
+  ],
+
+  sanitizarCacheEEstadoInicial() {
+    try {
+      this.LEGACY_STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
+    } catch (_) {}
+
+    // Força o estado padrão das flags Microsoft mesmo se o navegador fizer autofill de formulário (bfcache)
+    const chkCopilot = document.getElementById('chk-show-copilot');
+    const chkNoTeams = document.getElementById('chk-show-noteams');
+    const chkTrial = document.getElementById('chk-show-trial');
+    const chkFrontline = document.getElementById('chk-show-frontline');
+
+    if (chkCopilot) chkCopilot.checked = false;
+    if (chkNoTeams) chkNoTeams.checked = false;
+    if (chkTrial) chkTrial.checked = false;
+    if (chkFrontline) chkFrontline.checked = true;
+  },
 
   init() {
+    this.sanitizarCacheEEstadoInicial();
     window.Cotador.core.injetarControlesComerciaisHeader();
 
     const inputItens = document.getElementById('input-itens');
@@ -49,10 +73,13 @@ window.Cotador.app = {
 
   salvarPreferencias() {
     try {
+      const calcModeAtual = window.Cotador.core?.calcMode === 'margin' ? 'margin' : 'markup';
       const prefs = {
         vendor: this.currentVendor,
         scanDiscount: document.getElementById('ms-scan-discount')?.value ?? '7',
-        msModalidades: Array.from(this.msModalidades)
+        msModalidades: Array.from(this.msModalidades),
+        calcMode: calcModeAtual
+        // Segurança: nunca salvar modoCliente no localStorage
       };
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(prefs));
     } catch (_) {}
@@ -69,10 +96,19 @@ window.Cotador.app = {
       if (Array.isArray(prefs.msModalidades) && prefs.msModalidades.length > 0) {
         this.msModalidades = new Set([prefs.msModalidades[0] || 'scan']);
       }
+      if (prefs.calcMode === 'margin' || prefs.calcMode === 'markup') {
+        if (typeof window.Cotador.core?.setCalcMode === 'function') {
+          window.Cotador.core.setCalcMode(prefs.calcMode);
+        } else if (window.Cotador.core) {
+          window.Cotador.core.calcMode = prefs.calcMode;
+        }
+      }
     } catch (_) {}
   },
 
   setVendor(vendor) {
+    window.Cotador.core.cancelarBuscasEmAndamento();
+
     this.currentVendor = vendor;
     document.body.setAttribute('data-vendor', vendor);
 
@@ -393,6 +429,9 @@ window.Cotador.app = {
       return;
     }
 
+    // Cancela qualquer consulta anterior que ainda esteja pendente em rede
+    const searchSignal = window.Cotador.core.iniciarNovaSessaoBusca();
+
     const btn = document.getElementById('btn-buscar');
     const container = document.getElementById('resultado-container');
     btn.disabled = true;
@@ -523,10 +562,15 @@ window.Cotador.app = {
       window.Cotador.core.renderUnmatchedWarning(missingItems);
       window.Cotador.core.recalcularSubtotais();
     } catch (err) {
+      if (err && err.name === 'AbortError') {
+        return; // Busca substituída por uma ação mais recente do usuário
+      }
       container.innerHTML = `<div class="p-4 rounded-lg bg-red-50 border border-red-200 text-red-900 text-xs"><b>Erro na consulta:</b> ${err.message}</div>`;
     } finally {
-      btn.disabled = false;
-      btn.innerHTML = '<span>Buscar e Montar Tabelas</span>';
+      if (!searchSignal.aborted) {
+        btn.disabled = false;
+        btn.innerHTML = '<span>Buscar e Montar Tabelas</span>';
+      }
     }
   }
 };

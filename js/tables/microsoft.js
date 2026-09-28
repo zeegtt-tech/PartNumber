@@ -55,19 +55,16 @@ window.Cotador.tables.ms_scan = {
         if (!flags.showNoTeams && /\b(no|sem|without)\s+teams\b/i.test(nome)) return false;
         
         // 2. Classificação de Copilot / Bundles / Add-ons
-        const isBundleWithCopilot = /\b(?:with|w\/)\s+.*copilot\b/i.test(nome);
+        const isBundle = /\b(?:with|w\/)\b/i.test(nome) || /\band\s+(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome);
         const isGenericAddonOrAttach = /\b(attach|add[\s\-]?on)\b/i.test(nome);
-        const isNativeCopilotProduct = /^(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome) ||
-                                       /\bcopilot\s+(?:studio|for\s+sales|for\s+service|for\s+security|business)\b/i.test(nome);
+        const isNativeCopilotProduct = !isBundle && (
+          /^(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome) ||
+          /\bcopilot\s+(?:studio|for\s+sales|for\s+service|for\s+security|business)\b/i.test(nome)
+        );
 
         if (!flags.showCopilot) {
-          // Descarta bundles tipo "Business Standard with Copilot"
-          if (isBundleWithCopilot) return false;
-          
-          // Descarta add-ons e attaches secundários genéricos, mas PRESERVA o Copilot nativo
+          if (isBundle) return false;
           if (isGenericAddonOrAttach && !isNativeCopilotProduct) return false;
-          
-          // Se tiver 'copilot' no nome mas for uma suíte composta (não nativa autônoma)
           if (nome.includes('copilot') && !isNativeCopilotProduct) return false;
         }
         
@@ -177,13 +174,15 @@ window.Cotador.tables.ms_solo = {
         if (!flags.showNoTeams && /\b(no|sem|without)\s+teams\b/i.test(nome)) return false;
         
         // 2. Classificação de Copilot / Bundles / Add-ons
-        const isBundleWithCopilot = /\b(?:with|w\/)\s+.*copilot\b/i.test(nome);
+        const isBundle = /\b(?:with|w\/)\b/i.test(nome) || /\band\s+(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome);
         const isGenericAddonOrAttach = /\b(attach|add[\s\-]?on)\b/i.test(nome);
-        const isNativeCopilotProduct = /^(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome) ||
-                                       /\bcopilot\s+(?:studio|for\s+sales|for\s+service|for\s+security|business)\b/i.test(nome);
+        const isNativeCopilotProduct = !isBundle && (
+          /^(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome) ||
+          /\bcopilot\s+(?:studio|for\s+sales|for\s+service|for\s+security|business)\b/i.test(nome)
+        );
 
         if (!flags.showCopilot) {
-          if (isBundleWithCopilot) return false;
+          if (isBundle) return false;
           if (isGenericAddonOrAttach && !isNativeCopilotProduct) return false;
           if (nome.includes('copilot') && !isNativeCopilotProduct) return false;
         }
