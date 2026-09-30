@@ -272,7 +272,6 @@ body.has-active-markup:not(.client-proposal-mode) #btn-calc-mode { border-color:
 .adobe-cambio-switch.is-locked .switch-thumb { transform: translateX(11px); }
 
 /* Container e Input de Quantidade */
-/* Container e Input de Quantidade */
 .qty-control-wrap {
   display: inline-flex;
   align-items: center;
@@ -306,7 +305,7 @@ body.has-active-markup:not(.client-proposal-mode) #btn-calc-mode { border-color:
 }
 
 /* Estado de Sucesso ao Copiar */
-.is-copied, .copy-qty-btn.is-copied {
+.copy-qty-btn.is-copied {
   background-color: #dff6dd !important;
   border-color: #107c10 !important;
   color: #107c10 !important;

@@ -29,8 +29,8 @@ function obterBandaAutoPorQtdKaspersky(qty) {
 }
 
 function extrairOrdemTipoKaspersky(row) {
-  const nome = (row.sale_item_name || '').toLowerCase();
-  const tipo = (row.tipo || '').toLowerCase();
+  const nome = String(row.sale_item_name || '').toLowerCase();
+  const tipo = String(row.tipo || '').toLowerCase();
   if (nome.includes('base plus') || tipo.includes('base plus')) return 2;
   if (nome.includes('successive') || tipo.includes('successive')) return 3;
   if (nome.includes('public sector') || tipo.includes('public sector') || tipo.includes('gov')) return 4;
@@ -117,7 +117,7 @@ window.Cotador.tables.kaspersky = {
       let data = [];
       const hasFoundationKw = item.keywords.some(kw => kw.toLowerCase().includes('foundation'));
       const hasEdrKw = item.keywords.some(kw => kw.toLowerCase() === 'edr');
-      const isPnQuery = item.keywords.length === 1 && /^KL[0-9A-Z]{5,}$/i.test(item.keywords[0]);
+      const isPnQuery = item.keywords.length === 1 && /^KL[0-9A-Z\-]{5,}$/i.test(item.keywords[0]);
 
       if (isPnQuery) {
         const params = [['select', '*'], ['limit', '500'], ['part_number', `ilike.*${item.keywords[0]}*`]];
@@ -144,9 +144,9 @@ window.Cotador.tables.kaspersky = {
       }
 
       data = data.filter(r => {
-        const nome = (r.sale_item_name || '').toLowerCase();
-        const tipo = (r.tipo || '').toLowerCase().trim();
-        const family = (r.family || '').toLowerCase().trim();
+        const nome = String(r.sale_item_name || '').toLowerCase();
+        const tipo = String(r.tipo || '').toLowerCase().trim();
+        const family = String(r.family || '').toLowerCase().trim();
 
         const isBasePlus = nome.includes('base plus') || tipo.includes('base plus');
         const isSuccessive = nome.includes('successive') || tipo.includes('successive');
@@ -177,8 +177,8 @@ window.Cotador.tables.kaspersky = {
         if (!flags.showCrossgrade && isCrossgrade) return false;
         if (!flags.showEduc && isEduc) return false;
 
-        if (flags.tipo !== 'all' && !isServiceOrTraining) {
-          const targetTipo = flags.tipo.toLowerCase();
+        if (flags.tipo && flags.tipo !== 'all' && !isServiceOrTraining) {
+          const targetTipo = String(flags.tipo).toLowerCase();
           if (targetTipo === 'base') {
             const matchBase = tipo === 'base' ||
               (flags.showBasePlus && isBasePlus && !tipo.includes('renew') && !tipo.includes('renov') && !nome.includes('renewal')) ||

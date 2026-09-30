@@ -18,10 +18,15 @@ window.CotadorAuth = {
   },
 
   _ensureClient() {
-    return this.supabase || this.init();
+    const client = this.supabase || this.init();
+    if (!client) throw new Error('Cliente Supabase não inicializado. Verifique o carregamento da biblioteca.');
+    return client;
   },
 
   _createIsolatedClient() {
+    if (typeof window.supabase === 'undefined' || typeof window.supabase.createClient !== 'function') {
+      throw new Error('Supabase não encontrado no escopo global ao criar cliente isolado.');
+    }
     const rawUrl = window.Cotador?.core?.SUPABASE_URL || "https://rftvbxlbltmiwamjhgzl.supabase.co/rest/v1";
     const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, '');
     const supabaseKey = window.Cotador?.core?.SUPABASE_KEY || "sb_publishable_fN_BXmhXXod2gpeyJ8u38Q_rvgDPl7N";
@@ -97,7 +102,7 @@ window.CotadorAuth = {
       p_request_id: requestId
     });
 
-    if (!rpcErr) {
+    if (!rpcErr && rpcUserId) {
       return { user: { id: rpcUserId, email: cleanEmail } };
     }
 

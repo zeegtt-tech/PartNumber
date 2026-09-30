@@ -573,12 +573,15 @@ window.Cotador.app = {
   },
 
   setKaspTipo(tipo) {
-  const currentTipo = document.getElementById('kasp-tipo').value;
-  if (currentTipo === tipo) return;
+    const kaspTipoEl = document.getElementById('kasp-tipo');
+    if (!kaspTipoEl) return;
+    
+    const currentTipo = kaspTipoEl.value;
+    if (currentTipo === tipo) return;
 
-  document.getElementById('kasp-tipo').value = tipo;
-  document.getElementById('btn-kasp-tipo-base').classList.toggle('active', tipo === 'Base');
-  document.getElementById('btn-kasp-tipo-renewal').classList.toggle('active', tipo === 'Renewal');
+    kaspTipoEl.value = tipo;
+    document.getElementById('btn-kasp-tipo-base')?.classList.toggle('active', tipo === 'Base');
+    document.getElementById('btn-kasp-tipo-renewal')?.classList.toggle('active', tipo === 'Renewal');
 
   this.analisarInput();
     if (this.parsedItems.length > 0) {
@@ -589,7 +592,9 @@ window.Cotador.app = {
   },
 
   limparInput() {
-    document.getElementById('input-itens').value = '';
+    const inputEl = document.getElementById('input-itens');
+    if (inputEl) inputEl.value = '';
+    
     this.analisarInput();
     this.resetarVisualGavetas();
     
@@ -600,7 +605,7 @@ window.Cotador.app = {
           Cole os produtos no painel esquerdo e clique em <span class="theme-text font-semibold">Buscar e Montar Tabelas</span>.
         </div>`;
     }
-    document.getElementById('input-itens').focus();
+    if (inputEl) inputEl.focus();
   },
 
   getAdobeAutoLevel(sum) {
@@ -626,7 +631,9 @@ window.Cotador.app = {
   },
 
   analisarInput() {
-    const raw = document.getElementById('input-itens').value;
+    const inputEl = document.getElementById('input-itens');
+    if (!inputEl) return;
+    const raw = inputEl.value;
     const { items, sumLicenses } = window.Cotador.core.parseInputLines(raw);
     this.parsedItems = items;
     this.totalLicenses = sumLicenses;
@@ -755,7 +762,7 @@ window.Cotador.app = {
         const chkPromo = document.getElementById('chk-adobe-promo');
         const usarPromo = chkPromo ? chkPromo.checked : false;
         const tabela = usarPromo ? 'adobe_promo' : 'adobe_base';
-        const lvlSelect = document.getElementById('adobe-level').value;
+        const lvlSelect = document.getElementById('adobe-level')?.value || 'auto';
         const segmentos = this.obterAdobeSegmentosAtivos();
         
         const facetTracker = {};
@@ -767,7 +774,7 @@ window.Cotador.app = {
           targetLevel: (lvlSelect === 'auto') 
             ? (this.totalLicenses > 0 ? this.getAdobeAutoLevel(this.totalLicenses) : 'all') 
             : lvlSelect,
-          taxaDolar: parseFloat(document.getElementById('adobe-dolar').value) || 4.80,
+          taxaDolar: parseFloat(document.getElementById('adobe-dolar')?.value) || 4.80,
           showAdobeStock: document.getElementById('chk-adobe-show-stock')?.checked ?? false,
           show3Y: document.getElementById('chk-adobe-show-3y')?.checked ?? false,
           showFRL: document.getElementById('chk-adobe-show-frl')?.checked ?? false,

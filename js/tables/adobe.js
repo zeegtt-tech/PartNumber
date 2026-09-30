@@ -9,7 +9,7 @@ function obterInfoLevelAdobe(levelDetail) {
   const isVipSelectLevel = /\blevel\s*1[234]\b/i.test(ld);
   const is3Y = ld.includes('3 year commit') || ld.includes('3y commit');
   const suffix3Y = is3Y ? ' (3Y Commit)' : '';
-  const offset = is3Y ? 20 : (isVipSelectLevel ? 10 : 0);
+  const offset = is3Y ? (isVipSelectLevel ? 30 : 20) : (isVipSelectLevel ? 10 : 0);
   
   if (/\blevel\s*0?1\b/i.test(ld) || /\b1\s*-\s*9\b/.test(ld) || /\b1\s+to\s+9\b/i.test(ld)) {
     return { id: is3Y ? 'lvl-1-3y' : 'lvl-1', ordem: 1 + offset, groupCode: '1', exactCode: '1', is3Y, isVipSelectLevel: false, label: `Level 1 (1-9)${suffix3Y}` };
@@ -269,7 +269,7 @@ function criarModuloAdobe(tableName, labelTitulo) {
           if (isTargetVipSelect) {
             return infoLvl.exactCode === target;
           }
-          return infoLvl.groupCode === target;
+          return infoLvl.groupCode === target && !infoLvl.isVipSelectLevel;
         });
 
         return { item, data: filtradosPorLevel };

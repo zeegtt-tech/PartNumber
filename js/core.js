@@ -106,7 +106,7 @@ window.Cotador.core = {
     try {
       if (!window.CotadorAuth) return;
       if (!window.CotadorAuth.supabase && typeof window.CotadorAuth.init === 'function') {
-        window.CotadorAuth.init();
+        await window.CotadorAuth.init();
       }
       if (!window.CotadorAuth.supabase) return;
 
@@ -2236,7 +2236,7 @@ window.Cotador.core = {
   },
 
   atualizarCambioAdobeEmTempoReal(novaTaxa) {
-    const taxa = parseFloat(novaTaxa);
+    const taxa = this.parsePrice(novaTaxa);
     if (isNaN(taxa) || taxa <= 0) return;
     document.querySelectorAll('.quote-block[data-currency="USD"]').forEach(block => {
       const newTitle = (block.getAttribute('data-title') || '').replace(/Câmbio:\s*R\$\s*[\d.,]+/i, `Câmbio: R$ ${this.formatBRL(taxa)}`);
