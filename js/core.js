@@ -1522,7 +1522,7 @@ window.Cotador.core = {
 
   normalizarChaveProdutoMS(rawName, itemIndex) {
     const clean = String(rawName || '').toLowerCase()
-      .replace(/\(\s*(?:non-profit\vert{}nonprofit\vert{}charity\vert{}education\vert{}academic\vert{}faculty\vert{}student\vert{}government\vert{}gov\vert{}commercial)[^)]*\)/gi, ' ')
+      .replace(/\(\s*(?:non-profit|nonprofit|charity|education|academic|faculty|student|government|gov|commercial)[^)]*\)/gi, ' ')
       .replace(/\b(commercial|education|academic|faculty|student|charity|non-profit|nonprofit|government|gov)\b/gi, ' ')
       .replace(/\b(sem\s+teams|without\s+teams)\b/gi, 'no teams')
       .replace(/[()]/g, ' ')
