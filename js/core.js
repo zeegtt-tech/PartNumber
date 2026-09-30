@@ -2437,9 +2437,9 @@ window.Cotador.core = {
     let txt = el.getAttribute('data-copy') ?? el.innerText.trim();
     const comSimboloMoeda = Boolean(event && (event.shiftKey || event.altKey));
     
-    if (!comSimboloMoeda && /[R$US$]/i.test(txt)) {
+    if (!comSimboloMoeda && /^(?:R\$|US\$)/i.test(txt)) {
       const num = this.parsePrice(txt);
-      txt = num > 0 ? num.toFixed(2).replace('.', ',') : txt.replace(/[R$US$\s]/gi, '').trim();
+      txt = num > 0 ? num.toFixed(2).replace('.', ',') : txt.replace(/^(?:R\$|US\$)\s*/i, '').trim();
     }
     
     if (!txt || txt === '-') return;
