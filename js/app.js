@@ -837,12 +837,11 @@ window.Cotador.app = {
         }
         container.innerHTML = `<div class="p-4 rounded bg-[#fdf3f4] border border-[#f8d7da] text-[#a4262c] text-xs"><b>Erro na consulta:</b> ${err.message}</div>`;
       } finally {
-        if (!searchSignal.aborted) {
-          btn.disabled = false;
-          btn.innerHTML = '<span>Buscar e Montar Tabelas</span>';
-        }
+      if (!searchSignal.aborted) {
+        btn.disabled = false;
+        btn.innerHTML = '<span>Buscar e Montar Tabelas</span>';
       }
+    }
   }
 };
-
 document.addEventListener('DOMContentLoaded', () => window.Cotador.app.init());

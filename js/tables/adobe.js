@@ -32,6 +32,7 @@ function obterInfoLevelAdobe(levelDetail) {
   if (/\blevel\s*0?4\b/i.test(ld) || /100\+/.test(ld)) {
     return { id: is3Y ? 'lvl-4-3y' : 'lvl-4', ordem: 4 + offset, groupCode: '4', exactCode: '4', is3Y, isVipSelectLevel: false, label: `Level 4 (100+)${suffix3Y}` };
   }
+  
   const slug = raw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'other';
   return { id: `lvl-${slug}`, ordem: 99, groupCode: 'other', exactCode: 'other', is3Y, isVipSelectLevel, label: raw || 'Padrão' };
 }
@@ -50,8 +51,8 @@ function extrairQualificadorAdobe(row) {
   let isPackOrSpecial = false;
   let moq = 1;
 
-  if (/renewal|renov/i.test(pTypeDetail) || /renewal/i.test(pType)) { badges.push('Renewal'); isPackOrSpecial = true; } 
-  else if (/upgrade|migrat|step/i.test(pTypeDetail) || /upgrade|migrat/i.test(add)) { badges.push('Upgrade/Migration'); isPackOrSpecial = true; } 
+  if (/renewal|renov/i.test(pTypeDetail) || /renewal/i.test(pType)) { badges.push('Renewal'); isPackOrSpecial = true; }
+  else if (/upgrade|migrat|step/i.test(pTypeDetail) || /upgrade|migrat/i.test(add)) { badges.push('Upgrade/Migration'); isPackOrSpecial = true; }
   else if (pTypeDetail && !/^(subscription|cloud subscription|standard)$/i.test(pTypeDetail)) { badges.push(pTypeDetail); }
 
   const packMatch = add.match(/\b((\d+)\s*Pack)\b/i);
@@ -69,7 +70,7 @@ function extrairQualificadorAdobe(row) {
   if (/\bMICROSOFT AZURE\b/i.test(add)) badges.push('Azure');
   else if (/\bAWS\b/i.test(add)) badges.push('AWS');
 
-  if (/Feature Restricted/i.test(pType) || /Feature Restricted/i.test(add)) { badges.push('FRL 36M'); isPackOrSpecial = true; } 
+  if (/Feature Restricted/i.test(pType) || /Feature Restricted/i.test(add)) { badges.push('FRL 36M'); isPackOrSpecial = true; }
   else if (/Term License/i.test(pType)) { badges.push('Term License'); isPackOrSpecial = true; }
 
   if (add) {
@@ -93,7 +94,7 @@ function extrairQualificadorAdobe(row) {
   if (dur && !/^(1 year|12 months|annual|anual|-)$/i.test(dur)) badges.push(dur);
   if (seg && !/^(commercial|comercial|corporate|-)$/i.test(seg)) { badges.push(seg); isPackOrSpecial = true; }
   if (metric && !/^(per user|user|named user|1|-)$/i.test(metric) && !badges.includes(metric)) badges.push(metric);
-
+  
   return { badges: Array.from(new Set(badges.filter(Boolean))), fullDetail: [pTypeDetail, add, lang, os, dur, metric, seg].filter(Boolean).join(' | '), isPackOrSpecial, moq };
 }
 
@@ -106,14 +107,12 @@ function enriquecerDiferencasIrmaosAdobe(rows) {
     if (!grupos.has(key)) grupos.set(key, []);
     grupos.get(key).push(r);
   });
-  
   const colsCandidatas = [
     { col: 'product_type_detail', label: '' }, { col: 'additional_detail', label: '' }, { col: 'language', label: 'Idioma: ' },
     { col: 'product_type', label: 'Tipo: ' }, { col: 'duration', label: 'Duração: ' }, { col: 'operating_system', label: 'OS: ' },
     { col: 'version', label: 'Ver: ' }, { col: 'metric', label: 'Métrica: ' }, { col: 'users', label: 'Users: ' },
     { col: 'pool', label: 'Pool: ' }, { col: 'segment', label: 'Seg: ' }, { col: 'channel', label: 'Canal: ' }
   ];
-  
   grupos.forEach(lista => {
     if (lista.length <= 1) return;
     const colsDiferentes = colsCandidatas.filter(({ col }) => new Set(lista.map(r => String(r[col] || '').trim().toLowerCase())).size > 1);

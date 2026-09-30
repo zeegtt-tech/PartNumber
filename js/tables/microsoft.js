@@ -124,10 +124,8 @@ function calcularScoreRelevanciaMS(nomeProdutoRaw, itemSearchRaw) {
   const nome = String(nomeProdutoRaw || '').toLowerCase().trim();
   const query = String(itemSearchRaw || '').toLowerCase().trim();
   let score = 100;
-
   // Match exato ou muito próximo ganha prioridade máxima
   if (nome === query || nome === `microsoft 365 ${query}` || nome === `microsoft 365 business ${query}`) score -= 80;
-
   // Prioridade para famílias Core B2B SMB
   if (/^microsoft 365 business (basic|standard|premium)$/i.test(nome)) score -= 60;
   else if (/^microsoft 365 (e3|e5|apps for business|apps for enterprise)/i.test(nome)) score -= 50;
@@ -137,14 +135,12 @@ function calcularScoreRelevanciaMS(nomeProdutoRaw, itemSearchRaw) {
   else if (/^power bi premium per user$/i.test(nome)) score -= 40;
   else if (/^(project|visio|intune|defender|entra)/i.test(nome)) score -= 35;
   else if (/^(windows server|sql server)/i.test(nome)) score -= 35;
-
   // Penaliza nomes muito longos (geralmente add-ons específicos ou SKUs de nicho)
   score += Math.min(25, Math.floor(nome.length / 8));
   return score;
 }
 
 window.Cotador.tables.ms_scan = {
-  async processar(parsedItems, flags = {}) {
     const core = window.Cotador.core;
     const container = document.getElementById('resultado-container');
     if (!flags.append && !flags.returnHTML) container.innerHTML = '';
