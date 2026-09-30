@@ -1962,8 +1962,9 @@ window.Cotador.core = {
     const safeCopy = this.escapeHTML(String(copyValue ?? displayText ?? ''));
     const safeLabel = this.escapeHTML(label);
     const hint = /[R$US$]/i.test(String(copyValue ?? displayText ?? ''))
-  ? `Clique p/ copiar número puro • Shift+Clique p/ copiar com R$`
-  : `Copiar ${safeLabel.toLowerCase()}`;
+      ? `Clique p/ copiar número puro • Shift+Clique p/ copiar com moeda`
+      : `Copiar ${safeLabel.toLowerCase()}`;
+    
     return `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${safeCopy}" data-label="${safeLabel}" title="${hint}" class="copy-link ${extraClass}">${safeDisplay}</span>`;
   },
 
@@ -2142,21 +2143,19 @@ window.Cotador.core = {
     });
     document.addEventListener('drop', (e) => { if (this._draggedRow) e.preventDefault(); });
     document.addEventListener('dragend', () => {
-      if (!this._draggedRow) return;
-      const movedRow = this._draggedRow; const sourceTbody = movedRow.parentElement;
-      movedRow.classList.remove('is-dragging'); this._draggedRow = null;
-      if (sourceTbody) this.sincronizarOrdemTabelas(sourceTbody, movedRow);
-    });
-  },
+        if (!this._draggedRow) return;
+        const movedRow = this._draggedRow; const sourceTbody = movedRow.parentElement;
+        movedRow.classList.remove('is-dragging'); this._draggedRow = null;
+        if (sourceTbody) this.sincronizarOrdemTabelas(sourceTbody, movedRow);
+      });
+    },
 
-  
-
-  prepararLinhasDrag() {
+    prepararLinhasDrag() {
     this.initDragEvents();
     document.querySelectorAll('.quote-block thead th').forEach((th, idx, arr) => {
       if (idx === arr.length - 1 || th.dataset.thReady) return;
       th.dataset.thReady = '1'; th.classList.add('copyable-th');
-      th.addEventListener('click', () => this.copiarColunaTabela(th, idx));
+      th.addEventListener('click', (e) => this.copiarColunaTabela(e, th, idx));
     });
     document.querySelectorAll('.quote-block tbody').forEach(tbody => {
       const keyCounts = {};
