@@ -141,6 +141,7 @@ function calcularScoreRelevanciaMS(nomeProdutoRaw, itemSearchRaw) {
 }
 
 window.Cotador.tables.ms_scan = {
+  async processar(parsedItems, flags = {}) {
     const core = window.Cotador.core;
     const container = document.getElementById('resultado-container');
     if (!flags.append && !flags.returnHTML) container.innerHTML = '';
