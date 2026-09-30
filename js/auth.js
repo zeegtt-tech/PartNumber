@@ -150,6 +150,6 @@ window.CotadorAuth = {
     const client = this._ensureClient();
     const { data, error } = await client.auth.updateUser({ password: novaSenha });
     if (error) throw error;
-    return data; 
+    return data;
   }
 };
