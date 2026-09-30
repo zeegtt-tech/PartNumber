@@ -272,12 +272,12 @@ body.has-active-markup:not(.client-proposal-mode) #btn-calc-mode { border-color:
 .adobe-cambio-switch.is-locked .switch-thumb { transform: translateX(11px); }
 
 /* Container e Input de Quantidade */
+/* Container e Input de Quantidade */
 .qty-control-wrap {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
 }
-
 .qty-input {
   width: 58px !important;
   text-align: center;
@@ -286,7 +286,6 @@ body.has-active-markup:not(.client-proposal-mode) #btn-calc-mode { border-color:
   border-radius: 4px;
   font-size: 12px;
 }
-
 /* Botão de Copiar Quantidade */
 .copy-qty-btn {
   display: flex;
@@ -301,7 +300,6 @@ body.has-active-markup:not(.client-proposal-mode) #btn-calc-mode { border-color:
   cursor: pointer;
   transition: all 0.2s ease;
 }
-
 .copy-qty-btn:hover {
   background-color: #e1dfdd;
   color: #323130;
@@ -323,7 +321,6 @@ body.has-active-markup:not(.client-proposal-mode) #btn-calc-mode { border-color:
 .calc-mode-segmented {
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
 }
-
 .calc-seg-btn {
   padding: 0.15rem 0.5rem;
   border-radius: 2px;
