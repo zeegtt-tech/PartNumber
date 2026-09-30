@@ -1,5 +1,5 @@
 // ============================================================================
-// MÓDULO DE AUTENTICAÇÃO - COTADOR v5.9 (Arquivo: js/auth.js)
+// MÓDULO DE AUTENTICAÇÃO - COTADOR v5.9
 // ============================================================================
 
 window.CotadorAuth = {
@@ -21,7 +21,6 @@ window.CotadorAuth = {
     return this.supabase || this.init();
   },
 
-  // Cria um cliente isolado sem persistência para cadastrar usuários no Admin sem derrubar a sessão atual
   _createIsolatedClient() {
     const rawUrl = window.Cotador?.core?.SUPABASE_URL || "https://rftvbxlbltmiwamjhgzl.supabase.co/rest/v1";
     const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, '');
@@ -34,12 +33,11 @@ window.CotadorAuth = {
   async login(email, password) {
     const client = this._ensureClient();
     const { data, error } = await client.auth.signInWithPassword({
-      email: String(email || '').trim(),
+      email: String(email || '').trim().toLowerCase(),
       password: password,
     });
     if (error) throw error;
 
-    // Verifica se o usuário está com credencial revogada no RBAC
     if (data?.user?.id) {
       try {
         const { data: profile } = await client
@@ -86,14 +84,29 @@ window.CotadorAuth = {
     if (error) throw error;
   },
 
-  async criarUsuarioVisualizadorDireto({ nome, email, password }) {
+  async criarUsuarioVisualizadorDireto({ nome, email, password, requestId = null }) {
     const client = this._ensureClient();
-    const tempClient = this._createIsolatedClient();
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const cleanNome = String(nome || '').trim();
+    const cleanPass = String(password || '').trim();
 
+    const { data: rpcUserId, error: rpcErr } = await client.rpc('admin_provisionar_usuario', {
+      p_email: cleanEmail,
+      p_nome: cleanNome,
+      p_password: cleanPass,
+      p_request_id: requestId
+    });
+
+    if (!rpcErr) {
+      return { user: { id: rpcUserId, email: cleanEmail } };
+    }
+
+    console.warn('RPC admin_provisionar_usuario indisponível, tentando fallback signUp:', rpcErr.message);
+    const tempClient = this._createIsolatedClient();
     const { data: signUpData, error: signUpErr } = await tempClient.auth.signUp({
-      email,
-      password,
-      options: { data: { nome, role: 'viewer' } }
+      email: cleanEmail,
+      password: cleanPass,
+      options: { data: { nome: cleanNome, role: 'viewer' } }
     });
     if (signUpErr) throw signUpErr;
 
@@ -103,8 +116,8 @@ window.CotadorAuth = {
         .from('user_profiles')
         .upsert({
           id: userId,
-          nome,
-          email,
+          nome: cleanNome,
+          email: cleanEmail,
           role: 'viewer',
           status: 'active',
           updated_at: new Date().toISOString()
@@ -116,7 +129,7 @@ window.CotadorAuth = {
 
   async aprovarSolicitacaoCriarUsuario({ requestId, email, nome, password }) {
     const client = this._ensureClient();
-    await this.criarUsuarioVisualizadorDireto({ nome, email, password });
+    await this.criarUsuarioVisualizadorDireto({ nome, email, password, requestId });
 
     const session = await this.getSession();
     const reviewedBy = session?.user?.email || window.Cotador?.core?.ADMIN_MASTER_EMAIL || 'admin';
@@ -131,5 +144,12 @@ window.CotadorAuth = {
       .eq('id', requestId);
 
     if (error) throw error;
+  },
+
+  async alterarSenhaUsuario(novaSenha) {
+    const client = this._ensureClient();
+    const { data, error } = await client.auth.updateUser({ password: novaSenha });
+    if (error) throw error;
+    return data;
   }
 };

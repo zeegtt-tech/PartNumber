@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Buscador de PNs | v5.9</title>
+  <title>Buscador de Produtos e Part Numbers | v1.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="./css/styles.css?v=5.9">
 
@@ -31,15 +31,16 @@
   <script defer src="./js/app.js?v=5.9"></script>
 </head>
 <body data-vendor="microsoft" class="min-h-screen bg-[#faf9f8] text-[#323130] hide-secondary-details hide-subtotals markup-disabled">
-  
+
   <!-- 1. DYNAMICS TOP BAR FIXA -->
   <header class="dynamics-topbar sticky top-0 z-50 w-full flex flex-col sm:flex-row items-center justify-between px-4 py-2 shadow-md transition-colors duration-300">
     <!-- Lado Esquerdo -->
     <div class="flex items-center gap-2.5 text-white w-full sm:w-auto mb-2 sm:mb-0">
       <svg class="w-4 h-4 opacity-90" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-      <h1 class="text-sm font-semibold tracking-tight">Gerador Comercial de PNs &amp; Cotação</h1>
-      <span class="text-[10px] px-2 py-0.5 rounded-sm bg-white/20 font-medium uppercase tracking-wide">v5.9</span>
+      <h1 class="text-sm font-semibold tracking-tight">Buscador de Produtos e Part Numbers</h1>
+      <span class="text-[10px] px-2 py-0.5 rounded-sm bg-white/20 font-medium uppercase tracking-wide">v1.0</span>
     </div>
+
     <!-- Lado Direito -->
     <div class="flex flex-wrap items-center gap-2.5">
       <!-- PTAX MOVIDO PARA A TOP BAR -->
@@ -48,6 +49,7 @@
         <span class="font-normal opacity-90">PTAX:</span>
         <span id="header-ptax-value" class="font-semibold text-white">R$ --,--</span>
       </div>
+
       <!-- BOTÃO + MINI JANELA DE DATAS DE ATUALIZAÇÃO -->
       <div id="update-popover-wrapper" class="relative">
         <button type="button" id="badge-last-update" onclick="Cotador.core.togglePainelAtualizacoes(event)" title="Ver data e horário de atualização" class="topbar-pill text-[11px] px-2.5 py-1 rounded font-medium flex items-center gap-1.5 select-none cursor-pointer">
@@ -55,6 +57,7 @@
           <span id="badge-last-update-text">Atualização: --/--/----</span>
           <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </button>
+
         <div id="popover-last-update" class="hidden absolute right-0 mt-2 w-80 bg-white border border-[#edebe9] rounded shadow-lg p-3 z-[60] text-xs text-[#323130]">
           <div class="flex items-center justify-between pb-2 mb-2 border-b border-[#edebe9]">
             <span class="font-semibold uppercase tracking-wider text-[#323130]">Atualização por Planilha</span>
@@ -65,16 +68,22 @@
           </div>
         </div>
       </div>
+
       <span class="topbar-pill text-[11px] px-2.5 py-1 rounded font-medium flex items-center gap-1.5">
         <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span> Online
       </span>
+
+      <!-- BOTÃO ALTERAR SENHA -->
+      <button type="button" onclick="Cotador.core.abrirModalAlterarSenha()" title="Alterar Senha" class="topbar-pill text-[11px] px-2.5 py-1 rounded font-medium flex items-center gap-1.5 select-none cursor-pointer hover:bg-white/20 transition">
+        <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <span>Alterar Senha</span>
+      </button>
 
       <!-- BOTÃO SAIR -->
       <button type="button" onclick="window.CotadorAuth.logout()" title="Sair do sistema" class="topbar-pill text-[11px] px-2.5 py-1 rounded font-medium flex items-center gap-1.5 select-none cursor-pointer hover:bg-red-500 hover:border-red-600 transition">
         <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
         <span>Sair</span>
       </button>
-
     </div>
   </header>
 
@@ -89,6 +98,7 @@
       <div class="flex flex-wrap items-center gap-2.5">
         <input type="checkbox" id="chk-mostrar-subtotal" class="sr-only" onchange="Cotador.core.recalcularSubtotais()">
         <input type="checkbox" id="chk-mostrar-detalhes" class="sr-only" onchange="Cotador.core.atualizarVisibilidadeDetalhes()">
+
         <!-- CONTROLES UNIFICADOS DE EXIBIÇÃO -->
         <div class="unified-view-control" role="group" aria-label="Controles">
           <button type="button" id="btn-toggle-all-view" onclick="Cotador.core.alternarVisaoUnificada()" title="Alternar visão completa/enxuta" class="mini-toggle-btn text-[#605e5c] px-2 border-r border-[#edebe9] rounded-none">
@@ -138,14 +148,35 @@
           </button>
 
           <!-- 3. FILTROS MICROSOFT -->
-          <div id="filtros-microsoft" class="space-y-3.5 pt-3 border-t border-[#edebe9]">
+          <div id="filtros-microsoft" class="space-y-3 pt-3 border-t border-[#edebe9]">
             
-            <!-- 3.1 MODALIDADES -->
-            <div>
-              <div class="flex items-center justify-between mb-1">
-                <label class="section-label !mb-0">Modalidades / Tabelas</label>
-                <span class="text-[10px] text-gray-400">1 por vez</span>
+            <!-- 3.1 MODALIDADES + MODIFICADOR COMERCIAL COMPACTO -->
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <label class="section-label !mb-0">Modalidade / Tabela</label>
+
+                <!-- Switch Compacto Inline: Scansource (-7%) -->
+                <div id="ms-box-scan-discount" title="Ativar ou desativar o desconto padrão Scansource (7%)">
+                  <label class="inline-flex items-center gap-1.5 cursor-pointer select-none text-[11px] bg-[#eff6fc] border border-[#c7e0f4] px-2 py-0.5 rounded">
+                    <input type="checkbox" id="chk-scan-discount" class="sr-only peer" checked onchange="Cotador.core.atualizarModificadoresMicrosoft();">
+                    <span class="text-[#323130] font-medium">Desc. Scan:</span>
+                    <span class="font-bold text-[#0078d4] peer-checked:inline hidden">-7%</span>
+                    <span class="font-bold text-gray-400 peer-checked:hidden inline">0%</span>
+                  </label>
+                  <input type="hidden" id="ms-scan-discount" value="7">
+                </div>
+
+                <!-- Switch Compacto Inline: CSP Solo (+5%) -->
+                <div id="ms-box-solo-service" class="hidden" title="Ativar ou desativar o adicional de serviços Solo (+5%)">
+                  <label class="inline-flex items-center gap-1.5 cursor-pointer select-none text-[11px] bg-[#eff6fc] border border-[#c7e0f4] px-2 py-0.5 rounded">
+                    <input type="checkbox" id="chk-solo-service" class="sr-only peer" checked onchange="Cotador.core.atualizarModificadoresMicrosoft();">
+                    <span class="text-[#323130] font-medium">Adic. Solo:</span>
+                    <span class="font-bold text-[#0078d4] peer-checked:inline hidden">+5%</span>
+                    <span class="font-bold text-gray-400 peer-checked:hidden inline">0%</span>
+                  </label>
+                </div>
               </div>
+
               <div class="grid grid-cols-2 gap-1.5">
                 <button type="button" onclick="Cotador.app.toggleMsModalidade('scan')" id="btn-ms-mod-scan" class="modality-chip modality-chip-scan active">Scan</button>
                 <button type="button" onclick="Cotador.app.toggleMsModalidade('solo')" id="btn-ms-mod-solo" class="modality-chip">CSP Solo</button>
@@ -154,54 +185,28 @@
               </div>
             </div>
 
-            <!-- TOGGLES COMERCIAIS (Dinâmicos) -->
-            
-            <!-- 3.1.1 SCANSOURCE -->
-            <div id="ms-box-scan-discount" title="Ativar ou desativar o desconto padrão Scansource">
-              <label class="group flex items-center justify-between w-full cursor-pointer bg-white border border-[#edebe9] [&:has(:checked)]:border-[#0078d4] rounded p-2 select-none transition-all shadow-sm hover:bg-gray-50">
-                <input type="checkbox" id="chk-scan-discount" class="peer sr-only" checked onchange="Cotador.core.atualizarModificadoresMicrosoft();">
-                
-                <div class="flex flex-col peer-checked:[&_.status-on]:block peer-checked:[&_.status-off]:hidden">
-                  <span class="text-[12px] font-semibold text-[#323130] transition-colors peer-checked:text-[#0078d4]">Desc. Scansource</span>
-                  <span class="text-[10px] font-medium text-[#8a8886] peer-checked:text-[#0078d4] transition-colors">
-                    <span class="status-on hidden">Ativo</span>
-                    <span class="status-off block">Inativo</span>
-                  </span>
-                </div>
-
-                <div class="px-2.5 py-0.5 rounded text-[12px] font-bold transition-all bg-gray-100 text-gray-500 peer-checked:bg-amber-100 peer-checked:text-amber-700 peer-checked:border-amber-300 tabular-nums border border-transparent peer-checked:[&_.val-on]:block peer-checked:[&_.val-off]:hidden">
-                  <span class="val-on hidden">7%</span>
-                  <span class="val-off block">0%</span>
-                </div>
-              </label>
-              <input type="hidden" id="ms-scan-discount" value="7">
+            <!-- 3.2 CONTRATOS CSP -->
+            <div id="ms-box-contratos" class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <label class="section-label !mb-0">Ciclo / Vigência CSP</label>
+                <button type="button" id="btn-toggle-trienais" onclick="Cotador.app.toggleTrienaisCSP()" class="text-[10px] font-medium theme-text hover:underline">+ Trienais</button>
+              </div>
+              <div class="grid grid-cols-3 gap-1.5" onchange="Cotador.app.reexecutarSeHouverItens()">
+                <label class="contract-chip"><input type="checkbox" id="chk-anual-anual" checked> Anual/Anual</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-anual-mensal" checked> Anual/Mensal</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-mensal-mensal"> Mensal/Mensal</label>
+              </div>
+              <div id="ms-contratos-trienais" class="hidden grid grid-cols-3 gap-1.5 pt-0.5" onchange="Cotador.app.reexecutarSeHouverItens()">
+                <label class="contract-chip"><input type="checkbox" id="chk-trienal-anual"> Trienal/Anual</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-trienal-mensal"> Trienal/Mensal</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-trienal-trienal"> Trienal/Total</label>
+              </div>
             </div>
 
-            <!-- 3.1.2 CSP SOLO -->
-            <div id="ms-box-solo-service" class="hidden" title="Ativar ou desativar o adicional de serviços (Solo)">
-              <label class="group flex items-center justify-between w-full cursor-pointer bg-white border border-[#edebe9] [&:has(:checked)]:border-[#0078d4] rounded p-2 select-none transition-all shadow-sm hover:bg-gray-50">
-                <input type="checkbox" id="chk-solo-service" class="peer sr-only" checked onchange="Cotador.core.atualizarModificadoresMicrosoft();">
-                
-                <div class="flex flex-col peer-checked:[&_.status-on]:block peer-checked:[&_.status-off]:hidden">
-                  <span class="text-[12px] font-semibold text-[#323130] transition-colors peer-checked:text-[#0078d4]">Adicional Serviç.</span>
-                  <span class="text-[10px] font-medium text-[#8a8886] peer-checked:text-[#0078d4] transition-colors">
-                    <span class="status-on hidden">Ativo</span>
-                    <span class="status-off block">Inativo</span>
-                  </span>
-                </div>
-
-                <div class="px-2.5 py-0.5 rounded text-[12px] font-bold transition-all bg-gray-100 text-gray-500 peer-checked:bg-amber-100 peer-checked:text-amber-700 peer-checked:border-amber-300 tabular-nums border border-transparent peer-checked:[&_.val-on]:block peer-checked:[&_.val-off]:hidden">
-                  <span class="val-on hidden">+5%</span>
-                  <span class="val-off block">0%</span>
-                </div>
-              </label>
-            </div>
-
-            <!-- 3.2 SEGMENTO DE MERCADO -->
+            <!-- 3.3 SEGMENTO DE MERCADO -->
             <div>
               <div class="flex items-center justify-between mb-1">
-                <label class="section-label !mb-0">Segmento de Mercado</label>
-                <span class="text-[10px] text-gray-400">1 por vez</span>
+                <label class="section-label !mb-0">Segmento</label>
               </div>
               <div class="grid grid-cols-4 gap-1">
                 <button type="button" onclick="Cotador.app.setMsSegmento('commercial')" id="btn-ms-seg-commercial" class="segment-chip active">Comercial</button>
@@ -211,71 +216,73 @@
               </div>
             </div>
 
-            <!-- 3.3 CONTRATOS CSP -->
-            <div id="ms-box-contratos" class="space-y-1.5">
-              <div class="flex items-center justify-between">
-                <label class="section-label !mb-0">Contratos CSP (Vigência / Ciclo)</label>
-                <button type="button" id="btn-toggle-trienais" onclick="Cotador.app.toggleTrienaisCSP()" class="text-[10px] font-medium theme-text hover:underline">+ Trienais</button>
-              </div>
-              <div class="grid grid-cols-3 gap-1.5">
-                <label class="contract-chip"><input type="checkbox" id="chk-anual-anual" checked> Anual/Anual</label>
-                <label class="contract-chip"><input type="checkbox" id="chk-anual-mensal" checked> Anual/Mensal</label>
-                <label class="contract-chip"><input type="checkbox" id="chk-mensal-mensal"> Mensal/Mensal</label>
-              </div>
-              <div id="ms-contratos-trienais" class="hidden grid grid-cols-3 gap-1.5 pt-0.5">
-                <label class="contract-chip"><input type="checkbox" id="chk-trienal-anual"> Trienal/Anual</label>
-                <label class="contract-chip"><input type="checkbox" id="chk-trienal-mensal"> Trienal/Mensal</label>
-                <label class="contract-chip"><input type="checkbox" id="chk-trienal-trienal"> Trienal/Total</label>
-              </div>
-            </div>
-
-            <!-- 3.4 FLAGS MICROSOFT -->
+            <!-- 3.4 GAVETA DE PRODUTOS SECUNDÁRIOS & REFINAMENTO (Fixa e Aberta por padrão) -->
             <div id="ms-box-flags">
-              <label class="section-label">Flags de Exibição &amp; Refinamento</label>
-              <div class="space-y-2 text-[11px] text-[#323130] font-normal bg-[#f3f2f1] p-2.5 rounded border border-[#edebe9]">
-                <!-- CSP -->
-                <details id="ms-flags-csp" class="group" open>
-                  <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[10px] font-semibold uppercase tracking-wider text-[#605e5c]">
-                    <span>Geral &amp; CSP (Scan / Solo)</span>
-                    <svg class="w-3.5 h-3.5 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                  </summary>
-                  <div class="space-y-1.5 pt-1.5">
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-show-noteams"><span>Exibir variantes "Sem Teams" (No Teams)</span></label>
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-show-copilot"><span>Exibir Bundles e Add-ons ("with Copilot" / Attach)</span></label>
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-show-trial"><span>Exibir "Trial / Gratuito / Promo"</span></label>
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-show-frontline" checked><span>Exibir linha "Frontline / Kiosk (F1/F3)"</span></label>
+              <details id="ms-drawer-secundarios" open class="group bg-[#f3f2f1] rounded border border-[#edebe9] p-2">
+                <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[11px] font-semibold text-[#323130]">
+                  <div class="flex items-center gap-1.5">
+                    <span>Linhas Secundárias &amp; Filtros</span>
+                    <span id="badge-ms-flags-count" class="px-1.5 py-0.2 rounded-full bg-white border border-[#c8c6c4] text-[9px] font-normal text-[#605e5c]">Busca Limpa</span>
                   </div>
-                </details>
-                <!-- Perpétuo/MPSA -->
-                <details id="ms-flags-perpetuo-mpsa" class="hidden group pt-2 border-t border-[#edebe9]" open>
-                  <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[10px] font-semibold uppercase tracking-wider text-[#605e5c]">
-                    <span>Perpétuo &amp; MPSA (Duração / Escopo)</span>
-                    <svg class="w-3.5 h-3.5 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                  </summary>
-                  <div class="space-y-1.5 pt-1.5">
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-pm-show-temp" onchange="Cotador.app.syncTempFlagsFromMaster(this.checked)"><span>Exibir Contratos Temporários / Assinaturas</span></label>
-                    <div class="grid grid-cols-3 gap-1 pt-0.5 pb-0.5">
-                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-mensal" onchange="Cotador.app.syncMasterFromTempPills()"><span>Exibir Mensal</span></label>
-                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-anual" onchange="Cotador.app.syncMasterFromTempPills()"><span>Exibir Anual</span></label>
-                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-trienal" onchange="Cotador.app.syncMasterFromTempPills()"><span>Exibir Trienal</span></label>
+                  <svg class="w-3.5 h-3.5 text-[#605e5c] transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </summary>
+
+                <div class="space-y-2.5 pt-2.5 mt-2 border-t border-[#edebe9] text-[11px]" onchange="Cotador.app.aoAlterarFlagsMicrosoft()">
+                  
+                  <!-- A. Variantes CSP -->
+                  <div id="ms-flags-csp" class="space-y-1">
+                    <span class="block text-[9px] font-bold uppercase tracking-wider text-[#605e5c]">Variantes de Oferta (CSP)</span>
+                    <div class="grid grid-cols-2 gap-1">
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-show-frontline"><span>Frontline (F1/F3)</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-show-noteams"><span>Sem Teams</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-show-copilot"><span>Bundles Copilot</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-show-trial"><span>Trial / Promo</span></label>
                     </div>
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-pm-show-stepup"><span>Exibir "Step-Up / Upgrade / Migration"</span></label>
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-pm-show-cals" checked><span>Exibir "CALs de Acesso" (User / Device)</span></label>
                   </div>
-                </details>
-                <!-- MPSA -->
-                <details id="ms-flags-mpsa" class="hidden group pt-2 border-t border-[#edebe9]" open>
-                  <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[10px] font-semibold uppercase tracking-wider text-[#605e5c]">
-                    <span>Opções de Uso MPSA</span>
-                    <svg class="w-3.5 h-3.5 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                  </summary>
-                  <div class="space-y-1.5 pt-1.5">
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-mpsa-show-sa"><span>Exibir "SA Only" (SA Avulso)</span></label>
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-mpsa-show-licsa"><span>Exibir "Licença + SA"</span></label>
-                    <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-mpsa-show-liconly"><span>Exibir "License Only" (Licença Pura)</span></label>
+
+                  <!-- B. Famílias de Baixa Saída (Nicho) -->
+                  <div id="ms-flags-niche" class="space-y-1 pt-1 border-t border-[#edebe9]">
+                    <span class="block text-[9px] font-bold uppercase tracking-wider text-[#605e5c]" title="Se você digitar o nome dessas linhas na busca, elas aparecem automaticamente">Famílias Secundárias (Nicho)</span>
+                    <div class="grid grid-cols-2 gap-1">
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-ms-show-phone"><span>Teams Phone / Voz</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-ms-show-dynamics"><span>Dynamics / PowerApps</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-ms-show-win365"><span>Windows 365 (Cloud PC)</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-ms-show-niche"><span>Clipchamp / Viva</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-ms-show-extconnector"><span>External Connector</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-ms-show-azurecloud"><span>Azure / Cloud</span></label>
+                    </div>
                   </div>
-                </details>
-              </div>
+
+                  <!-- C. Perpétuo & MPSA -->
+                  <div id="ms-flags-perpetuo-mpsa" class="hidden space-y-1.5 pt-1.5 border-t border-[#edebe9]">
+                    <span class="block text-[9px] font-bold uppercase tracking-wider text-[#605e5c]">Escopo Perpétuo &amp; MPSA</span>
+                    <div class="grid grid-cols-2 gap-1">
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-cals" checked><span>CALs de Acesso</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-stepup"><span>Step-Up / Upgrade</span></label>
+                    </div>
+                    <label id="lbl-pm-show-temp" class="flex items-center gap-1.5 pt-1 cursor-pointer text-[10px] font-medium text-[#323130]">
+                      <input type="checkbox" id="chk-pm-show-temp" onchange="Cotador.app.syncTempFlagsFromMaster(this.checked)">
+                      <span>Incluir Assinaturas Temporárias:</span>
+                    </label>
+                    <div class="grid grid-cols-3 gap-1">
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-mensal" onchange="Cotador.app.syncMasterFromTempPills()"><span>Mensal</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-anual" onchange="Cotador.app.syncMasterFromTempPills()"><span>Anual</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-trienal" onchange="Cotador.app.syncMasterFromTempPills()"><span>Trienal</span></label>
+                    </div>
+                  </div>
+
+                  <!-- D. Opções MPSA -->
+                  <div id="ms-flags-mpsa" class="hidden space-y-1 pt-1.5 border-t border-[#edebe9]">
+                    <span class="block text-[9px] font-bold uppercase tracking-wider text-[#605e5c]">Composição MPSA</span>
+                    <div class="grid grid-cols-3 gap-1">
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-mpsa-show-liconly" checked><span>Lic. Pura</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-mpsa-show-licsa"><span>Lic + SA</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-mpsa-show-sa"><span>SA Avulso</span></label>
+                    </div>
+                  </div>
+
+                </div>
+              </details>
             </div>
           </div>
 
@@ -284,6 +291,12 @@
             <div>
               <div class="flex items-center justify-between mb-1">
                 <label class="section-label !mb-0">Segmento Adobe</label>
+                <label class="inline-flex items-center gap-1.5 cursor-pointer select-none text-[11px] bg-[#fdf3f4] border border-[#f8d7da] px-2 py-0.5 rounded" title="Alternar entre tabela Adobe Base e Adobe Promo (Novos Clientes)">
+                  <input type="checkbox" id="chk-adobe-promo" class="sr-only peer" onchange="Cotador.app.reexecutarSeHouverItens()">
+                  <span class="text-[#323130] font-medium">Tabela:</span>
+                  <span class="font-bold text-[#a4262c] peer-checked:inline hidden">Promo</span>
+                  <span class="font-bold text-gray-500 peer-checked:hidden inline">Base</span>
+                </label>
               </div>
               <input type="hidden" id="adobe-segmento" value="teams">
               <div class="grid grid-cols-2 gap-1.5">
@@ -291,10 +304,11 @@
                 <button type="button" onclick="Cotador.app.toggleAdobeSegmento('enterprise')" id="btn-adobe-seg-enterprise" class="modality-chip">For Enterprise</button>
               </div>
             </div>
+
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="section-label">Filtro de Level</label>
-                <select id="adobe-level" class="select-input">
+                <select id="adobe-level" onchange="Cotador.app.reexecutarSeHouverItens()" class="select-input">
                   <option value="auto">Automático (Soma)</option>
                   <option value="1">Level 1 (1-9)</option>
                   <option value="2">Level 2 / 12 (10-49)</option>
@@ -318,13 +332,28 @@
                 </button>
               </div>
             </div>
-            <div>
-              <label class="section-label">Flags de Filtragem Adobe</label>
-              <div class="space-y-1.5 text-[11px] text-[#323130] font-normal bg-[#f3f2f1] p-2.5 rounded border border-[#edebe9]">
-                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-adobe-promo"><span>Usar Valor Promo <span class="text-gray-400">(Novo Cliente)</span></span></label>
-                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-adobe-show-stock"><span>Exibir opções "with Adobe Stock"</span></label>
-                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-adobe-hide-3y" checked><span>Ocultar "VIP Select 3 year commit"</span></label>
-              </div>
+
+            <!-- Gaveta de Filtros Secundários Adobe (Fixa e Aberta por padrão) -->
+            <div id="adobe-box-flags">
+              <details id="adobe-drawer-secundarios" open class="group bg-[#f3f2f1] rounded border border-[#edebe9] p-2">
+                <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[11px] font-semibold text-[#323130]">
+                  <div class="flex items-center gap-1.5">
+                    <span>Linhas Secundárias &amp; Filtros</span>
+                    <span id="badge-adobe-flags-count" class="px-1.5 py-0.2 rounded-full bg-white border border-[#c8c6c4] text-[9px] font-normal text-[#605e5c]">Busca Limpa</span>
+                  </div>
+                  <svg class="w-3.5 h-3.5 text-[#605e5c] transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </summary>
+                <div class="space-y-2.5 pt-2.5 mt-2 border-t border-[#edebe9] text-[11px]" onchange="Cotador.app.aoAlterarFlagsGlobal()">
+                  <div class="grid grid-cols-2 gap-1">
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-adobe-show-stock"><span>Com Adobe Stock</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-adobe-show-3y"><span>VIP Select (3 Anos)</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-adobe-show-frl"><span>FRL (Offline)</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-adobe-show-pack"><span>Packs / MOQ</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-adobe-show-renewal"><span>Renovações</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-adobe-show-upgrade"><span>Upgrades / Step-up</span></label>
+                  </div>
+                </div>
+              </details>
             </div>
           </div>
 
@@ -338,19 +367,22 @@
                 <button type="button" onclick="Cotador.app.setKaspTipo('Renewal')" id="btn-kasp-tipo-renewal" class="modality-chip">Renew</button>
               </div>
             </div>
+
             <div>
               <label class="section-label">Períodos (Flags)</label>
-              <div class="grid grid-cols-5 gap-1 text-[11px] text-[#323130] font-medium bg-[#f3f2f1] p-2 rounded border border-[#edebe9]">
-                <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p1"><span>1 Ano</span></label>
+              <div class="grid grid-cols-5 gap-1 text-[11px] text-[#323130] font-medium bg-[#f3f2f1] p-2 rounded border border-[#edebe9]" onchange="Cotador.app.reexecutarSeHouverItens()">
+                <!-- SOMENTE 1 ANO MARCADO POR PADRÃO -->
+                <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p1" checked><span>1 Ano</span></label>
                 <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p2"><span>2 Anos</span></label>
                 <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p3"><span>3 Anos</span></label>
                 <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p4"><span>4 Anos</span></label>
                 <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p5"><span>5 Anos</span></label>
               </div>
             </div>
+
             <div>
               <label class="section-label">Faixa (Banda)</label>
-              <select id="kasp-banda" class="select-input">
+              <select id="kasp-banda" onchange="Cotador.app.reexecutarSeHouverItens()" class="select-input">
                 <option value="auto">Automático pela Soma</option>
                 <option value="5-9">5-9</option><option value="10-14">10-14</option><option value="15-19">15-19</option>
                 <option value="20-24">20-24</option><option value="25-49">25-49</option><option value="50-99">50-99</option>
@@ -359,24 +391,40 @@
                 <option value="all">Todas as Bandas</option>
               </select>
             </div>
+            
             <div>
               <label class="section-label">Flags de Preço</label>
-              <div class="space-y-1.5 text-[11px] text-[#323130] font-normal bg-[#f3f2f1] p-2.5 rounded border border-[#edebe9]">
+              <div class="space-y-1.5 text-[11px] text-[#323130] font-normal bg-[#f3f2f1] p-2.5 rounded border border-[#edebe9]" onchange="Cotador.app.reexecutarSeHouverItens()">
                 <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-price-revenda" checked><span>Exibir "Valor de Revenda"</span></label>
                 <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-price-ro"><span>Exibir "Valor com RO"</span></label>
                 <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-price-naoprime"><span>Exibir "Não Prime sem RO"</span></label>
               </div>
             </div>
-            <div>
-              <label class="section-label">Flags de Exibição Kaspersky</label>
-              <div class="space-y-1.5 text-[11px] text-[#323130] font-normal bg-[#f3f2f1] p-2.5 rounded border border-[#edebe9]">
-                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-show-baseplus"><span>Exibir "Base Plus"</span></label>
-                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-show-successive"><span>Exibir "Successive Licence"</span></label>
-                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-show-public"><span>Exibir "Public Sector Licence"</span></label>
-                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-show-training"><span>Exibir "Training / Treinamentos (ATC)"</span></label>
-              </div>
+
+            <!-- GAVETA DE FILTROS KASPERSKY (Fixa e Aberta por padrão) -->
+            <div id="kaspersky-box-flags">
+              <details id="kaspersky-drawer-secundarios" open class="group bg-[#f3f2f1] rounded border border-[#edebe9] p-2">
+                <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[11px] font-semibold text-[#323130]">
+                  <div class="flex items-center gap-1.5">
+                    <span>Linhas Secundárias &amp; Filtros</span>
+                    <span id="badge-kasp-flags-count" class="px-1.5 py-0.2 rounded-full bg-white border border-[#c8c6c4] text-[9px] font-normal text-[#605e5c]">Busca Limpa</span>
+                  </div>
+                  <svg class="w-3.5 h-3.5 text-[#605e5c] transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </summary>
+                <div class="space-y-2.5 pt-2.5 mt-2 border-t border-[#edebe9] text-[11px]" onchange="Cotador.app.aoAlterarFlagsGlobal()">
+                  <div class="grid grid-cols-2 gap-1">
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-baseplus"><span>Base Plus</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-successive"><span>Successive</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-public"><span>Public Sector</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-training"><span>ATC Training</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-crossgrade"><span>Cross-grade</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-educ"><span>Educational / Edu</span></label>
+                  </div>
+                </div>
+              </details>
             </div>
           </div>
+
         </div>
       </div>
       
@@ -414,5 +462,36 @@
       
     </div>
   </div>
+
+  <!-- MODAL ALTERAR SENHA -->
+  <div id="modal-alterar-senha" class="hidden fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-md shadow-2xl p-6 w-full max-w-sm border border-[#edebe9]">
+      <div class="flex justify-between items-center mb-4 border-b border-[#edebe9] pb-2">
+        <h3 class="font-semibold text-lg text-[#323130] flex items-center gap-2">
+          <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          Segurança da Conta
+        </h3>
+        <button type="button" onclick="Cotador.core.fecharModalAlterarSenha()" class="text-gray-400 hover:text-gray-600">&#10005;</button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="section-label">Nova Senha</label>
+          <input type="password" id="nova-senha" placeholder="Mínimo 6 caracteres" class="select-input w-full">
+        </div>
+        <div>
+          <label class="section-label">Confirmar Senha</label>
+          <input type="password" id="confirma-senha" placeholder="Digite novamente" class="select-input w-full">
+        </div>
+        <p class="text-[10px] text-gray-500 mt-1">Sua senha deve ter no mínimo 6 caracteres para atender aos requisitos básicos de segurança.</p>
+      </div>
+      <div class="flex justify-end gap-2 mt-6">
+        <button type="button" onclick="Cotador.core.fecharModalAlterarSenha()" class="px-4 py-2 bg-[#f3f2f1] hover:bg-[#edebe9] text-[#323130] rounded text-xs font-semibold transition">Cancelar</button>
+        <button type="button" onclick="Cotador.core.salvarNovaSenha()" id="btn-salvar-senha" class="px-4 py-2 btn-theme-primary rounded text-xs shadow-sm">
+          Salvar Nova Senha
+        </button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

@@ -223,8 +223,6 @@ function extrairQualificadorAdobe(row) {
   };
 }
 
-// Garante que se 2+ SKUs do mesmo produto e level ainda tiverem os mesmos badges,
-// qualquer coluna divergente no banco (ou o final do PN) seja exibida para diferenciá-los.
 function enriquecerDiferencasIrmaosAdobe(rows) {
   const grupos = new Map();
   rows.forEach(r => {
@@ -284,7 +282,7 @@ function renderizarCelulaQtdAdobe(core, qty, moq, fullDetail) {
   const abaixoMoq = qty === '-' || qty === null || qty === '' || isNaN(numQty) || numQty < moq;
   const detalheMsg = core.escapeHTML(fullDetail || `Mínimo exigido: ${moq}`);
 
-  return `<td class=" adobe-qty-cell" data-moq="${moq}" oninput="
+  return `<td class="adobe-qty-cell" data-moq="${moq}" oninput="
     const val = parseFloat(event.target.value);
     const warn = this.querySelector('.moq-warning');
     if (warn) {
@@ -299,9 +297,15 @@ function renderizarCelulaQtdAdobe(core, qty, moq, fullDetail) {
       </span>
     </div>
   </td>`;
+
+  return `<div class="flex flex-col items-center gap-1">
+  ${window.Cotador.core.renderQtyInput(r.quantidade)}
+  ${moqBadge}
+</div>`;
+
+
 }
 
-// Auxiliar para não descartar "Acrobat Sign Solutions for business" nem "Elements 2026"
 function pertenceAoSegmentoAdobe(prodFamily, seg, totalSegmentosAtivos) {
   const pf = String(prodFamily || '').toLowerCase();
   if (pf.includes(seg)) return true;
@@ -320,10 +324,9 @@ function criarModuloAdobe(tableName, labelTitulo) {
         ? flags.segmentos
         : [flags.segmento || 'teams'];
 
-      // 1. Busca os dados elegíveis de cada item primeiro (sem filtrar por level ainda)
       const promessas = parsedItems.map(async item => {
         const params = [['select', '*'], ['limit', '800']];
-        const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z]{10,18}$/i.test(item.keywords[0]);
+        const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z]{10,18}$/i.test(item.keywords[0]) && /\d/.test(item.keywords[0]);
 
         if (isPnQuery) {
           params.push(['part_number', `ilike.*${item.keywords[0]}*`]);
@@ -339,16 +342,55 @@ function criarModuloAdobe(tableName, labelTitulo) {
           const preco = core.parsePrice(r.partner_price);
           if (preco <= 0) return false;
 
+          if (!pertenceAoSegmentoAdobe(r.product_family, segmentosAtivos[0], segmentosAtivos.length)) {
+            return false;
+          }
+
           const infoLvl = obterInfoLevelAdobe(r.level_detail);
+          const qual = extrairQualificadorAdobe(r);
+          r._qualCache = qual;
 
-          // Se chk-adobe-hide-3y estiver marcado, oculta 3Y Commit e os níveis VIP Select (Level 12/13/14)
-          if (flags.hide3YCommit && (infoLvl.is3Y || infoLvl.isVipSelectLevel)) {
-            return false;
+          const searchStr = (item.rawSearch || '').toLowerCase();
+          const is3YOrVip = Boolean(infoLvl.is3Y || infoLvl.isVipSelectLevel);
+          const isStock = prodName.includes('with adobe stock');
+          const isRenewal = qual.badges.includes('Renewal');
+          const isFRL = qual.badges.includes('FRL 36M') || qual.badges.includes('Feature Restricted');
+          const isUpgrade = qual.badges.includes('Upgrade/Migration');
+          const isPack = Boolean(qual.moq > 1 || qual.badges.some(b => /pack|moq|credit/i.test(b)));
+
+          const buscou3Y = /\b(3y|3\s*anos|3\s*year|vip\s*select|level\s*1[234])\b/i.test(searchStr);
+          const buscouRenewal = /\b(renov|renewal)\b/i.test(searchStr);
+          const buscouFRL = /\b(frl|restricted|offline)\b/i.test(searchStr);
+          const buscouUpgrade = /\b(upgrade|migrat|step)\b/i.test(searchStr);
+          const buscouPack = /\b(pack|moq|credit)\b/i.test(searchStr);
+
+          if (flags.facetTracker) {
+            if (isStock && !buscouStockExplicito) {
+              flags.facetTracker['chk-adobe-show-stock'] = (flags.facetTracker['chk-adobe-show-stock'] || 0) + 1;
+            }
+            if (is3YOrVip && !buscou3Y) {
+              flags.facetTracker['chk-adobe-show-3y'] = (flags.facetTracker['chk-adobe-show-3y'] || 0) + 1;
+            }
+            if (isFRL && !buscouFRL) {
+              flags.facetTracker['chk-adobe-show-frl'] = (flags.facetTracker['chk-adobe-show-frl'] || 0) + 1;
+            }
+            if (isPack && !buscouPack) {
+              flags.facetTracker['chk-adobe-show-pack'] = (flags.facetTracker['chk-adobe-show-pack'] || 0) + 1;
+            }
+            if (isRenewal && !buscouRenewal) {
+              flags.facetTracker['chk-adobe-show-renewal'] = (flags.facetTracker['chk-adobe-show-renewal'] || 0) + 1;
+            }
+            if (isUpgrade && !buscouUpgrade) {
+              flags.facetTracker['chk-adobe-show-upgrade'] = (flags.facetTracker['chk-adobe-show-upgrade'] || 0) + 1;
+            }
           }
 
-          if (!flags.showAdobeStock && !buscouStockExplicito && prodName.includes('with adobe stock')) {
-            return false;
-          }
+          if (isStock && !flags.showAdobeStock && !buscouStockExplicito) return false;
+          if (is3YOrVip && !flags.show3Y && !buscou3Y) return false;
+          if (isFRL && !flags.showFRL && !buscouFRL) return false;
+          if (isPack && !flags.showPack && !buscouPack) return false;
+          if (isRenewal && !flags.showRenewal && !buscouRenewal) return false;
+          if (isUpgrade && !flags.showUpgrade && !buscouUpgrade) return false;
 
           return true;
         });
@@ -358,7 +400,6 @@ function criarModuloAdobe(tableName, labelTitulo) {
 
       const resultadosBrutos = await Promise.all(promessas);
 
-      // 2. Calcula a faixa ("Automático pela Soma") usando APENAS os itens Adobe válidos encontrados
       const itensAdobeValidos = resultadosBrutos
         .filter(({ data }) => data.length > 0)
         .map(({ item }) => item);
@@ -378,7 +419,6 @@ function criarModuloAdobe(tableName, labelTitulo) {
         }
       }
 
-      // 3. Aplica o filtro de Level (suportando separação entre 2/3/4 e 12/13/14)
       const resultados = resultadosBrutos.map(({ item, data }) => {
         if (effectiveLevel === 'all') return { item, data };
 
@@ -426,7 +466,6 @@ function criarModuloAdobe(tableName, labelTitulo) {
               return matchSeg && info.id === lvl.id;
             });
 
-            // Ordena priorizando licença padrão (sem Pack/MOQ restrito) antes de Packs promocionais
             filtrados.sort((a, b) => {
               const prodA = (a.product_family || '').toLowerCase().trim();
               const prodB = (b.product_family || '').toLowerCase().trim();
@@ -453,7 +492,6 @@ function criarModuloAdobe(tableName, labelTitulo) {
               const infoLvl = obterInfoLevelAdobe(r.level_detail);
               const qual = r._qualCache || extrairQualificadorAdobe(r);
 
-              // Mescla os badges extraídos com eventuais colunas divergentes entre SKUs irmãos
               const todosBadges = [...qual.badges];
               if (Array.isArray(r._diffExtras)) {
                 r._diffExtras.forEach(ext => {

@@ -1,5 +1,5 @@
 // ============================================================================
-// NÚCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.9 ENTERPRISE (Arquivo: js/core.js)
+// NÚCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.9 ENTERPRISE
 // ============================================================================
 window.Cotador = { core: {}, tables: {}, app: {} };
 
@@ -22,13 +22,49 @@ window.Cotador.core = {
   setCalcMode() {},
   toggleCalcMode() {},
 
-  // Estado de Autenticação & RBAC
   currentUser: null,
   currentProfile: null,
   isAdmin: false,
   adminViewAtiva: false,
   adminActiveTab: 'solicitacoes',
   _adminPendingCount: 0,
+
+  // ==========================================================================
+  // LÓGICA DO MODAL DE ALTERAÇÃO DE SENHA
+  // ==========================================================================
+  abrirModalAlterarSenha() {
+    const modal = document.getElementById('modal-alterar-senha');
+    if (modal) modal.classList.remove('hidden');
+  },
+
+  fecharModalAlterarSenha() {
+    const modal = document.getElementById('modal-alterar-senha');
+    if (modal) modal.classList.add('hidden');
+    const input1 = document.getElementById('nova-senha');
+    const input2 = document.getElementById('confirma-senha');
+    if (input1) input1.value = '';
+    if (input2) input2.value = '';
+  },
+
+  async salvarNovaSenha() {
+    const s1 = document.getElementById('nova-senha').value;
+    const s2 = document.getElementById('confirma-senha').value;
+    const btn = document.getElementById('btn-salvar-senha');
+
+    if (s1.length < 6) return alert('A senha deve ter no mínimo 6 caracteres para segurança.');
+    if (s1 !== s2) return alert('As senhas não coincidem. Digite novamente.');
+
+    if (btn) { btn.innerText = 'Salvando...'; btn.disabled = true; }
+    try {
+      await window.CotadorAuth.alterarSenhaUsuario(s1);
+      this.mostrarToast('Senha alterada com sucesso!');
+      this.fecharModalAlterarSenha();
+    } catch (err) {
+      alert('Erro ao alterar senha: ' + (err.message || 'Falha na comunicação.'));
+    } finally {
+      if (btn) { btn.innerHTML = 'Salvar Nova Senha'; btn.disabled = false; }
+    }
+  },
 
   // ==========================================================================
   // 1. SEGURANÇA, RBAC E PAINEL ADMINISTRATIVO (TELA DEDICADA)
@@ -50,7 +86,6 @@ window.Cotador.core = {
       this.currentUser = session.user;
       const emailLogado = String(session.user.email || '').trim().toLowerCase();
 
-      // Consulta o perfil na tabela user_profiles (protegida por RLS no Supabase)
       let profile = null;
       try {
         const { data, error } = await window.CotadorAuth.supabase
@@ -58,11 +93,9 @@ window.Cotador.core = {
           .select('*')
           .eq('id', session.user.id)
           .maybeSingle();
-
         if (!error && data) profile = data;
       } catch (_) {}
 
-      // Se o usuário estiver com acesso revogado, encerra a sessão imediatamente
       if (profile && profile.status === 'revoked') {
         alert('Seu acesso a esta ferramenta foi revogado pelo Administrador.');
         await window.CotadorAuth.logout();
@@ -70,11 +103,9 @@ window.Cotador.core = {
       }
 
       this.currentProfile = profile;
-
-      // Verificação de Privilégio Admin:
-      // Checa role no banco ('admin'), app_metadata no JWT ou e-mail do Admin Global autenticado via JWT
       const roleBanco = String(profile?.role || '').toLowerCase();
       const roleJwt = String(session.user?.app_metadata?.role || '').toLowerCase();
+
       this.isAdmin = (
         roleBanco === 'admin' ||
         roleJwt === 'admin' ||
@@ -106,7 +137,6 @@ window.Cotador.core = {
       e.stopPropagation();
       this.alternarTelaAdmin();
     };
-
     btnAdmin.innerHTML = `
       <svg class="w-3.5 h-3.5 shrink-0 text-amber-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
@@ -115,7 +145,6 @@ window.Cotador.core = {
       <span id="badge-admin-pending" class="hidden px-1.5 py-0.2 rounded-full bg-amber-400 text-[#323130] text-[10px] font-bold tabular-nums">0</span>
     `;
 
-    // Posiciona EXATAMENTE à esquerda do indicador da PTAX
     ptaxPanel.parentElement.insertBefore(btnAdmin, ptaxPanel);
   },
 
@@ -146,7 +175,6 @@ window.Cotador.core = {
 
     this.adminViewAtiva = typeof forcarEstado === 'boolean' ? forcarEstado : !this.adminViewAtiva;
 
-    // Localiza o container principal do Cotador
     const mainCotadorContainer = document.querySelector('body > div.max-w-\\[1600px\\]');
     let adminView = document.getElementById('admin-dedicated-view');
 
@@ -359,14 +387,15 @@ window.Cotador.core = {
             : `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">Pendente</span>`);
 
         const dataCriacao = this.formatarDataHoraCompleta(req.created_at);
+        const safeId = this.escapeHTML(String(req.id || ''));
         const safeEmail = this.escapeHTML(req.email || '');
         const safeNome = this.escapeHTML(req.nome || '');
         const safeMotivo = this.escapeHTML(req.motivo || '-');
 
         const acoesHTML = status === 'pending'
           ? `<div class="flex items-center justify-end gap-1.5">
-              <button type="button" onclick="Cotador.core.aprovarSolicitacaoAdmin('${req.id}', '${safeEmail}', '${safeNome}')" class="px-2.5 py-1 rounded text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition">Aprovar e Liberar</button>
-              <button type="button" onclick="Cotador.core.recusarSolicitacaoAdmin('${req.id}')" class="px-2.5 py-1 rounded text-[11px] font-semibold bg-white hover:bg-red-50 text-red-700 border border-red-200 transition">Negar</button>
+              <button type="button" data-req-id="${safeId}" data-req-email="${safeEmail}" data-req-nome="${safeNome}" onclick="Cotador.core.aprovarSolicitacaoAdmin(this.dataset.reqId, this.dataset.reqEmail, this.dataset.reqNome)" class="px-2.5 py-1 rounded text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition">Aprovar e Liberar</button>
+              <button type="button" data-req-id="${safeId}" onclick="Cotador.core.recusarSolicitacaoAdmin(this.dataset.reqId)" class="px-2.5 py-1 rounded text-[11px] font-semibold bg-white hover:bg-red-50 text-red-700 border border-red-200 transition">Negar</button>
             </div>`
           : `<span class="text-[11px] text-gray-400">Processado</span>`;
 
@@ -404,41 +433,59 @@ window.Cotador.core = {
     }
   },
 
+  abrirClienteEmailOutlook(email, nome, senhaTemporaria) {
+    const assunto = encodeURIComponent('Acesso Liberado - Gerador Comercial de PNs & Cotação');
+    const urlLogin = `${window.location.origin}/login.html`;
+    const corpo = encodeURIComponent(
+      `Olá ${nome},\n\n` +
+      `Sua solicitação de acesso ao Gerador Comercial de PNs (Solo Network) foi aprovada!\n\n` +
+      `Link de acesso: ${urlLogin}\n` +
+      `E-mail (Login): ${email}\n` +
+      `Senha Inicial: ${senhaTemporaria}\n` +
+      `Perfil: Visualizador Padrão\n\n` +
+      `Atenciosamente,\nAdministração do Sistema`
+    );
+
+    const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${assunto}&body=${corpo}`;
+    const link = document.createElement('a');
+    link.href = mailtoUrl;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => link.remove(), 300);
+  },
+
   async aprovarSolicitacaoAdmin(reqId, email, nome) {
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const cleanNome = String(nome || '').trim();
+
     const senhaTemporaria = prompt(
-      `Aprovar acesso de Visualizador para ${nome} (${email}).\n\nDigite uma senha temporária inicial (mínimo 6 caracteres) para criar a credencial de acesso do usuário:`,
+      `Aprovar acesso de Visualizador para ${cleanNome} (${cleanEmail}).\n\nDigite uma senha temporária inicial (mínimo 6 caracteres) para criar a credencial de acesso do usuário:`,
       `Solo@${Math.floor(1000 + Math.random() * 9000)}`
     );
+
     if (!senhaTemporaria || senhaTemporaria.trim().length < 6) {
       this.mostrarToast('Aprovação cancelada: a senha deve ter no mínimo 6 caracteres.');
       return;
     }
 
+    const senhaFinal = senhaTemporaria.trim();
+
     try {
       await window.CotadorAuth.aprovarSolicitacaoCriarUsuario({
         requestId: reqId,
-        email: email.trim().toLowerCase(),
-        nome: nome.trim(),
-        password: senhaTemporaria.trim()
+        email: cleanEmail,
+        nome: cleanNome,
+        password: senhaFinal
       });
 
-      this.mostrarToast(`Acesso aprovado para ${email}!`);
+      this.mostrarToast(`Acesso aprovado para ${cleanEmail}!`);
       this.carregarSolicitacoesAdmin();
       this.atualizarContadorPendenciasAdmin();
 
-      const assunto = encodeURIComponent('Acesso Liberado - Gerador Comercial de PNs & Cotação');
-      const corpo = encodeURIComponent(
-        `Olá ${nome},\n\nSua solicitação de acesso ao Gerador Comercial de PNs (Solo Network) foi aprovada!\n\n` +
-        `Link de acesso: ${window.location.origin}/login.html\n` +
-        `E-mail: ${email}\n` +
-        `Senha Inicial: ${senhaTemporaria.trim()}\n` +
-        `Perfil: Visualizador Padrão\n\nAtenciosamente,\nAdministração do Sistema`
-      );
-      if (confirm(`Usuário ${email} liberado com sucesso!\n\nDeseja abrir seu cliente de e-mail (Outlook) agora para enviar a confirmação de acesso ao usuário?`)) {
-        window.open(`mailto:${email}?subject=${assunto}&body=${corpo}`, '_blank');
-      }
+      this.abrirClienteEmailOutlook(cleanEmail, cleanNome, senhaFinal);
     } catch (err) {
-      alert('Erro ao aprovar solicitação: ' + err.message);
+      alert('Erro ao aprovar solicitação: ' + (err?.message || err));
     }
   },
 
@@ -584,7 +631,7 @@ window.Cotador.core = {
   },
 
   // ==========================================================================
-  // MÓDULO 3 DO ADMIN: MOTOR DE UPLOAD CSV COM AUTO-ENCODING E ROLLBACK SEGURO
+  // 3. MOTOR DE UPLOAD CSV COM AUTO-ENCODING E ROLLBACK SEGURO
   // ==========================================================================
   _adminLog(msg) {
     const el = document.getElementById('admin-upload-log');
@@ -822,7 +869,6 @@ window.Cotador.core = {
               return resolve(true);
             }
 
-            // Snapshot de Backup para Rollback
             this._adminLog(`[Backup] Criando snapshot em memória de [${targetTable}]...`);
             const backupRows = [];
             let from = 0;
@@ -839,7 +885,6 @@ window.Cotador.core = {
             }
             this._adminLog(`   -> Snapshot salvo (${backupRows.length} registros).`);
 
-            // Limpeza da tabela
             this._adminLog(`[Limpeza] Removendo registros antigos de [${targetTable}]...`);
             let delErr = (await sb.rpc('limpar_tabela', { nome_tabela: targetTable })).error;
             if (delErr) {
@@ -850,7 +895,6 @@ window.Cotador.core = {
               return resolve(false);
             }
 
-            // Inserção em lotes de 800
             const chunkSize = 800;
             for (let i = 0; i < mappedRows.length; i += chunkSize) {
               const chunk = mappedRows.slice(i, i + chunkSize);
@@ -869,7 +913,6 @@ window.Cotador.core = {
               this._adminLog(`   -> Progresso [${targetTable}]: ${done} / ${mappedRows.length}`);
             }
 
-            // Atualiza catálogo de datas
             const meta = this.CATALOGO_TABELAS.find(t => t.id === targetTable);
             await sb.from('catalogo_atualizacoes').upsert({
               tabela: targetTable,
@@ -901,7 +944,7 @@ window.Cotador.core = {
   },
 
   // ==========================================================================
-  // 2. MODIFICADORES MICROSOFT E CONTROLE DE SESSÃO DE BUSCA
+  // 4. MODIFICADORES MICROSOFT E CONTROLE DE SESSÃO DE BUSCA
   // ==========================================================================
   atualizarModificadoresMicrosoft() {
     const chkScan = document.getElementById('chk-scan-discount');
@@ -920,14 +963,12 @@ window.Cotador.core = {
         th.innerHTML = thScanLabel;
         th.dataset.originalHeader = thScanLabel;
       }
-
       block.querySelectorAll('tbody tr[data-row-kind="ms_scan"]').forEach(tr => {
         const tabela = parseFloat(tr.getAttribute('data-base-price-tabela'));
         if (!isNaN(tabela)) {
           const finalDesc = tabela * (1 - (descontoScan / 100));
           tr.setAttribute('data-unit-price', finalDesc);
           tr.setAttribute('data-base-unit-price', finalDesc);
-
           const td = tr.querySelector('td.col-cost-normal');
           if (td) {
             const fmt = `R$ ${this.formatBRL(finalDesc)}`;
@@ -947,16 +988,22 @@ window.Cotador.core = {
           th.innerHTML = thSoloLabel;
           th.dataset.originalHeader = thSoloLabel;
         }
-
         block.querySelectorAll('tbody tr[data-row-kind="ms_solo"]').forEach(tr => {
-          const fob = parseFloat(tr.getAttribute('data-fob-impostos'));
-          const custoCom5 = parseFloat(tr.getAttribute('data-custo-com-5'));
-          const mensalAnual = parseFloat(tr.getAttribute('data-termo-anual-mensal'));
+          const fob = parseFloat(tr.getAttribute('data-fob-impostos')) || 0;
+          const custoCom5 = parseFloat(tr.getAttribute('data-custo-com-5')) || 0;
+          const mensalAnual = parseFloat(tr.getAttribute('data-termo-anual-mensal')) || 0;
           const divisor = parseFloat(tr.getAttribute('data-divisor')) || 1;
           const contratoId = tr.getAttribute('data-contract-id');
 
-          const rawTarget = isSoloEnabled ? custoCom5 : fob;
-          const custoFinal = rawTarget / divisor;
+          let custoFinal;
+          if (contratoId === 'am') {
+            const mensalSem5Calc = mensalAnual > 0 ? mensalAnual : (fob / 12);
+            const mensalCom5Calc = (custoCom5 > fob * 0.5 && fob > 0) ? (custoCom5 / 12) : custoCom5;
+            custoFinal = isSoloEnabled ? mensalCom5Calc : mensalSem5Calc;
+          } else {
+            const rawTarget = isSoloEnabled ? custoCom5 : fob;
+            custoFinal = rawTarget / divisor;
+          }
 
           tr.setAttribute('data-unit-price', custoFinal);
           tr.setAttribute('data-base-unit-price', custoFinal);
@@ -1002,7 +1049,7 @@ window.Cotador.core = {
   },
 
   // ==========================================================================
-  // 3. DATAS DE ATUALIZAÇÃO DAS PLANILHAS E POPOVER DO HEADER
+  // 5. DATAS DE ATUALIZAÇÃO DAS PLANILHAS E POPOVER DO HEADER
   // ==========================================================================
   formatarDataCurta(isoStr) {
     if (!isoStr) return null;
@@ -1069,12 +1116,14 @@ window.Cotador.core = {
         } catch (_) {}
       }));
     }
+
     this.atualizarBadgeDataFabricante(window.Cotador.app?.currentVendor || 'microsoft');
   },
 
   atualizarBadgeDataFabricante(vendor) {
     const txtEl = document.getElementById('badge-last-update-text');
     if (!txtEl) return;
+
     const entradas = Object.values(this.ultimasAtualizacoes).filter(x => x.fabricante === vendor && x.iso);
     if (entradas.length === 0) {
       txtEl.textContent = 'Base: s/ registro';
@@ -1083,13 +1132,16 @@ window.Cotador.core = {
       const maisRecente = this.formatarDataCurta(entradas[0].iso);
       txtEl.textContent = `Base: ${maisRecente}`;
     }
+
     this.renderizarListaAtualizacoesPopover(vendor);
   },
 
   renderizarListaAtualizacoesPopover(vendorAtivo) {
     const listEl = document.getElementById('popover-last-update-list');
     if (!listEl) return;
+    
     const vendor = vendorAtivo || window.Cotador.app?.currentVendor || 'microsoft';
+    
     const tabelasOrdenadas = [...this.CATALOGO_TABELAS].sort((a, b) => {
       const aAtivo = a.fab === vendor ? 0 : 1;
       const bAtivo = b.fab === vendor ? 0 : 1;
@@ -1100,14 +1152,21 @@ window.Cotador.core = {
       const info = this.ultimasAtualizacoes[t.id];
       const dataHora = info?.iso ? this.formatarDataHoraCompleta(info.iso) : 'Sem registro';
       const isFabAtivo = t.fab === vendor;
-      const rowBg = isFabAtivo ? 'bg-[#f3f2f1] border-[#edebe9]' : 'bg-white border-transparent opacity-75';
-      const dotCls = info?.iso ? (isFabAtivo ? 'bg-emerald-500' : 'bg-gray-300') : 'bg-amber-400';
+      
+      let dotColor = 'bg-amber-400';
+      if (info?.iso) {
+        const diffDias = (new Date() - new Date(info.iso)) / (1000 * 60 * 60 * 24);
+        dotColor = diffDias <= 35 ? 'bg-emerald-500' : 'bg-amber-500';
+      }
+
+      const rowBg = isFabAtivo ? 'bg-[#f3f2f1] border-[#0078d4]/40 font-medium' : 'bg-white border-[#edebe9]';
 
       return `
-        <div class="flex items-center justify-between gap-2 px-2 py-1.5 rounded border ${rowBg} hover:bg-[#f3f2f1] transition-colors">
-          <div class="flex items-center gap-1.5 min-w-0">
-            <span class="w-1.5 h-1.5 rounded-full ${dotCls} shrink-0"></span>
-            <span class="font-medium text-[#323130] truncate">${this.escapeHTML(t.nome)}</span>
+        <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded border ${rowBg} hover:bg-[#edebe9] transition-colors">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="w-2 h-2 rounded-full ${dotColor} shrink-0" title="${info?.iso ? 'Base Carregada' : 'Sem Dados'}"></span>
+            <span class="text-xs text-[#323130] truncate">${this.escapeHTML(t.nome)}</span>
+            ${isFabAtivo ? '<span class="text-[9px] px-1 py-0.2 bg-[#0078d4]/10 text-[#0078d4] rounded font-semibold">Ativo</span>' : ''}
           </div>
           <span class="text-[11px] font-mono text-gray-500 tabular-nums whitespace-nowrap">${this.escapeHTML(dataHora)}</span>
         </div>
@@ -1119,6 +1178,7 @@ window.Cotador.core = {
     if (event) event.stopPropagation();
     const pop = document.getElementById('popover-last-update');
     if (!pop) return;
+
     if (!this._popoverListenerInitialized) {
       this._popoverListenerInitialized = true;
       document.addEventListener('click', (e) => {
@@ -1128,6 +1188,7 @@ window.Cotador.core = {
         }
       });
     }
+
     const vaiAbrir = pop.classList.contains('hidden');
     if (vaiAbrir) {
       this.renderizarListaAtualizacoesPopover(window.Cotador.app?.currentVendor || 'microsoft');
@@ -1143,9 +1204,12 @@ window.Cotador.core = {
   },
 
   // ==========================================================================
-  // 4. MOTOR DE BUSCA INTELIGENTE, CORREÇÃO FUZZY E PARSER DE INPUT
+  // 6. MOTOR DE BUSCA INTELIGENTE, CORREÇÃO FUZZY E PARSER DE INPUT
   // ==========================================================================
   SEARCH_KEYWORDS: {
+    "office 365 extra file storage": ["Extra File Storage"],
+    "extra file storage": ["Extra File Storage"],
+    "power apps premium": ["Power Apps", "Premium"],
     "adobe acrobat pro": ["Acrobat", "Pro"],
     "adobe acrobat standard": ["Acrobat", "Standard"],
     "adobe creative cloud": ["Creative Cloud"],
@@ -1397,10 +1461,53 @@ window.Cotador.core = {
   },
 
   normalizarChaveProdutoMS(rawName, itemIndex) {
-    const clean = String(rawName || '').toLowerCase().replace(/\(.*?\)/g, ' ')
+    const clean = String(rawName || '').toLowerCase()
+      .replace(/\(\s*(?:non-profit\vert{}nonprofit\vert{}charity\vert{}education\vert{}academic\vert{}faculty\vert{}student\vert{}government\vert{}gov\vert{}commercial)[^)]*\)/gi, ' ')
       .replace(/\b(commercial|education|academic|faculty|student|charity|non-profit|nonprofit|government|gov)\b/gi, ' ')
+      .replace(/\b(sem\s+teams|without\s+teams)\b/gi, 'no teams')
+      .replace(/[()]/g, ' ')
       .replace(/\s+/g, ' ').trim();
     return `ms-item-${itemIndex ?? 0}::${clean}`;
+  },
+
+  limparRuidoComercialLinha(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/[\u2010-\u2015\u2212]/g, '-')
+      .replace(/\bnew\s+co[mr]{1,3}er?ce(\s+experience)?\b/gi, ' ')
+      .replace(/\b(nce|csp|legacy|open\s+value|ovp)\b/gi, ' ')
+      .replace(/(?:^|\s|[-/|])+\b([mp]ensal|anual|trienal|monthly|annual|yearly|triennial|p1y|p1m|p3y|1\s*ano|3\s*anos)\b/gi, ' ')
+      .replace(/\b(add[\s\-]?on|adoon|addon|assinatura|subscricao|subscription|faturamento|renovacao)\b/gi, ' ')
+      .replace(/\b(sem\s+teams|s\/\s*teams|without\s+teams)\b/gi, 'no teams')
+      .replace(/(?:\s+-\s+|\s+-\b|\b-\s+|-+$|^+-)/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  },
+
+  extrairKeywords(prodName) {
+    if (!prodName) return [];
+    
+    // Ignora divisão se for PN explícito
+    const isPartNumber = /^[A-Z0-9]{3,}-[A-Z0-9]{3,}/i.test(prodName) || /^[A-Z0-9]{5,}/i.test(prodName);
+    if (isPartNumber && prodName.indexOf(' ') === -1) {
+      return [this.sanitizarTermoPostgrest(prodName)];
+    }
+
+    // Limpeza profunda e detecção de intenção do usuário
+    const cleanedProd = this.limparRuidoComercialLinha(prodName);
+    const hasNoTeamsIntent = /\b(no\s+teams|without\s+teams|sem\s+teams)\b/i.test(prodName);
+    const baseWithoutTeamsMod = cleanedProd.replace(/\b(no\s+teams|without\s+teams)\b/gi, '').replace(/\s+/g, ' ').trim();
+    const lowerNorm = baseWithoutTeamsMod.toLowerCase();
+
+    // Verifica mapeamento exato no dicionário sem o modificador Teams
+    if (this.SEARCH_KEYWORDS[lowerNorm]) {
+        const kws = [...this.SEARCH_KEYWORDS[lowerNorm]];
+        if (hasNoTeamsIntent) kws.push('Teams'); // Injeta "Teams" para as regras secundárias filtrarem
+        return kws.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
+    }
+
+    // Fallback padrão
+    return cleanedProd.split(/\s+/).map(t => this.sanitizarTermoPostgrest(t)).filter(Boolean);
   },
 
   extrairKeywords(prodName) {
@@ -1420,10 +1527,12 @@ window.Cotador.core = {
       .replace(/\bexchange\s+(?:online\s+)?(?:plan(?:o)?|p)\s*(\d+)\b/gi, 'Exchange Online __PLAN_$1__')
       .replace(/\b(project|visio|planner|intune)\s+(?:plan(?:o)?|p)\s*(\d+)\b/gi, '$1 __PLAN_$2__')
       .replace(/\bplan(?:o)?\s*(\d+)\b/gi, '__PLAN_$1__');
+
     const lowerNorm = normalized.toLowerCase().trim();
     for (const [key, kwList] of Object.entries(this.SEARCH_KEYWORDS)) {
       if (lowerNorm === key) return kwList.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
     }
+
     return normalized.split(/\s+/).filter(w => w.length > 0).flatMap(w => {
       const planMatch = w.match(/^__PLAN_(\d+)__$/i);
       if (planMatch) return [`Plan ${planMatch[1]}`];
@@ -1440,16 +1549,13 @@ window.Cotador.core = {
     const cleanPrefix = (prefixText || '').trim();
     if (!cleanPrefix) return false;
     if (this.isPartNumber(cleanPrefix)) return false;
-
     const lowerPrefix = cleanPrefix.toLowerCase();
     const tokens = lowerPrefix.split(/\s+/).filter(Boolean);
     const lastWord = (tokens[tokens.length - 1] || '').replace(/[^a-z0-9\-]/g, '');
     const prevWord = (tokens[tokens.length - 2] || '').replace(/[^a-z0-9\-]/g, '');
     const prefixHasYear = /\b20[0-3]\d\b/.test(lowerPrefix);
-
     if (n >= 2005 && n <= 2035 && !prefixHasYear) return true;
     if (n === 365 && ['microsoft', 'ms', 'office', 'o', 'dynamics', 'windows', 'win', 'm', 'd'].includes(lastWord)) return true;
-
     const designators = new Set(['plan', 'plano', 'pl', 'level', 'lvl', 'nivel', 'nível', 'tier', 'version', 'versao', 'versão', 'ver', 'v', 'release', 'rel', 'r', 'edition', 'edicao', 'edição', 'ed', 'gen', 'generation', 'geracao', 'geração', 'wave', 'step', 'phase', 'fase', 'type', 'tipo', 'cat', 'categoria', 'group', 'grupo', 'option', 'opcao', 'op', 'pack', 'pacote', 'suite', 'suíte', 'core', 'e', 'f', 'p', 'g', 'a', 'k']);
     if (designators.has(lastWord)) return true;
     if (['windows', 'win'].includes(lastWord) && [7, 8, 10, 11, 365].includes(n)) return true;
@@ -1466,16 +1572,13 @@ window.Cotador.core = {
       let qty = null;
       let prodName = line.replace(/[\u2010-\u2015\u2212]/g, '-').replace(/^(?:[- >]|\d+[.)])\s*/, '').trim();
       if (!prodName) return;
-
       if (!/\s/.test(prodName) && this.isPartNumber(prodName)) {
         items.push({ itemIndex: idx, original: this.escapeHTML(prodName), rawSearch: prodName, keywords: this.extrairKeywords(prodName), qty: '-' });
         return;
       }
-
       const explicitUnitEnd = prodName.match(/^(.*?)(?:[\s:|=\t]+|\s*[- :|=/]\s*|\b(?:qtd|qtde|quant)\s*[:=]?\s*)(\d+)\s*(?:x|un|unid|unidades?|lic|licen[cç]as?|users?|usu[aá]rios?|pcs?|seats?|disp|dispositivos?)\.?$/i);
       const explicitDelimEnd = !explicitUnitEnd && prodName.match(/^(.*?)(?:\t+|\s*[- :|=/]\s*)(\d+)\s*$/);
       const explicitStart = !explicitUnitEnd && !explicitDelimEnd && prodName.match(/^(\d+)\s*(?:x\b|un\b|unid\b|unidades?\b|lic\b|licen[cç]as?\b|\s*[- :|=/]\s*)\s*(.+)$/i);
-
       if (explicitUnitEnd && explicitUnitEnd[1].trim()) {
         prodName = explicitUnitEnd[1].trim(); qty = parseInt(explicitUnitEnd[2], 10);
       } else if (explicitDelimEnd && explicitDelimEnd[1].trim()) {
@@ -1499,6 +1602,7 @@ window.Cotador.core = {
         }
       }
       prodName = prodName.replace(/^[\s\- :|=/ *+]+|[\s\- :|=/ *+]+$/g, '').trim();
+      prodName = this.limparRuidoComercialLinha(prodName);
       if (!prodName) return;
       if (qty !== null && !isNaN(qty)) sumLicenses += qty;
       items.push({ itemIndex: idx, original: this.escapeHTML(prodName), rawSearch: prodName, keywords: this.extrairKeywords(prodName), qty: qty !== null ? qty : '-' });
@@ -1507,7 +1611,7 @@ window.Cotador.core = {
   },
 
   // ==========================================================================
-  // 5. SEGMENTOS DE MERCADO E FETCH SUPABASE AUTENTICADO (JWT + RLS)
+  // 7. SEGMENTOS DE MERCADO E FETCH SUPABASE AUTENTICADO (JWT + RLS)
   // ==========================================================================
   extrairSegmentoRow(rowOrVal) {
     if (!rowOrVal) return '';
@@ -1597,6 +1701,7 @@ window.Cotador.core = {
       if (netErr.name === 'AbortError') throw netErr;
       throw new Error(`Falha de conexão com o Supabase (${netErr.message}).`);
     }
+
     if (resp.status === 401 || resp.status === 403) {
       window.location.replace('login.html');
       throw new Error('Acesso não autorizado (401/403).');
@@ -1606,7 +1711,7 @@ window.Cotador.core = {
   },
 
   // ==========================================================================
-  // 6. CÁLCULOS COMERCIAIS: MARGEM DE VENDA DIRETA E MODO CLIENTE
+  // 8. CÁLCULOS COMERCIAIS: MARGEM DE VENDA DIRETA E MODO CLIENTE
   // ==========================================================================
   parsePrice(val) {
     if (typeof val === 'number') return val;
@@ -1624,8 +1729,17 @@ window.Cotador.core = {
 
   getSoloPrice(row) {
     const toggle = document.getElementById('chk-solo-service');
+    const isAnualMensal =
+      String(row.termo_duracao || '').trim().toUpperCase() === 'P1Y' &&
+      String(row.plano_pagamento || '').trim().toLowerCase() === 'monthly';
+
     if (toggle && !toggle.checked) {
-      return this.parsePrice(row.fob_impostos || row.erp || 0);
+      const fob = this.parsePrice(row.fob_impostos || row.erp || 0);
+      if (isAnualMensal) {
+        const mensal = this.parsePrice(row.termo_anual_pagamento_mensal);
+        return mensal > 0 ? mensal : (fob / 12);
+      }
+      return fob;
     }
     const raw = row.valor_5pct_servicos ?? row.valor_com_5_servicos ?? row['Valor com 5% serviços'] ?? row.fob_impostos;
     return this.parsePrice(raw);
@@ -1634,8 +1748,6 @@ window.Cotador.core = {
   calcularFatorComercial() {
     const pct = this.obterMarkupEfetivo();
     if (!this.markupEnabled || pct <= 0) return 1;
-
-    // Margem de Venda Direta (Adição percentual simples sobre o custo: Custo * (1 + %))
     return 1 + (pct / 100);
   },
 
@@ -1658,7 +1770,6 @@ window.Cotador.core = {
   },
 
   injetarControlesComerciaisHeader() {
-    // Inicializa simultaneamente a verificação de segurança RBAC e botão Admin no Header
     this.inicializarSegurancaERBAC();
 
     if (document.getElementById('commercial-mode-bar')) return;
@@ -1689,7 +1800,6 @@ window.Cotador.core = {
       </button>
     `;
     viewCtrl.parentElement.insertBefore(bar, viewCtrl);
-
     this.modoCliente = false;
     this.markupEnabled = false;
     document.body.classList.remove('client-proposal-mode');
@@ -1717,16 +1827,13 @@ window.Cotador.core = {
       document.getElementById('input-markup-pct')?.focus();
       return;
     }
-
     this.markupEnabled = !this.markupEnabled;
-
     if (!this.markupEnabled && this.modoCliente) {
       this.modoCliente = false;
       document.body.classList.remove('client-proposal-mode');
       document.getElementById('btn-modo-cliente')?.classList.remove('active');
       this.mostrarToast('Modo Cliente desativado: Margem desligada.');
     }
-
     document.getElementById('btn-toggle-markup')?.classList.toggle('active', this.markupEnabled);
     document.body.classList.toggle('markup-disabled', !this.markupEnabled);
     this.atualizarTitulosColunasModoCliente();
@@ -1736,7 +1843,6 @@ window.Cotador.core = {
   setMarkupPercent(val) {
     const parsed = parseFloat(val);
     this.markupPercent = isNaN(parsed) || parsed < 0 ? 0 : parsed;
-
     if (this.markupPercent > 0 && !this.markupEnabled) {
       this.markupEnabled = true;
       document.getElementById('btn-toggle-markup')?.classList.add('active');
@@ -1752,7 +1858,6 @@ window.Cotador.core = {
         this.mostrarToast('Modo Cliente desativado: Margem zerada.');
       }
     }
-
     this.atualizarTitulosColunasModoCliente();
     this.recalcularSubtotais();
   },
@@ -1760,7 +1865,6 @@ window.Cotador.core = {
   atualizarTitulosColunasModoCliente() {
     const pct = this.obterMarkupEfetivo();
     const sufixoPct = (this.markupEnabled && pct > 0) ? ` (+${pct}%)` : '';
-
     document.querySelectorAll('.quote-block thead th').forEach(th => {
       if (!th.dataset.originalHeader) th.dataset.originalHeader = th.innerText.trim();
       const orig = th.dataset.originalHeader;
@@ -1782,13 +1886,15 @@ window.Cotador.core = {
   },
 
   // ==========================================================================
-  // 7. RENDERIZAÇÃO DE COMPONENTES, DRAG & DROP, SUBTOTAIS E EXPORTAÇÃO
+  // 9. RENDERIZAÇÃO DE COMPONENTES, DRAG & DROP, SUBTOTAIS E EXPORTAÇÃO
   // ==========================================================================
   renderCopyLink(displayText, copyValue, label = 'Valor', extraClass = '') {
     const safeDisplay = this.escapeHTML(String(displayText ?? ''));
     const safeCopy = this.escapeHTML(String(copyValue ?? displayText ?? ''));
     const safeLabel = this.escapeHTML(label);
-    const hint = /[R$US$]/i.test(String(copyValue ?? displayText ?? '')) ? `Copiar ${safeLabel.toLowerCase()} (Shift+Clique p/ número puro)` : `Copiar ${safeLabel.toLowerCase()}`;
+    const hint = /[R$US$]/i.test(String(copyValue ?? displayText ?? ''))
+  ? `Clique p/ copiar número puro • Shift+Clique p/ copiar com R$`
+  : `Copiar ${safeLabel.toLowerCase()}`;
     return `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${safeCopy}" data-label="${safeLabel}" title="${hint}" class="copy-link ${extraClass}">${safeDisplay}</span>`;
   },
 
@@ -1798,9 +1904,33 @@ window.Cotador.core = {
   },
 
   renderQtyInput(qty) {
-    const val = (qty === '-' || isNaN(qty)) ? '' : qty;
-    return `<input type="number" min="1" value="${val}" placeholder="-" oninput="Cotador.core.aoAlterarQuantidade(event, this)" title="Altera em todas as tabelas (Shift p/ alterar só nesta)" class="qty-input">`;
-  },
+  const val = (qty === '-' || isNaN(qty)) ? '' : qty;
+  return `<div class="qty-control-wrap inline-flex items-center gap-1">
+    <input type="number" min="1" value="${val}" placeholder="-" oninput="Cotador.core.aoAlterarQuantidade(event, this)" title="Altera em todas as tabelas (Shift p/ alterar só nesta)" class="qty-input">
+    <button type="button" onclick="Cotador.core.copiarQuantidadeLinha(event, this)" title="Copiar quantidade (1 clique)" class="no-export copy-qty-btn">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+      </svg>
+    </button>
+  </div>`;
+},
+
+copiarQuantidadeLinha(event, btnEl) {
+  if (event) event.stopPropagation();
+  const td = btnEl ? btnEl.closest('td') : null;
+  const input = td ? td.querySelector('.qty-input') : null;
+  const val = input && input.value ? String(input.value).trim() : '';
+  
+  if (!val || val === '-') {
+    this.mostrarToast('Defina uma quantidade antes de copiar.');
+    return;
+  }
+  
+  navigator.clipboard.writeText(val);
+  btnEl.classList.add('is-copied');
+  setTimeout(() => btnEl.classList.remove('is-copied'), 450);
+  this.mostrarToast(`Quantidade copiada: ${val}`);
+},
 
   aoAlterarQuantidade(event, inputEl) {
     const tr = inputEl ? inputEl.closest('tr') : null;
@@ -1822,16 +1952,12 @@ window.Cotador.core = {
 
   renderDetalhesSoloCSP(contratoId, custoCom5, mensalSem5, anualSem5, fator = 1, isMarginCol = false) {
     if (contratoId !== 'am' && contratoId !== 'mm' && contratoId !== 'tm') return '';
-
     const toggle = document.getElementById('chk-solo-service');
     const isSoloEnabled = !toggle || toggle.checked;
-
     const anualVal = (custoCom5 * fator) * 12;
     const fmtAnualVal = `R$ ${this.formatBRL(anualVal)}`;
-
     const labelInterno = isSoloEnabled ? `12x c/ 5%: ${fmtAnualVal}` : `Total 12x: ${fmtAnualVal}`;
     const labelCliente = `Total 12x: ${fmtAnualVal}`;
-
     if (isMarginCol) {
       return `<div class="sec-detail text-[11px] font-medium text-[#605e5c] mt-0.5">
         <span class="internal-only-text">${this.renderCopyLink(labelInterno, fmtAnualVal, labelInterno.split(':')[0])}</span>
@@ -1862,11 +1988,9 @@ window.Cotador.core = {
     else if (blockId.startsWith('blk-adobe_base')) tabelaRef = 'adobe_base';
     else if (blockId.startsWith('blk-adobe_promo')) tabelaRef = 'adobe_promo';
     else if (blockId.startsWith('blk-kaspersky')) tabelaRef = 'kaspersky';
-
     const infoData = tabelaRef ? this.ultimasAtualizacoes[tabelaRef] : null;
     const dataCurta = infoData ? this.formatarDataCurta(infoData.iso) : null;
     const badgeDataHTML = dataCurta ? `<span class="sec-detail no-export text-[10px] font-normal text-gray-400 bg-white border border-gray-200 px-2 py-0.5 rounded-full whitespace-nowrap">Atualizado em ${dataCurta}</span>` : '';
-
     return `<div onclick="Cotador.core.toggleBlock('${blockId}')" class="block-header-bar flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none"><div class="flex items-center gap-2"><svg class="w-4 h-4 text-gray-400 chevron-icon transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg><h3 onclick="Cotador.core.copiarBlocoAoClicarTitulo(event, '${blockId}')" class="copy-link text-xs font-semibold text-[#323130]">${safeTitle}</h3></div><div class="flex items-center gap-2" onclick="event.stopPropagation()">${badgeDataHTML}<span id="total-${blockId}" onclick="Cotador.core.copiarElemento(event, this)" data-copy="" data-label="Total da Tabela" class="copy-link block-total-badge text-xs font-semibold theme-badge px-2.5 py-0.5 rounded tabular-nums hidden"></span></div></div>`;
   },
 
@@ -2010,7 +2134,6 @@ window.Cotador.core = {
   },
 
   toggleBlock(blockId) { document.getElementById(blockId)?.classList.toggle('is-collapsed'); },
-
   alternarTodasTabelas() {
     const blocks = Array.from(document.querySelectorAll('.quote-block'));
     if (blocks.length === 0) return;
@@ -2086,6 +2209,7 @@ window.Cotador.core = {
     document.querySelectorAll('.quote-block').forEach(block => {
       const isUSD = block.getAttribute('data-currency') === 'USD';
       let somaBloco = 0; let somaBlocoBrl = 0; let somaQtd = 0; let temQtd = false;
+
       block.querySelectorAll('tbody tr').forEach(tr => {
         if (!tr.hasAttribute('data-base-unit-price')) tr.setAttribute('data-base-unit-price', tr.getAttribute('data-unit-price') || '0');
         if (isUSD && !tr.hasAttribute('data-base-unit-price-brl')) tr.setAttribute('data-base-unit-price-brl', tr.getAttribute('data-unit-price-brl') || '0');
@@ -2126,7 +2250,16 @@ window.Cotador.core = {
         const input = tr.querySelector('.qty-input');
         const subTd = tr.querySelector('.col-subtotal');
         if (!input || isNaN(unitComMargem)) return;
+
         const qty = parseInt(input.value, 10);
+        const qtyCell = input.closest('td.adobe-qty-cell');
+        if (qtyCell) {
+          const moq = parseInt(qtyCell.getAttribute('data-moq') || '1', 10);
+          const warn = qtyCell.querySelector('.moq-warning');
+          if (warn && moq > 1) {
+            warn.classList.toggle('hidden', !isNaN(qty) && qty >= moq);
+          }
+        }
         if (!isNaN(qty) && qty > 0) {
           const sub = unitComMargem * qty;
           somaBloco += sub; somaQtd += qty; temQtd = true;
@@ -2234,21 +2367,25 @@ window.Cotador.core = {
   },
 
   copiarElemento(event, el) {
-    if (event) event.stopPropagation();
-    if (!el) return;
-    let txt = el.getAttribute('data-copy') ?? el.innerText.trim();
-    if (event && (event.shiftKey || event.altKey) && /[R$US$]/i.test(txt)) {
-      const num = this.parsePrice(txt);
-      txt = num > 0 ? num.toFixed(2).replace('.', ',') : txt.replace(/[R$US$\s]/gi, '').trim();
-    }
-    if (!txt || txt === '-') return;
-    navigator.clipboard.writeText(txt);
-    el.classList.add('is-copied');
-    setTimeout(() => el.classList.remove('is-copied'), 450);
-    this.mostrarToast(`${el.getAttribute('data-label') || 'Item'} copiado: ${txt}`);
-  },
+  if (event) event.stopPropagation();
+  if (!el) return;
+  let txt = el.getAttribute('data-copy') ?? el.innerText.trim();
+  const comSimboloMoeda = Boolean(event && (event.shiftKey || event.altKey));
+  
+  if (!comSimboloMoeda && /[R$US$]/i.test(txt)) {
+    const num = this.parsePrice(txt);
+    txt = num > 0 ? num.toFixed(2).replace('.', ',') : txt.replace(/[R$US$\s]/gi, '').trim();
+  }
+  
+  if (!txt || txt === '-') return;
+  navigator.clipboard.writeText(txt);
+  el.classList.add('is-copied');
+  setTimeout(() => el.classList.remove('is-copied'), 450);
+  this.mostrarToast(`${el.getAttribute('data-label') || 'Item'} copiado: ${txt}`);
+},
 
   copiarColunaTabela(th, colIndex) {
+    if (event) event.stopPropagation();
     const table = th.closest('table');
     if (!table) return;
     const valores = [];
@@ -2256,6 +2393,10 @@ window.Cotador.core = {
       if (tr.children[colIndex]) {
         const val = this.extrairValorCelula(tr.children[colIndex]);
         if (val && val !== '-') valores.push(val);
+        const comSimbolo = Boolean(event && (event.shiftKey || event.altKey));
+  if (!comSimbolo && /[R$US$]/i.test(val)) {
+     val = this.parsePrice(val).toFixed(2).replace('.', ',');
+  }
       }
     });
     if (valores.length > 0) {
@@ -2297,7 +2438,9 @@ window.Cotador.core = {
       } else {
         await navigator.clipboard.writeText(tsv.trim());
       }
-    } catch (_) { await navigator.clipboard.writeText(tsv.trim()); }
+    } catch (_) {
+      await navigator.clipboard.writeText(tsv.trim());
+    }
     this.mostrarToast(msgSucesso);
   }
 };

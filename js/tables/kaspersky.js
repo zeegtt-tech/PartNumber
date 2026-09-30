@@ -118,13 +118,11 @@ window.Cotador.tables.kaspersky = {
       showRevenda = true;
     }
 
-    // Inclui período "1 MÊS" automaticamente caso "Successive Licence" esteja ativo
     const periodosAtivos = [...(flags.periodos || [])];
     if (flags.showSuccessive && !periodosAtivos.some(p => p.match === '1 MÊS')) {
       periodosAtivos.unshift({ id: '1m', label: '1 MÊS', match: '1 MÊS' });
     }
 
-    // Soma total de quantidades válidas para o modo 'auto' / 'auto_sum' (Automático pela Soma)
     const somaTotalQtd = parsedItems.reduce((acc, it) => {
       const q = parseInt(it.qty, 10);
       return acc + (!isNaN(q) && q > 0 ? q : 0);
@@ -175,12 +173,25 @@ window.Cotador.tables.kaspersky = {
           /\btraining\b/i.test(nome) ||
           /\btraining\b/i.test(family) ||
           /\btraining\b/i.test(tipo);
+        const isCrossgrade = /\b(cross[\s\-]?grade|cross)\b/i.test(nome) || /\bcross\b/i.test(tipo);
+        const isEduc = /\b(educational|education|academic|escola|edu)\b/i.test(nome) || /\b(educ|acad)\b/i.test(tipo);
         const isServiceOrTraining = tipo === '-' || isTraining;
+
+        if (flags.facetTracker) {
+          if (isBasePlus) flags.facetTracker['chk-kasp-show-baseplus'] = (flags.facetTracker['chk-kasp-show-baseplus'] || 0) + 1;
+          if (isSuccessive) flags.facetTracker['chk-kasp-show-successive'] = (flags.facetTracker['chk-kasp-show-successive'] || 0) + 1;
+          if (isPublic) flags.facetTracker['chk-kasp-show-public'] = (flags.facetTracker['chk-kasp-show-public'] || 0) + 1;
+          if (isTraining) flags.facetTracker['chk-kasp-show-training'] = (flags.facetTracker['chk-kasp-show-training'] || 0) + 1;
+          if (isCrossgrade) flags.facetTracker['chk-kasp-show-crossgrade'] = (flags.facetTracker['chk-kasp-show-crossgrade'] || 0) + 1;
+          if (isEduc) flags.facetTracker['chk-kasp-show-educ'] = (flags.facetTracker['chk-kasp-show-educ'] || 0) + 1;
+        }
 
         if (!flags.showBasePlus && isBasePlus) return false;
         if (!flags.showSuccessive && isSuccessive) return false;
         if (!flags.showPublic && isPublic) return false;
         if (!flags.showTraining && isTraining) return false;
+        if (!flags.showCrossgrade && isCrossgrade) return false;
+        if (!flags.showEduc && isEduc) return false;
 
         if (flags.tipo !== 'all' && !isServiceOrTraining) {
           const targetTipo = flags.tipo.toLowerCase();
@@ -188,7 +199,9 @@ window.Cotador.tables.kaspersky = {
             const matchBase = tipo === 'base' ||
               (flags.showBasePlus && isBasePlus && !tipo.includes('renew') && !tipo.includes('renov') && !nome.includes('renewal')) ||
               (flags.showSuccessive && isSuccessive && !tipo.includes('renew') && !tipo.includes('renov')) ||
-              (flags.showPublic && isPublic && !tipo.includes('renew') && !tipo.includes('renov') && !nome.includes('renewal'));
+              (flags.showPublic && isPublic && !tipo.includes('renew') && !tipo.includes('renov') && !nome.includes('renewal')) ||
+              (flags.showCrossgrade && isCrossgrade && !tipo.includes('renew') && !tipo.includes('renov')) ||
+              (flags.showEduc && isEduc && !tipo.includes('renew') && !tipo.includes('renov') && !nome.includes('renewal'));
             if (!matchBase) return false;
           } else if (targetTipo === 'renewal') {
             const matchRenew = tipo === 'renewal' || tipo.includes('renew') || tipo.includes('renov') || nome.includes('renewal');
@@ -289,7 +302,6 @@ window.Cotador.tables.kaspersky = {
               } else if (showNaoPrime && naoPrime > 0) {
                 unitarioRef = naoPrime;
               } else if (roOficial > 0) {
-                // Fallback inteligente: faixas 250+ só possuem preço em RO na planilha oficial
                 unitarioRef = roOficial;
                 usouFallbackRO = true;
               }

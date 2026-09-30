@@ -1,5 +1,5 @@
 // ============================================================================
-// CONTROLADOR DA APLICAÇÃO (APP) - COTADOR v5.9 (Arquivo: js/app.js)
+// CONTROLADOR DA APLICAÇÃO (APP) - COTADOR v5.9
 // ============================================================================
 
 window.Cotador.app = {
@@ -38,16 +38,136 @@ window.Cotador.app = {
       this.LEGACY_STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
     } catch (_) {}
     
-    // Força o estado padrão das flags Microsoft mesmo se o navegador fizer autofill de formulário (bfcache)
-    const chkCopilot = document.getElementById('chk-show-copilot');
-    const chkNoTeams = document.getElementById('chk-show-noteams');
-    const chkTrial = document.getElementById('chk-show-trial');
-    const chkFrontline = document.getElementById('chk-show-frontline');
+    const flagsResetFalse = [
+      'chk-show-copilot', 'chk-show-noteams', 'chk-show-trial', 'chk-show-frontline',
+      'chk-ms-show-phone', 'chk-ms-show-dynamics', 'chk-ms-show-win365', 'chk-ms-show-niche',
+      'chk-ms-show-extconnector', 'chk-ms-show-azurecloud', 'chk-pm-show-temp',
+      'chk-pm-show-mensal', 'chk-pm-show-anual', 'chk-pm-show-trienal', 'chk-pm-show-stepup',
+      'chk-mpsa-show-sa', 'chk-mpsa-show-licsa',
+      'chk-adobe-show-stock', 'chk-adobe-show-3y', 'chk-adobe-show-frl',
+      'chk-adobe-show-pack', 'chk-adobe-show-renewal', 'chk-adobe-show-upgrade',
+      'chk-kasp-show-baseplus', 'chk-kasp-show-successive', 'chk-kasp-show-public',
+      'chk-kasp-show-training', 'chk-kasp-show-crossgrade', 'chk-kasp-show-educ'
+    ];
+    flagsResetFalse.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.checked = false;
+    });
+
+    const chkPmCals = document.getElementById('chk-pm-show-cals');
+    if (chkPmCals) chkPmCals.checked = true;
     
-    if (chkCopilot) chkCopilot.checked = false;
-    if (chkNoTeams) chkNoTeams.checked = false;
-    if (chkTrial) chkTrial.checked = false;
-    if (chkFrontline) chkFrontline.checked = true;
+    this.resetarVisualGavetas();
+  },
+
+  reexecutarSeHouverItens() {
+    this.analisarInput();
+    if (this.parsedItems.length > 0) {
+      this.gerarCotacao();
+    }
+  },
+
+  // Mantido para compatibilidade caso o HTML antigo seja clicado
+  aoAlterarFlagsMicrosoft() {
+    this.reexecutarSeHouverItens();
+  },
+
+  aoAlterarFlagsGlobal() {
+    this.reexecutarSeHouverItens();
+  },
+
+  resetarVisualGavetas() {
+    this.aplicarFiltrosDinamicosGlobal(null, 'ms-drawer-secundarios', 'badge-ms-flags-count', [
+      'chk-show-frontline', 'chk-show-noteams', 'chk-show-copilot', 'chk-show-trial',
+      'chk-ms-show-phone', 'chk-ms-show-dynamics', 'chk-ms-show-win365', 'chk-ms-show-niche',
+      'chk-ms-show-extconnector', 'chk-ms-show-azurecloud'
+    ]);
+    this.aplicarFiltrosDinamicosGlobal(null, 'adobe-drawer-secundarios', 'badge-adobe-flags-count', [
+      'chk-adobe-show-stock', 'chk-adobe-show-3y', 'chk-adobe-show-frl', 
+      'chk-adobe-show-pack', 'chk-adobe-show-renewal', 'chk-adobe-show-upgrade'
+    ]);
+    this.aplicarFiltrosDinamicosGlobal(null, 'kaspersky-drawer-secundarios', 'badge-kasp-flags-count', [
+      'chk-kasp-show-baseplus', 'chk-kasp-show-successive', 'chk-kasp-show-public', 
+      'chk-kasp-show-training', 'chk-kasp-show-crossgrade', 'chk-kasp-show-educ'
+    ]);
+  },
+
+  aplicarFiltrosDinamicosGlobal(facetTracker, drawerId, badgeId, idsSecundarios) {
+    const drawer = document.getElementById(drawerId);
+    const badge = document.getElementById(badgeId);
+
+    let totalDisponiveis = 0;
+    let totalAtivos = 0;
+
+    idsSecundarios.forEach(id => {
+      const input = document.getElementById(id);
+      if (!input) return;
+      const labelPill = input.closest('label.flag-mini-pill');
+      const spanText = labelPill?.querySelector('span');
+      if (!labelPill || !spanText) return;
+
+      if (!spanText.dataset.baseLabel) {
+        spanText.dataset.baseLabel = spanText.textContent.trim();
+      }
+      const baseLabel = spanText.dataset.baseLabel;
+
+      if (!facetTracker) {
+        labelPill.classList.remove('hidden');
+        spanText.textContent = baseLabel;
+        return;
+      }
+
+      const count = facetTracker[id] || 0;
+      const isChecked = input.checked;
+
+      if (count > 0 || isChecked) {
+        labelPill.classList.remove('hidden');
+        spanText.textContent = count > 0 ? `${baseLabel} (${count})` : baseLabel;
+        totalDisponiveis++;
+        if (isChecked) totalAtivos++;
+      } else {
+        labelPill.classList.add('hidden');
+      }
+    });
+
+    if (drawer) {
+      drawer.querySelectorAll('.grid').forEach(grid => {
+        const temVisivel = grid.querySelector('label.flag-mini-pill:not(.hidden)') !== null;
+        if (grid.parentElement.tagName === 'DIV') {
+          // Evita reexibir as categorias principais que a modalidade já ocultou
+          if (!grid.parentElement.id.startsWith('ms-flags-')) {
+            grid.parentElement.classList.toggle('hidden', !temVisivel);
+          }
+        }
+      });
+
+      // Linha removida para manter a gaveta sempre aberta por padrão (só fecha se o usuário clicar)
+
+      // NOVO CÓDIGO: Ocultar o box inteiro (wrapper) quando a busca for "Limpa" (0 opções aplicáveis)
+      const wrapper = drawer.closest('div[id$="-box-flags"]') || drawer.parentElement;
+      if (wrapper) {
+        const modAtivas = this.obterModalidadesAtivas();
+        const isMsPerpetuoOuMpsa = drawerId === 'ms-drawer-secundarios' && (modAtivas.includes('perpetuo') || modAtivas.includes('mpsa'));
+        if (facetTracker && totalDisponiveis === 0 && !isMsPerpetuoOuMpsa) {
+          wrapper.classList.add('hidden');
+        } else {
+          wrapper.classList.remove('hidden');
+        }
+      }
+    }
+
+    if (badge) {
+      if (totalAtivos > 0) {
+        badge.textContent = `${totalAtivos} ativo${totalAtivos > 1 ? 's' : ''}`;
+        badge.className = 'px-1.5 py-0.2 rounded-full bg-[#eff6fc] border border-[#0078d4] text-[9px] font-semibold text-[#0078d4]';
+      } else if (facetTracker && totalDisponiveis > 0) {
+        badge.textContent = `${totalDisponiveis} opç${totalDisponiveis > 1 ? 'ões' : 'ão'} na busca`;
+        badge.className = 'px-1.5 py-0.2 rounded-full bg-amber-50 border border-amber-300 text-[9px] font-semibold text-amber-800';
+      } else {
+        badge.textContent = 'Busca Limpa';
+        badge.className = 'px-1.5 py-0.2 rounded-full bg-white border border-[#c8c6c4] text-[9px] font-normal text-[#605e5c]';
+      }
+    }
   },
 
   init() {
@@ -59,15 +179,13 @@ window.Cotador.app = {
       inputItens.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
           e.preventDefault();
+          e.target.blur(); // Remove o foco do input para evitar o salto de seleção
           this.gerarCotacao();
         }
       });
     }
 
-    // Inicializa o câmbio Adobe travado na flag padrão (R$ 4,80)
     this.setAdobeCambioMode('fixo');
-
-    // Marca "License Only" como padrão inicial para MPSA
     const chkMpsaLicOnly = document.getElementById('chk-mpsa-show-liconly');
     if (chkMpsaLicOnly) chkMpsaLicOnly.checked = true;
 
@@ -152,7 +270,12 @@ window.Cotador.app = {
     this.msModalidades = new Set([mod || 'scan']);
     this.salvarPreferencias();
     this.atualizarUIMsModalidades();
-    this.limparOutputPorSeguranca('Modo de Tabela', mod);
+    this.analisarInput();
+    if (this.parsedItems.length > 0) {
+      this.gerarCotacao();
+    } else {
+      this.limparOutputPorSeguranca('Modo de Tabela', mod);
+    }
   },
 
   toggleMsModalidade(mod) {
@@ -186,6 +309,9 @@ window.Cotador.app = {
     const flagsPM = document.getElementById('ms-flags-perpetuo-mpsa');
     const flagsMPSA = document.getElementById('ms-flags-mpsa');
 
+    const boxFlags = document.getElementById('ms-box-flags');
+    if (boxFlags && hasPM) boxFlags.classList.remove('hidden');
+
     if (boxScanDiscount) boxScanDiscount.classList.toggle('hidden', !isScan);
     if (boxSoloService) boxSoloService.classList.toggle('hidden', !isSolo);
     if (boxContratos) boxContratos.classList.toggle('hidden', !hasCSP);
@@ -198,7 +324,12 @@ window.Cotador.app = {
     if (this.msSegmentos.has(seg)) return;
     this.msSegmentos = new Set([seg || 'commercial']);
     this.atualizarUIMsSegmentos();
-    this.limparOutputPorSeguranca('Segmento de Mercado', seg);
+    this.analisarInput();
+    if (this.parsedItems.length > 0) {
+      this.gerarCotacao();
+    } else {
+      this.limparOutputPorSeguranca('Segmento de Mercado', seg);
+    }
   },
 
   toggleMsSegmento(seg) {
@@ -241,10 +372,15 @@ window.Cotador.app = {
   },
 
   setAdobeSegmento(seg) {
-    if (this.adobeSegmentos.has(seg)) return;
-    this.adobeSegmentos = new Set([seg || 'teams']);
-    this.atualizarUIAdobeSegmentos();
-    this.limparOutputPorSeguranca('Segmento Adobe', seg);
+  if (this.adobeSegmentos.has(seg)) return;
+  this.adobeSegmentos = new Set([seg || 'teams']);
+  this.atualizarUIAdobeSegmentos();
+  this.analisarInput();
+  if (this.parsedItems.length > 0) {
+      this.gerarCotacao();
+    } else {
+      this.limparOutputPorSeguranca('Segmento Adobe', seg);
+    }
   },
 
   toggleAdobeSegmento(seg) {
@@ -403,20 +539,26 @@ window.Cotador.app = {
   },
 
   setKaspTipo(tipo) {
-    const currentTipo = document.getElementById('kasp-tipo').value;
-    if (currentTipo === tipo) return;
+  const currentTipo = document.getElementById('kasp-tipo').value;
+  if (currentTipo === tipo) return;
 
-    document.getElementById('kasp-tipo').value = tipo;
-    document.getElementById('btn-kasp-tipo-base').classList.toggle('active', tipo === 'Base');
-    document.getElementById('btn-kasp-tipo-renewal').classList.toggle('active', tipo === 'Renewal');
-    
-    this.limparOutputPorSeguranca('Tipo de Licença Kaspersky', tipo === 'Renewal' ? 'Renew' : 'Base');
-    this.analisarInput();
+  document.getElementById('kasp-tipo').value = tipo;
+  document.getElementById('btn-kasp-tipo-base').classList.toggle('active', tipo === 'Base');
+  document.getElementById('btn-kasp-tipo-renewal').classList.toggle('active', tipo === 'Renewal');
+
+  this.analisarInput();
+    if (this.parsedItems.length > 0) {
+      this.gerarCotacao();
+    } else {
+      this.limparOutputPorSeguranca('Tipo de Licença Kaspersky', tipo === 'Renewal' ? 'Renew' : 'Base');
+    }
   },
 
   limparInput() {
     document.getElementById('input-itens').value = '';
     this.analisarInput();
+    this.resetarVisualGavetas();
+    
     const container = document.getElementById('resultado-container');
     if (container) {
       container.innerHTML = `
@@ -460,6 +602,7 @@ window.Cotador.app = {
     this.analisarInput();
     
     if (this.parsedItems.length === 0) {
+      this.resetarVisualGavetas();
       const container = document.getElementById('resultado-container');
       if (container) {
         container.innerHTML = `
@@ -524,13 +667,22 @@ window.Cotador.app = {
       if (this.currentVendor === 'microsoft') {
         const modalidades = modalidadesMs;
         const contratos = contratosMs;
+        const facetTracker = {};
         const flags = {
           contratos,
+          facetTracker, 
           segmentos: Array.from(this.msSegmentos).slice(0, 1),
           showNoTeams: document.getElementById('chk-show-noteams')?.checked ?? false,
           showCopilot: document.getElementById('chk-show-copilot')?.checked ?? false,
           showTrial: document.getElementById('chk-show-trial')?.checked ?? false,
-          showFrontline: document.getElementById('chk-show-frontline')?.checked ?? true,
+          showFrontline: document.getElementById('chk-show-frontline')?.checked ?? false,
+          showPhone: document.getElementById('chk-ms-show-phone')?.checked ?? false,
+          showDynamics: document.getElementById('chk-ms-show-dynamics')?.checked ?? false,
+          showWin365: document.getElementById('chk-ms-show-win365')?.checked ?? false,
+          showNiche: document.getElementById('chk-ms-show-niche')?.checked ?? false,
+          showExtConnector: document.getElementById('chk-ms-show-extconnector')?.checked ?? false,
+          showAzureCloud: document.getElementById('chk-ms-show-azurecloud')?.checked ?? false,
+          pmShowTemp: document.getElementById('chk-pm-show-temp')?.checked ?? false,
           pmShowMensal: document.getElementById('chk-pm-show-mensal')?.checked ?? false,
           pmShowAnual: document.getElementById('chk-pm-show-anual')?.checked ?? false,
           pmShowTrienal: document.getElementById('chk-pm-show-trienal')?.checked ?? false,
@@ -547,6 +699,12 @@ window.Cotador.app = {
           modalidades.map(mod => window.Cotador.tables[`ms_${mod}`].processar(this.parsedItems, flags))
         );
 
+        this.aplicarFiltrosDinamicosGlobal(facetTracker, 'ms-drawer-secundarios', 'badge-ms-flags-count', [
+          'chk-show-frontline', 'chk-show-noteams', 'chk-show-copilot', 'chk-show-trial',
+          'chk-ms-show-phone', 'chk-ms-show-dynamics', 'chk-ms-show-win365', 'chk-ms-show-niche',
+          'chk-ms-show-extconnector', 'chk-ms-show-azurecloud'
+        ]);
+
         const globalMatchedIndices = new Set();
         let combinedHTML = '';
         resultadosMod.forEach(res => {
@@ -560,12 +718,15 @@ window.Cotador.app = {
         missingItems = this.parsedItems.filter(it => !globalMatchedIndices.has(it.itemIndex));
 
       } else if (this.currentVendor === 'adobe') {
-        const usarPromo = document.getElementById('chk-adobe-promo').checked;
+        const chkPromo = document.getElementById('chk-adobe-promo');
+        const usarPromo = chkPromo ? chkPromo.checked : false;
         const tabela = usarPromo ? 'adobe_promo' : 'adobe_base';
         const lvlSelect = document.getElementById('adobe-level').value;
         const segmentos = this.obterAdobeSegmentosAtivos();
-
+        
+        const facetTracker = {};
         const flags = {
+          facetTracker,
           segmentos,
           segmento: segmentos[0] || 'teams',
           levelSelect: lvlSelect,
@@ -574,11 +735,19 @@ window.Cotador.app = {
             : lvlSelect,
           taxaDolar: parseFloat(document.getElementById('adobe-dolar').value) || 4.80,
           showAdobeStock: document.getElementById('chk-adobe-show-stock')?.checked ?? false,
-          hide3YCommit: document.getElementById('chk-adobe-hide-3y').checked
+          show3Y: document.getElementById('chk-adobe-show-3y')?.checked ?? false,
+          showFRL: document.getElementById('chk-adobe-show-frl')?.checked ?? false,
+          showPack: document.getElementById('chk-adobe-show-pack')?.checked ?? false,
+          showRenewal: document.getElementById('chk-adobe-show-renewal')?.checked ?? false,
+          showUpgrade: document.getElementById('chk-adobe-show-upgrade')?.checked ?? false
         };
 
         const resAdobe = await window.Cotador.tables[tabela].processar(this.parsedItems, flags);
         missingItems = this.parsedItems.filter(it => !resAdobe?.matchedItemIndices?.has(it.itemIndex));
+
+        this.aplicarFiltrosDinamicosGlobal(facetTracker, 'adobe-drawer-secundarios', 'badge-adobe-flags-count', [
+          'chk-adobe-show-stock', 'chk-adobe-show-3y', 'chk-adobe-show-frl', 'chk-adobe-show-pack', 'chk-adobe-show-renewal', 'chk-adobe-show-upgrade'
+        ]);
 
       } else {
         const todosPeriodos = [
@@ -597,7 +766,9 @@ window.Cotador.app = {
         const priceNaoPrime = document.getElementById('chk-kasp-price-naoprime')?.checked ?? false;
         const temAlgumPreco = priceRevenda || priceRO || priceNaoPrime;
 
+        const facetTracker = {};
         const flags = {
+          facetTracker,
           periodos,
           bandaSelect,
           targetBanda: (bandaSelect === 'auto') 
@@ -610,11 +781,17 @@ window.Cotador.app = {
           showBasePlus: document.getElementById('chk-kasp-show-baseplus')?.checked ?? false,
           showSuccessive: document.getElementById('chk-kasp-show-successive')?.checked ?? false,
           showPublic: document.getElementById('chk-kasp-show-public')?.checked ?? false,
-          showTraining: document.getElementById('chk-kasp-show-training')?.checked ?? false
+          showTraining: document.getElementById('chk-kasp-show-training')?.checked ?? false,
+          showCrossgrade: document.getElementById('chk-kasp-show-crossgrade')?.checked ?? false,
+          showEduc: document.getElementById('chk-kasp-show-educ')?.checked ?? false
         };
 
         const resKasp = await window.Cotador.tables.kaspersky.processar(this.parsedItems, flags);
         missingItems = this.parsedItems.filter(it => !resKasp?.matchedItemIndices?.has(it.itemIndex));
+
+        this.aplicarFiltrosDinamicosGlobal(facetTracker, 'kaspersky-drawer-secundarios', 'badge-kasp-flags-count', [
+          'chk-kasp-show-baseplus', 'chk-kasp-show-successive', 'chk-kasp-show-public', 'chk-kasp-show-training', 'chk-kasp-show-crossgrade', 'chk-kasp-show-educ'
+        ]);
       }
 
       window.Cotador.core.limparBlocosVazios();

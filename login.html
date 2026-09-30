@@ -17,7 +17,21 @@
     }
     body {
       background-color: var(--ms-light-gray);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      transition: background-image 1s ease-in-out;
       font-family: 'Segoe UI', 'Segoe UI Web (West European)', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    }
+    /* Leve camada escura opcional para destacar o card sobre qualquer wallpaper */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.2);
+      z-index: 0;
+      pointer-events: none;
     }
     .ms-input {
       border: 1px solid var(--ms-border);
@@ -53,14 +67,10 @@
 <body class="min-h-screen flex items-center justify-center p-4">
 
   <!-- Card Principal -->
-  <div class="bg-white p-8 sm:p-10 shadow-[0_2px_10px_rgba(0,0,0,0.1)] w-full max-w-[440px] rounded-sm">
+  <div class="relative z-10 bg-white p-8 sm:p-10 shadow-[0_4px_20px_rgba(0,0,0,0.25)] w-full max-w-[440px] rounded-sm">
     
-    <!-- Logo Style (Padrão MS) -->
-    <div class="flex items-center gap-2 mb-6">
-      <div class="grid grid-cols-2 gap-[2px] w-5 h-5">
-        <div class="bg-[#f25022]"></div><div class="bg-[#7fba00]"></div>
-        <div class="bg-[#00a4ef]"></div><div class="bg-[#ffb900]"></div>
-      </div>
+    <!-- Cabeçalho da Aplicação -->
+    <div class="flex items-center mb-6">
       <span class="font-semibold text-[1.1rem] text-[#737373] tracking-tight">Buscador de Produtos e Part Numbers</span>
     </div>
 
@@ -127,6 +137,45 @@
   <script src="./js/auth.js"></script>
 
   <script>
+    // ==========================================
+    // LÓGICA DE PLANO DE FUNDO ALEATÓRIO
+    // ==========================================
+    const wallpapers = [
+      'https://wallpapershome.com/images/pages/pic_h/29094.jpg',
+      'https://wallpapershome.com/images/pages/pic_h/17357.jpg',
+      'https://wallpapershome.com/images/pages/pic_h/16101.jpg'
+    ];
+
+    let indiceAtual = -1;
+
+    // Pré-carrega as imagens no navegador para evitar piscadas na troca
+    wallpapers.forEach(url => {
+      const img = new Image();
+      img.src = url;
+    });
+
+    function alterarFundoAleatorio() {
+      if (wallpapers.length === 0) return;
+
+      let novoIndice;
+      // Garante que a próxima imagem sorteada seja diferente da atual
+      do {
+        novoIndice = Math.floor(Math.random() * wallpapers.length);
+      } while (novoIndice === indiceAtual && wallpapers.length > 1);
+
+      indiceAtual = novoIndice;
+      document.body.style.backgroundImage = `url('${wallpapers[indiceAtual]}')`;
+    }
+
+    // Define um fundo aleatório imediatamente ao abrir a página
+    alterarFundoAleatorio();
+
+    // Troca o fundo automaticamente a cada 20 segundos (20000 ms)
+    setInterval(alterarFundoAleatorio, 20000);
+
+    // ==========================================
+    // LÓGICA DE AUTENTICAÇÃO
+    // ==========================================
     // Inicializa o Auth Client
     window.CotadorAuth.init();
 
@@ -216,5 +265,8 @@
     document.getElementById('login-email').addEventListener('keypress', e => e.key === 'Enter' && avancarParaSenha());
     document.getElementById('login-password').addEventListener('keypress', e => e.key === 'Enter' && realizarLogin());
   </script>
+  <div class="fixed bottom-3 right-4 text-white/70 hover:text-white text-[11px] font-medium tracking-wide drop-shadow-md z-50 transition-colors cursor-default">
+    Developed by José Garrett - 2026
+  </div>
 </body>
 </html>
