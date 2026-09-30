@@ -19,8 +19,38 @@ window.Cotador.core = {
   markupPercent: 0,
   markupEnabled: false,
   calcMode: 'margin',
-  setCalcMode() {},
-  toggleCalcMode() {},
+  
+  setCalcMode(mode) {
+    const novoModo = mode === 'markup' ? 'markup' : 'margin';
+    this.calcMode = novoModo;
+    document.body.setAttribute('data-calc-mode', novoModo);
+    
+    document.getElementById('btn-mode-margin')?.classList.toggle('active', novoModo === 'margin');
+    document.getElementById('btn-mode-markup')?.classList.toggle('active', novoModo === 'markup');
+    
+    const formulaBadge = document.getElementById('calc-mode-formula-hint');
+    if (formulaBadge) {
+      formulaBadge.textContent = novoModo === 'margin' ? 'Custo ÷ (1 - %)' : 'Custo × (1 + %)';
+      formulaBadge.className = novoModo === 'margin'
+        ? 'calc-formula-pill is-margin hidden sm:inline-block'
+        : 'calc-formula-pill is-markup hidden sm:inline-block';
+    }
+    
+    if (novoModo === 'margin' && this.markupPercent >= 100) {
+      this.markupPercent = 99.9;
+      const input = document.getElementById('input-markup-pct');
+      if (input) input.value = '99.9';
+      this.mostrarToast('Na Margem Real (por dentro), o limite máximo é 99,9%.');
+    }
+    
+    this.atualizarTitulosColunasModoCliente();
+    this.recalcularSubtotais();
+    if (window.Cotador.app?.salvarPreferencias) window.Cotador.app.salvarPreferencias();
+  },
+  
+  toggleCalcMode() {
+    this.setCalcMode(this.calcMode === 'margin' ? 'markup' : 'margin');
+  },
 
   currentUser: null,
   currentProfile: null,
@@ -1485,32 +1515,6 @@ window.Cotador.core = {
   },
 
   extrairKeywords(prodName) {
-    if (!prodName) return [];
-    
-    // Ignora divisão se for PN explícito
-    const isPartNumber = /^[A-Z0-9]{3,}-[A-Z0-9]{3,}/i.test(prodName) || /^[A-Z0-9]{5,}/i.test(prodName);
-    if (isPartNumber && prodName.indexOf(' ') === -1) {
-      return [this.sanitizarTermoPostgrest(prodName)];
-    }
-
-    // Limpeza profunda e detecção de intenção do usuário
-    const cleanedProd = this.limparRuidoComercialLinha(prodName);
-    const hasNoTeamsIntent = /\b(no\s+teams|without\s+teams|sem\s+teams)\b/i.test(prodName);
-    const baseWithoutTeamsMod = cleanedProd.replace(/\b(no\s+teams|without\s+teams)\b/gi, '').replace(/\s+/g, ' ').trim();
-    const lowerNorm = baseWithoutTeamsMod.toLowerCase();
-
-    // Verifica mapeamento exato no dicionário sem o modificador Teams
-    if (this.SEARCH_KEYWORDS[lowerNorm]) {
-        const kws = [...this.SEARCH_KEYWORDS[lowerNorm]];
-        if (hasNoTeamsIntent) kws.push('Teams'); // Injeta "Teams" para as regras secundárias filtrarem
-        return kws.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
-    }
-
-    // Fallback padrão
-    return cleanedProd.split(/\s+/).map(t => this.sanitizarTermoPostgrest(t)).filter(Boolean);
-  },
-
-  extrairKeywords(prodName) {
     const rawTrimmed = String(prodName || '').trim();
     if (!rawTrimmed) return [];
     if (this.isPartNumber(rawTrimmed)) {
@@ -1748,6 +1752,10 @@ window.Cotador.core = {
   calcularFatorComercial() {
     const pct = this.obterMarkupEfetivo();
     if (!this.markupEnabled || pct <= 0) return 1;
+    if (this.calcMode === 'margin') {
+      const safePct = Math.min(pct, 99.9);
+      return 1 / (1 - (safePct / 100));
+    }
     return 1 + (pct / 100);
   },
 
@@ -1787,11 +1795,19 @@ window.Cotador.core = {
     bar.id = 'commercial-mode-bar';
     bar.className = 'unified-view-control';
     bar.innerHTML = `
-      <div class="markup-controls-group flex items-center gap-1.5 px-2 text-[11px] text-[#605e5c]">
-        <span class="font-semibold text-[#323130]">Margem de Venda:</span>
-        <input type="number" id="input-markup-pct" value="0" step="0.5" min="0" max="500" oninput="Cotador.core.setMarkupPercent(this.value)" class="w-14 bg-white border border-[#8a8886] rounded px-1.5 py-0.5 text-center text-[11px] font-semibold text-[#323130] tabular-nums focus:outline-none transition-colors" title="Informe a porcentagem de margem de venda direta">
+      <div class="markup-controls-group flex flex-wrap items-center gap-1.5 px-2 text-[11px] text-[#605e5c]">
+        <div class="calc-mode-segmented inline-flex items-center bg-[#edebe9] p-0.5 rounded border border-[#c8c6c4]" role="group" aria-label="Tipo de Cálculo Comercial">
+          <button type="button" id="btn-mode-margin" onclick="Cotador.core.setCalcMode('margin')" class="calc-seg-btn active" title="Margem Real (Por Dentro): Custo ÷ (1 - %)">
+            Margem Real
+          </button>
+          <button type="button" id="btn-mode-markup" onclick="Cotador.core.setCalcMode('markup')" class="calc-seg-btn" title="Markup (Multiplicador Direto): Custo × (1 + %)">
+            Markup
+          </button>
+        </div>
+        <span id="calc-mode-formula-hint" class="calc-formula-pill is-margin hidden sm:inline-block" title="Fórmula matemática ativa">Custo ÷ (1 - %)</span>
+        <input type="number" id="input-markup-pct" value="0" step="0.5" min="0" max="500" oninput="Cotador.core.setMarkupPercent(this.value)" class="w-14 bg-white border border-[#8a8886] rounded px-1.5 py-0.5 text-center text-[11px] font-semibold text-[#323130] tabular-nums focus:outline-none transition-colors" title="Informe a porcentagem">
         <span class="font-medium text-[#323130]">%</span>
-        <button type="button" id="btn-toggle-markup" onclick="Cotador.core.toggleMarkupAtivo()" class="mini-toggle-btn ml-1" title="Ligar/Desligar Margem">
+        <button type="button" id="btn-toggle-markup" onclick="Cotador.core.toggleMarkupAtivo()" class="mini-toggle-btn ml-0.5" title="Ligar/Desligar Cálculo Comercial">
           <span class="dot"></span><span>Aplicar</span>
         </button>
       </div>
@@ -1805,6 +1821,7 @@ window.Cotador.core = {
     document.body.classList.remove('client-proposal-mode');
     document.body.classList.add('markup-disabled', 'hide-secondary-details', 'hide-subtotals');
     this.atualizarVisibilidadeDetalhes();
+    document.body.setAttribute('data-calc-mode', this.calcMode || 'margin');
   },
 
   toggleModoCliente() {
@@ -1841,8 +1858,17 @@ window.Cotador.core = {
   },
 
   setMarkupPercent(val) {
-    const parsed = parseFloat(val);
-    this.markupPercent = isNaN(parsed) || parsed < 0 ? 0 : parsed;
+    let parsed = parseFloat(val);
+    if (isNaN(parsed) || parsed < 0) parsed = 0;
+    
+    if (this.calcMode === 'margin' && parsed >= 100) {
+      parsed = 99.9;
+      const input = document.getElementById('input-markup-pct');
+      if (input) input.value = '99.9';
+      this.mostrarToast('Na Margem Real (por dentro), o limite máximo é 99,9%.');
+    }
+    
+    this.markupPercent = parsed;
     if (this.markupPercent > 0 && !this.markupEnabled) {
       this.markupEnabled = true;
       document.getElementById('btn-toggle-markup')?.classList.add('active');
@@ -1864,7 +1890,6 @@ window.Cotador.core = {
 
   atualizarTitulosColunasModoCliente() {
     const pct = this.obterMarkupEfetivo();
-    const sufixoPct = (this.markupEnabled && pct > 0) ? ` (+${pct}%)` : '';
     document.querySelectorAll('.quote-block thead th').forEach(th => {
       if (!th.dataset.originalHeader) th.dataset.originalHeader = th.innerText.trim();
       const orig = th.dataset.originalHeader;
@@ -1875,9 +1900,13 @@ window.Cotador.core = {
           else if (/brl/i.test(orig)) th.innerText = 'Valor Unit. (BRL)';
           else th.innerText = 'Valor Unitário';
         } else {
-          if (/usd/i.test(orig)) th.innerText = `Valor c/ Margem (USD)${sufixoPct}`;
-          else if (/brl/i.test(orig)) th.innerText = `Valor c/ Margem (BRL)${sufixoPct}`;
-          else th.innerText = `Valor c/ Margem${sufixoPct}`;
+          const tituloInterno = (this.markupEnabled && pct > 0)
+            ? (this.calcMode === 'margin' ? `Venda [Margem Real ${pct}%]` : `Venda [Markup +${pct}%]`)
+            : `Valor c/ Margem`;
+            
+          if (/usd/i.test(orig)) th.innerText = `${tituloInterno} (USD)`;
+          else if (/brl/i.test(orig)) th.innerText = `${tituloInterno} (BRL)`;
+          else th.innerText = tituloInterno;
         }
       } else {
         th.innerText = orig;
@@ -2084,6 +2113,8 @@ copiarQuantidadeLinha(event, btnEl) {
       if (sourceTbody) this.sincronizarOrdemTabelas(sourceTbody, movedRow);
     });
   },
+
+  
 
   prepararLinhasDrag() {
     this.initDragEvents();
