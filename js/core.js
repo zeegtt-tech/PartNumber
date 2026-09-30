@@ -1539,7 +1539,7 @@ window.Cotador.core = {
       .replace(/(?:^|\s|[-/|])+\b([mp]ensal|anual|trienal|monthly|annual|yearly|triennial|p1y|p1m|p3y|1\s*ano|3\s*anos)\b/gi, ' ')
       .replace(/\b(add[\s\-]?on|adoon|addon|assinatura|subscricao|subscription|faturamento|renovacao)\b/gi, ' ')
       .replace(/\b(sem\s+teams|s\/\s*teams|without\s+teams)\b/gi, 'no teams')
-      .replace(/(?:\s+-\s+|\s+-\b|\b-\s+|-+$|^+-)/g, ' ')
+      .replace(/(?:\s+-\s+|\s+-\b|\b-\s+|-+$|^-+)/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
   },
