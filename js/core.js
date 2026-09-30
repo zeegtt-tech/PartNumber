@@ -2433,36 +2433,38 @@ window.Cotador.core = {
   },
 
   copiarElemento(event, el) {
-  if (event) event.stopPropagation();
-  if (!el) return;
-  let txt = el.getAttribute('data-copy') ?? el.innerText.trim();
-  const comSimboloMoeda = Boolean(event && (event.shiftKey || event.altKey));
-  
-  if (!comSimboloMoeda && /[R$US$]/i.test(txt)) {
-    const num = this.parsePrice(txt);
-    txt = num > 0 ? num.toFixed(2).replace('.', ',') : txt.replace(/[R$US$\s]/gi, '').trim();
-  }
-  
-  if (!txt || txt === '-') return;
-  navigator.clipboard.writeText(txt);
-  el.classList.add('is-copied');
-  setTimeout(() => el.classList.remove('is-copied'), 450);
-  this.mostrarToast(`${el.getAttribute('data-label') || 'Item'} copiado: ${txt}`);
-},
+    if (event) event.stopPropagation();
+    if (!el) return;
+    let txt = el.getAttribute('data-copy') ?? el.innerText.trim();
+    const comSimboloMoeda = Boolean(event && (event.shiftKey || event.altKey));
+    
+    if (!comSimboloMoeda && /[R$US$]/i.test(txt)) {
+      const num = this.parsePrice(txt);
+      txt = num > 0 ? num.toFixed(2).replace('.', ',') : txt.replace(/[R$US$\s]/gi, '').trim();
+    }
+    
+    if (!txt || txt === '-') return;
+    navigator.clipboard.writeText(txt);
+    el.classList.add('is-copied');
+    setTimeout(() => el.classList.remove('is-copied'), 450);
+    this.mostrarToast(`${el.getAttribute('data-label') || 'Item'} copiado: ${txt}`);
+  },
 
-  copiarColunaTabela(th, colIndex) {
+  copiarColunaTabela(event, th, colIndex) {
     if (event) event.stopPropagation();
     const table = th.closest('table');
     if (!table) return;
     const valores = [];
     table.querySelectorAll('tbody tr').forEach(tr => {
       if (tr.children[colIndex]) {
-        const val = this.extrairValorCelula(tr.children[colIndex]);
-        if (val && val !== '-') valores.push(val);
-        const comSimbolo = Boolean(event && (event.shiftKey || event.altKey));
-  if (!comSimbolo && /[R$US$]/i.test(val)) {
-     val = this.parsePrice(val).toFixed(2).replace('.', ',');
-  }
+        let val = this.extrairValorCelula(tr.children[colIndex]);
+        if (val && val !== '-') {
+          const comSimbolo = Boolean(event && (event.shiftKey || event.altKey));
+          if (!comSimbolo && /[R$US$]/i.test(val)) {
+            val = this.parsePrice(val).toFixed(2).replace('.', ',');
+          }
+          valores.push(val);
+        }
       }
     });
     if (valores.length > 0) {

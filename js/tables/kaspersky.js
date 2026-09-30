@@ -40,7 +40,6 @@ function extrairOrdemTipoKaspersky(row) {
 function extrairInfoProdutoKaspersky(saleItemName) {
   const raw = String(saleItemName || '').trim();
   const lower = raw.toLowerCase();
-
   if (lower.startsWith('kaspersky atc training')) {
     const parts = raw.split('.').map(p => p.trim()).filter(Boolean);
     const curso = parts[2] ? parts[2].replace(/\s*Brazilian Edition\b/i, '').trim() : '';
@@ -48,13 +47,11 @@ function extrairInfoProdutoKaspersky(saleItemName) {
     const slug = titulo.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'atc';
     return { id: slug, titulo, ordem: 90 };
   }
-
   const base = raw.split('.')[0].trim();
   let tituloLimpo = base.replace(/\s*Brazilian Edition\b/i, '').trim();
   if (tituloLimpo.toLowerCase().includes('foundation') && !tituloLimpo.toLowerCase().includes('edr')) {
     tituloLimpo += ' (Sem EDR)';
   }
-
   const tl = tituloLimpo.toLowerCase();
   let ordem = 50;
   if (tl.includes('next foundations')) ordem = 1;
@@ -65,24 +62,14 @@ function extrairInfoProdutoKaspersky(saleItemName) {
   else if (tl.includes('mxdr optimum')) ordem = 8;
   else if (tl.includes('xdr optimum')) ordem = 6;
   else if (tl.includes('xdr expert')) ordem = 7;
-
   const slug = base.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'kasp-prod';
   return { id: slug, titulo: tituloLimpo, ordem };
 }
 
 function extrairPrecoNaoPrimeKaspersky(row, core) {
   if (!row) return 0;
-  const direct =
-    row.preco_nao_prime ??
-    row.preco_n_prime ??
-    row.nao_prime ??
-    row.valor_nao_prime ??
-    row['Preço nao Prime'] ??
-    row['Preco nao Prime'] ??
-    row['preço nao prime'] ??
-    row['preco nao prime'];
+  const direct = row.preco_nao_prime ?? row.preco_n_prime ?? row.nao_prime ?? row.valor_nao_prime ?? row['Preço nao Prime'] ?? row['Preco nao Prime'] ?? row['preço nao prime'] ?? row['preco nao prime'];
   if (direct !== undefined && direct !== null) return core.parsePrice(direct);
-
   for (const [k, v] of Object.entries(row)) {
     if (/prime/i.test(k) && v !== null && v !== undefined) {
       return core.parsePrice(v);
@@ -94,14 +81,8 @@ function extrairPrecoNaoPrimeKaspersky(row, core) {
 function normalizarChaveProdutoKaspersky(saleItemName, banda) {
   let s = String(saleItemName || '').toLowerCase().trim();
   const b = String(banda || '').toLowerCase().trim();
-  if (b && b !== '-') {
-    s = s.split(b).join('__banda__');
-  }
-  s = s
-    .replace(/\b\d+\s*-\s*\d+\b/g, '__banda__')
-    .replace(/\b\d+\s*(?:year|years|ano|anos|month|months|mês|meses)\b/gi, '__periodo__')
-    .replace(/\s+/g, ' ')
-    .trim();
+  if (b && b !== '-') { s = s.split(b).join('__banda__'); }
+  s = s.replace(/\b\d+\s*-\s*\d+\b/g, '__banda__').replace(/\b\d+\s*(?:year|years|ano|anos|month|months|mês|meses)\b/gi, '__periodo__').replace(/\s+/g, ' ').trim();
   return s;
 }
 
