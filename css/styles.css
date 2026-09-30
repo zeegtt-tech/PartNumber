@@ -236,7 +236,8 @@ body.client-proposal-mode .col-pn,
 body.client-proposal-mode .col-cost-normal,
 body.client-proposal-mode .col-internal-cost { display: none !important; }
 body.client-proposal-mode .client-only-text { display: inline !important; }
-
+.client-only-inline-btn { display: none; }
+body.client-proposal-mode .client-only-inline-btn { display: inline-flex !important; }
 body.markup-disabled #input-markup-pct { opacity: 0.55; background-color: #f3f2f1; color: #a19f9d; }
 body.markup-disabled:not(.client-proposal-mode) .col-margin-price { display: none !important; }
 body.has-active-markup #btn-toggle-markup.active .dot { background-color: #5c2d91 !important; }

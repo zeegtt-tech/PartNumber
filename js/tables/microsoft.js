@@ -32,7 +32,7 @@ const MS_SECONDARY_RULES = [
             /^(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome) ||
             /\bcopilot\s+(?:studio|for\s+sales|for\s+service|for\s+security|business)\b/i.test(nome)
         );
-        return isCopilotBundle || (nome.toLowerCase().includes('copilot') && !isNativeCopilot);
+        return isCopilotBundle;
     }
   },
   {
@@ -96,8 +96,12 @@ const MS_SECONDARY_RULES = [
 function passaFiltroSecundarioMicrosoft(nomeProdutoRaw, itemSearchRaw, flags = {}, facetTracker = null) {
   const nome = String(nomeProdutoRaw || '').toLowerCase();
   const query = String(itemSearchRaw || '').toLowerCase();
+  const buscouSemTeams = /\b(no\s*teams|sem\s*teams|without\s*teams|s\/\s*teams)\b/i.test(query);
+  const isProdSemTeams = /\b(no|sem|without|w\/o)\s*teams\b/i.test(nome);
+  if (buscouSemTeams && !isProdSemTeams) {
+    return false;
+  }
   let permitido = true;
-
   for (const rule of MS_SECONDARY_RULES) {
     const buscouExplicito = rule.queryRegex.test(query);
     const isSecProduct = rule.testProduct ? rule.testProduct(nome) : rule.productRegex.test(nome);
@@ -355,9 +359,10 @@ window.Cotador.tables.ms_solo = {
         filtrados.forEach(r => {
           matchedItemIndices.add(item.itemIndex);
           const skuId = String(r.sku_id || '').padStart(4, '0');
-          const pn = `${r.id_produto}-${skuId}-${r.termo_duracao}-${r.plano_pagamento}`;
-
-          const custoCom5Base = core.parsePrice(r.valor_5pct_servicos ?? r.valor_com_5_servicos ?? r['Valor com 5% serviços'] ?? r.fob_impostos);
+          const basePn = `${r.id_produto}-${skuId}-${r.termo_duracao}-${r.plano_pagamento}`;
+          const mods = core.obterModificadoresPnSolo ? core.obterModificadoresPnSolo() : { prefix: '', suffix: '' };
+          const pn = `${mods.prefix}${basePn}${mods.suffix}`;
+          const custoCom5Base = core.parsePrice(r.valor_5pct_servicos ?? r.valor_com_5_servicos ?? r['Valor com 5% servi os'] ?? r.fob_impostos);
           const rawFob = core.parsePrice(r.fob_impostos);
           const rawMensalAnual = core.parsePrice(r.termo_anual_pagamento_mensal);
           const divisor = c.id === 'ta' ? 3 : (c.id === 'tm' ? 36 : 1);
@@ -392,7 +397,7 @@ window.Cotador.tables.ms_solo = {
           const segBadge = core.renderSegmentBadge(r.titulo_sku, r, flags.segmentos);
           const prodKey = core.normalizarChaveProdutoMS(r.titulo_sku, item.itemIndex);
 
-          rowsHTML += `<tr data-row-kind="ms_solo" data-contract-id="${c.id}" data-fob-impostos="${rawFob}" data-custo-com-5="${custoCom5Base}" data-termo-anual-mensal="${rawMensalAnual}" data-divisor="${divisor}" data-mensal-sem5="${mensalSem5}" data-anual-sem5="${anualSem5}" data-unit-price="${custoFinal}" data-pn="${core.escapeHTML(pn)}" data-prod-key="${core.escapeHTML(prodKey)}">
+          rowsHTML += `<tr data-row-kind="ms_solo" data-contract-id="${c.id}" data-fob-impostos="${rawFob}" data-custo-com-5="${custoCom5Base}" data-termo-anual-mensal="${rawMensalAnual}" data-divisor="${divisor}" data-mensal-sem5="${mensalSem5}" data-anual-sem5="${anualSem5}" data-unit-price="${custoFinal}" data-pn="${core.escapeHTML(pn)}" data-base-pn="${core.escapeHTML(basePn)}" data-prod-key="${core.escapeHTML(prodKey)}">
             <td class="font-medium text-[#323130]">${core.renderCopyLink(r.titulo_sku, r.titulo_sku, 'Produto')}${segBadge}</td>
             <td>${core.renderQtyInput(item.qty)}</td>
             <td class="col-pn">${core.renderPnBadge(pn)}</td>

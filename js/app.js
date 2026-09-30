@@ -208,12 +208,14 @@ window.Cotador.app = {
       const prefs = {
         vendor: this.currentVendor,
         scanDiscount: document.getElementById('ms-scan-discount')?.value ?? '7',
-        msModalidades: Array.from(this.msModalidades)
+        msModalidades: Array.from(this.msModalidades),
+        calcMode: window.Cotador.core.calcMode || 'margin',
+        soloPnPrefix: document.getElementById('ms-solo-prefix')?.value || '',
+        soloPnSuffix: document.getElementById('ms-solo-suffix')?.value || ''
       };
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(prefs));
     } catch (_) {}
   },
-
   carregarPreferencias() {
     try {
       const raw = localStorage.getItem(this.STORAGE_KEY);
@@ -222,9 +224,20 @@ window.Cotador.app = {
       
       if (prefs.scanDiscount !== undefined && document.getElementById('ms-scan-discount')) {
         document.getElementById('ms-scan-discount').value = prefs.scanDiscount;
+        const scanCheck = document.getElementById('chk-scan-discount');
+        if (scanCheck) scanCheck.checked = (Number(prefs.scanDiscount) > 0);
       }
       if (Array.isArray(prefs.msModalidades) && prefs.msModalidades.length > 0) {
         this.msModalidades = new Set([prefs.msModalidades[0] || 'scan']);
+      }
+      if (prefs.calcMode && window.Cotador.core.setCalcMode) {
+        window.Cotador.core.setCalcMode(prefs.calcMode);
+      }
+      if (prefs.soloPnPrefix !== undefined && typeof this.setSoloPnPrefix === 'function') {
+        this.setSoloPnPrefix(prefs.soloPnPrefix);
+      }
+      if (prefs.soloPnSuffix !== undefined && typeof this.setSoloPnSuffix === 'function') {
+        this.setSoloPnSuffix(prefs.soloPnSuffix);
       }
     } catch (_) {}
   },
@@ -282,6 +295,27 @@ window.Cotador.app = {
     this.setMsModalidade(mod);
   },
 
+  setSoloPnPrefix(prefix) {
+    const input = document.getElementById('ms-solo-prefix');
+    if (input) input.value = prefix || '';
+    ['none', 'SN', 'FC', 'PC', 'SP'].forEach(k => {
+      const id = k === 'none' ? 'btn-solo-pfx-none' : `btn-solo-pfx-${k}`;
+      const matchVal = k === 'none' ? '' : `${k}-SN-NCE-`;
+      const isMatch = (k === 'SN' && prefix === 'SN-NCE-') || (prefix === matchVal);
+      document.getElementById(id)?.classList.toggle('active', isMatch);
+    });
+    window.Cotador.core.atualizarModificadoresPnSoloEmTempoReal();
+  },
+  setSoloPnSuffix(suffix) {
+    const input = document.getElementById('ms-solo-suffix');
+    if (input) input.value = suffix || '';
+    ['none', 'BSC', 'STD', 'PRM'].forEach(k => {
+      const id = k === 'none' ? 'btn-solo-sfx-none' : `btn-solo-sfx-${k}`;
+      const matchVal = k === 'none' ? '' : `-${k}`;
+      document.getElementById(id)?.classList.toggle('active', suffix === matchVal);
+    });
+    window.Cotador.core.atualizarModificadoresPnSoloEmTempoReal();
+  },
   obterModalidadesAtivas() {
     const todas = ['scan', 'solo', 'perpetuo', 'mpsa'];
     const selecionada = Array.from(this.msModalidades).find(m => todas.includes(m));
@@ -304,16 +338,16 @@ window.Cotador.app = {
 
     const boxScanDiscount = document.getElementById('ms-box-scan-discount');
     const boxSoloService = document.getElementById('ms-box-solo-service');
+    const boxSoloModifiers = document.getElementById('ms-box-solo-modifiers');
     const boxContratos = document.getElementById('ms-box-contratos');
     const flagsCSP = document.getElementById('ms-flags-csp');
     const flagsPM = document.getElementById('ms-flags-perpetuo-mpsa');
     const flagsMPSA = document.getElementById('ms-flags-mpsa');
-
     const boxFlags = document.getElementById('ms-box-flags');
     if (boxFlags && hasPM) boxFlags.classList.remove('hidden');
-
     if (boxScanDiscount) boxScanDiscount.classList.toggle('hidden', !isScan);
     if (boxSoloService) boxSoloService.classList.toggle('hidden', !isSolo);
+    if (boxSoloModifiers) boxSoloModifiers.classList.toggle('hidden', !isSolo);
     if (boxContratos) boxContratos.classList.toggle('hidden', !hasCSP);
     if (flagsCSP) flagsCSP.classList.toggle('hidden', !hasCSP);
     if (flagsPM) flagsPM.classList.toggle('hidden', !hasPM);
@@ -797,7 +831,6 @@ window.Cotador.app = {
       window.Cotador.core.limparBlocosVazios();
       window.Cotador.core.renderUnmatchedWarning(missingItems);
       window.Cotador.core.recalcularSubtotais();
-
     } catch (err) {
       if (err && err.name === 'AbortError') {
         return;
@@ -811,5 +844,4 @@ window.Cotador.app = {
     }
   }
 };
-
 document.addEventListener('DOMContentLoaded', () => window.Cotador.app.init());
