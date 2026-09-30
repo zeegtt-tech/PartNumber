@@ -17,23 +17,22 @@ const MS_SECONDARY_RULES = [
     checkboxId: 'chk-show-noteams',
     flagProp: 'showNoTeams',
     label: 'Sem Teams',
-    queryRegex: /\b(no\s+teams|sem\s+teams|without\s+teams)\b/i,
-    productRegex: /\b(no|sem|without)\s+teams\b/i
+    queryRegex: /\b(no\s*teams|sem\s*teams|without\s*teams|s\/\s*teams)\b/i,
+    productRegex: /\b(no|sem|without|w\/o)\s*teams\b/i
   },
   {
     key: 'copilot',
     checkboxId: 'chk-show-copilot',
     flagProp: 'showCopilot',
-    label: 'Bundles Copilot / Add-ons',
-    queryRegex: /\b(with\s+copilot|attach|add-on|addon|extra\s+file|storage)\b/i,
+    label: 'Bundles Copilot',
+    queryRegex: /\b(with\s+copilot|copilot)\b/i,
     testProduct: (nome) => {
-      const isBundle = /\b(?:with|w\/)\b/i.test(nome) || /\band\s+(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome);
-      const isGenericAddon = /\b(attach|add[\s\-]?on|extra\s+file\s+storage)\b/i.test(nome);
-      const isNativeCopilot = !isBundle && (
-        /^(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome) ||
-        /\bcopilot\s+(?:studio|for\s+sales|for\s+service|for\s+security|business)\b/i.test(nome)
-      );
-      return isBundle || (isGenericAddon && !isNativeCopilot) || (nome.includes('copilot') && !isNativeCopilot);
+        const isCopilotBundle = /\b(?:with|w\/|and)\s+(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome);
+        const isNativeCopilot = !isCopilotBundle && (
+            /^(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome) ||
+            /\bcopilot\s+(?:studio|for\s+sales|for\s+service|for\s+security|business)\b/i.test(nome)
+        );
+        return isCopilotBundle || (nome.toLowerCase().includes('copilot') && !isNativeCopilot);
     }
   },
   {
@@ -160,14 +159,18 @@ window.Cotador.tables.ms_scan = {
       const params = [['select', '*'], ['limit', '1000']];
       const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z\-]{5,22}$/i.test(item.keywords[0]) && /\d/.test(item.keywords[0]);
 
-      if (isPnQuery) {
+      if (isPnQuery && segOrFilter) {
         const term = item.keywords[0];
-        params.push(['or', `(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*)`]);
+        params.push(['and', `(or(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*),or${segOrFilter})`]);
       } else {
-        item.keywords.forEach(kw => params.push(['offer_display_name', `ilike.*${kw}*`]));
+        if (isPnQuery) {
+          const term = item.keywords[0];
+          params.push(['or', `(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*)`]);
+        } else {
+            item.keywords.forEach(kw => params.push(['offer_display_name', `ilike.*${kw}*`]));
+        }
+        if (segOrFilter) params.push(['or', segOrFilter]);
       }
-
-      if (segOrFilter) params.push(['or', segOrFilter]);
 
       let data = [];
       try {
@@ -175,11 +178,17 @@ window.Cotador.tables.ms_scan = {
       } catch (err) {
         if (err?.name === 'AbortError') throw err;
         const fallback = [['select', '*'], ['limit', '1000']];
-        if (isPnQuery) {
+        if (isPnQuery && segOrFilter) {
           const term = item.keywords[0];
-          fallback.push(['or', `(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*)`]);
+          fallback.push(['and', `(or(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*),or${segOrFilter})`]);
         } else {
-          item.keywords.forEach(kw => fallback.push(['offer_display_name', `ilike.*${kw}*`]));
+          if (isPnQuery) {
+            const term = item.keywords[0];
+            fallback.push(['or', `(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*)`]);
+          } else {
+              item.keywords.forEach(kw => fallback.push(['offer_display_name', `ilike.*${kw}*`]));
+          }
+          if (segOrFilter) fallback.push(['or', segOrFilter]);
         }
         data = await core.fetchSupabase('microsoft_scan', fallback);
       }
@@ -268,15 +277,20 @@ window.Cotador.tables.ms_solo = {
       const params = [['select', '*'], ['limit', '1500']];
       const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z\-]{5,35}$/i.test(item.keywords[0]) && /\d/.test(item.keywords[0]);
 
-      if (isPnQuery) {
+      if (isPnQuery && segOrFilter) {
         const term = item.keywords[0];
         const basePn = term.split('-')[0];
-        params.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
+        params.push(['and', `(or(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*),or${segOrFilter})`]);
       } else {
-        item.keywords.forEach(kw => params.push(['titulo_sku', `ilike.*${kw}*`]));
+        if (isPnQuery) {
+          const term = item.keywords[0];
+          const basePn = term.split('-')[0];
+          params.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
+        } else {
+            item.keywords.forEach(kw => params.push(['titulo_sku', `ilike.*${kw}*`]));
+        }
+        if (segOrFilter) params.push(['or', segOrFilter]);
       }
-
-      if (segOrFilter) params.push(['or', segOrFilter]);
 
       let data = [];
       try {
@@ -284,17 +298,29 @@ window.Cotador.tables.ms_solo = {
       } catch (err) {
         if (err?.name === 'AbortError') throw err;
         const fallback = [['select', '*'], ['limit', '1500']];
-        if (isPnQuery) {
+        if (isPnQuery && segOrFilter) {
           const term = item.keywords[0];
           const basePn = term.split('-')[0];
-          fallback.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
+          fallback.push(['and', `(or(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*),or${segOrFilter})`]);
         } else {
-          item.keywords.forEach(kw => fallback.push(['titulo_sku', `ilike.*${kw}*`]));
+          if (isPnQuery) {
+            const term = item.keywords[0];
+            const basePn = term.split('-')[0];
+            fallback.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
+          } else {
+              item.keywords.forEach(kw => fallback.push(['titulo_sku', `ilike.*${kw}*`]));
+          }
+          if (segOrFilter) fallback.push(['or', segOrFilter]);
         }
         data = await core.fetchSupabase('microsoft_solo', fallback);
       }
 
       data = data.filter(r => {
+        const tags = String(r.tags || '').toLowerCase();
+        if (!flags.showTrial && tags.includes('trial')) {
+          return false; // Pula a renderização deste produto
+        }
+
         const nome = r.offer_display_name || r.titulo_sku || '';
         const custoCom5Base = core.parsePrice(r.valor_5pct_servicos ?? r.valor_com_5_servicos ?? r['Valor com 5% serviços'] ?? r.fob_impostos);
         const rawFob = core.parsePrice(r.fob_impostos);
@@ -578,24 +604,35 @@ window.Cotador.tables.ms_mpsa = {
       const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z\-]{5,22}$/i.test(item.keywords[0]) && /\d/.test(item.keywords[0]);
 
       const p1 = [['select', '*'], ['limit', '800']];
-      if (isPnQuery) {
+      if (isPnQuery && segOrFilterMpsa) {
         const term = item.keywords[0];
-        p1.push(['or', `(numero_item.ilike.*${term}*,nome_curto_peca.ilike.*${term}*)`]);
+        p1.push(['and', `(or(numero_item.ilike.*${term}*,nome_curto_peca.ilike.*${term}*),or${segOrFilterMpsa})`]);
       } else {
-        item.keywords.forEach(kw => p1.push(['nome_curto_peca', `ilike.*${kw}*`]));
+        if (isPnQuery) {
+          const term = item.keywords[0];
+          p1.push(['or', `(numero_item.ilike.*${term}*,nome_curto_peca.ilike.*${term}*)`]);
+        } else {
+            item.keywords.forEach(kw => p1.push(['nome_curto_peca', `ilike.*${kw}*`]));
+        }
+        if (segOrFilterMpsa) p1.push(['or', segOrFilterMpsa]);
       }
-      if (segOrFilterMpsa) p1.push(['or', segOrFilterMpsa]);
       p1.push(['order', 'categoria_precos.asc']);
 
       queries.push(
         core.fetchSupabase('microsoft_mpsa', p1).catch((err) => {
           if (err?.name === 'AbortError') throw err;
           const fallbackP1 = [['select', '*'], ['limit', '800']];
-          if (isPnQuery) {
-            const term = item.keywords[0];
-            fallbackP1.push(['or', `(numero_item.ilike.*${term}*,nome_curto_peca.ilike.*${term}*)`]);
+          if (isPnQuery && segOrFilterMpsa) {
+              const term = item.keywords[0];
+              fallbackP1.push(['and', `(or(numero_item.ilike.*${term}*,nome_curto_peca.ilike.*${term}*),or${segOrFilterMpsa})`]);
           } else {
-            item.keywords.forEach(kw => fallbackP1.push(['nome_curto_peca', `ilike.*${kw}*`]));
+              if (isPnQuery) {
+                const term = item.keywords[0];
+                fallbackP1.push(['or', `(numero_item.ilike.*${term}*,nome_curto_peca.ilike.*${term}*)`]);
+              } else {
+                item.keywords.forEach(kw => fallbackP1.push(['nome_curto_peca', `ilike.*${kw}*`]));
+              }
+              if (segOrFilterMpsa) fallbackP1.push(['or', segOrFilterMpsa]);
           }
           return core.fetchSupabase('microsoft_mpsa', fallbackP1);
         })

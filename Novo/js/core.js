@@ -1207,6 +1207,9 @@ window.Cotador.core = {
   // 6. MOTOR DE BUSCA INTELIGENTE, CORREÇÃO FUZZY E PARSER DE INPUT
   // ==========================================================================
   SEARCH_KEYWORDS: {
+    "office 365 extra file storage": ["Extra File Storage"],
+    "extra file storage": ["Extra File Storage"],
+    "power apps premium": ["Power Apps", "Premium"],
     "adobe acrobat pro": ["Acrobat", "Pro"],
     "adobe acrobat standard": ["Acrobat", "Standard"],
     "adobe creative cloud": ["Creative Cloud"],
@@ -1458,10 +1461,53 @@ window.Cotador.core = {
   },
 
   normalizarChaveProdutoMS(rawName, itemIndex) {
-    const clean = String(rawName || '').toLowerCase().replace(/\(.*?\)/g, ' ')
+    const clean = String(rawName || '').toLowerCase()
+      .replace(/\(\s*(?:non-profit\vert{}nonprofit\vert{}charity\vert{}education\vert{}academic\vert{}faculty\vert{}student\vert{}government\vert{}gov\vert{}commercial)[^)]*\)/gi, ' ')
       .replace(/\b(commercial|education|academic|faculty|student|charity|non-profit|nonprofit|government|gov)\b/gi, ' ')
+      .replace(/\b(sem\s+teams|without\s+teams)\b/gi, 'no teams')
+      .replace(/[()]/g, ' ')
       .replace(/\s+/g, ' ').trim();
     return `ms-item-${itemIndex ?? 0}::${clean}`;
+  },
+
+  limparRuidoComercialLinha(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/[\u2010-\u2015\u2212]/g, '-')
+      .replace(/\bnew\s+co[mr]{1,3}er?ce(\s+experience)?\b/gi, ' ')
+      .replace(/\b(nce|csp|legacy|open\s+value|ovp)\b/gi, ' ')
+      .replace(/(?:^|\s|[-/|])+\b([mp]ensal|anual|trienal|monthly|annual|yearly|triennial|p1y|p1m|p3y|1\s*ano|3\s*anos)\b/gi, ' ')
+      .replace(/\b(add[\s\-]?on|adoon|addon|assinatura|subscricao|subscription|faturamento|renovacao)\b/gi, ' ')
+      .replace(/\b(sem\s+teams|s\/\s*teams|without\s+teams)\b/gi, 'no teams')
+      .replace(/(?:\s+-\s+|\s+-\b|\b-\s+|-+$|^+-)/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  },
+
+  extrairKeywords(prodName) {
+    if (!prodName) return [];
+    
+    // Ignora divisão se for PN explícito
+    const isPartNumber = /^[A-Z0-9]{3,}-[A-Z0-9]{3,}/i.test(prodName) || /^[A-Z0-9]{5,}/i.test(prodName);
+    if (isPartNumber && prodName.indexOf(' ') === -1) {
+      return [this.sanitizarTermoPostgrest(prodName)];
+    }
+
+    // Limpeza profunda e detecção de intenção do usuário
+    const cleanedProd = this.limparRuidoComercialLinha(prodName);
+    const hasNoTeamsIntent = /\b(no\s+teams|without\s+teams|sem\s+teams)\b/i.test(prodName);
+    const baseWithoutTeamsMod = cleanedProd.replace(/\b(no\s+teams|without\s+teams)\b/gi, '').replace(/\s+/g, ' ').trim();
+    const lowerNorm = baseWithoutTeamsMod.toLowerCase();
+
+    // Verifica mapeamento exato no dicionário sem o modificador Teams
+    if (this.SEARCH_KEYWORDS[lowerNorm]) {
+        const kws = [...this.SEARCH_KEYWORDS[lowerNorm]];
+        if (hasNoTeamsIntent) kws.push('Teams'); // Injeta "Teams" para as regras secundárias filtrarem
+        return kws.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
+    }
+
+    // Fallback padrão
+    return cleanedProd.split(/\s+/).map(t => this.sanitizarTermoPostgrest(t)).filter(Boolean);
   },
 
   extrairKeywords(prodName) {
@@ -1556,6 +1602,7 @@ window.Cotador.core = {
         }
       }
       prodName = prodName.replace(/^[\s\- :|=/ *+]+|[\s\- :|=/ *+]+$/g, '').trim();
+      prodName = this.limparRuidoComercialLinha(prodName);
       if (!prodName) return;
       if (qty !== null && !isNaN(qty)) sumLicenses += qty;
       items.push({ itemIndex: idx, original: this.escapeHTML(prodName), rawSearch: prodName, keywords: this.extrairKeywords(prodName), qty: qty !== null ? qty : '-' });
