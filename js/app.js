@@ -698,9 +698,13 @@ window.Cotador.app = {
     const btn = document.getElementById('btn-buscar');
     const container = document.getElementById('resultado-container');
 
-    btn.disabled = true;
-    btn.innerHTML = '<span>Consultando SKUs em paralelo e montando propostas...</span>';
-    container.innerHTML = '<div class="text-center py-20 text-gray-500 text-xs font-normal animate-pulse bg-[#faf9f8] rounded border border-[#edebe9]">Consultando banco de dados corporativo...</div>';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span>Consultando SKUs em paralelo e montando propostas...</span>';
+    }
+    if (container) {
+      container.innerHTML = '<div class="text-center py-20 text-gray-500 text-xs font-normal animate-pulse bg-[#faf9f8] rounded border border-[#edebe9]">Consultando banco de dados corporativo...</div>';
+    }
 
     try {
       let missingItems = [];
@@ -755,7 +759,7 @@ window.Cotador.app = {
           }
         });
 
-        container.innerHTML = combinedHTML;
+        if (container) container.innerHTML = combinedHTML;
         missingItems = this.parsedItems.filter(it => !globalMatchedIndices.has(it.itemIndex));
 
       } else if (this.currentVendor === 'adobe') {
@@ -842,9 +846,11 @@ window.Cotador.app = {
         if (err && err.name === 'AbortError') {
           return;
         }
-        container.innerHTML = `<div class="p-4 rounded bg-[#fdf3f4] border border-[#f8d7da] text-[#a4262c] text-xs"><b>Erro na consulta:</b> ${err.message}</div>`;
+        if (container) {
+          container.innerHTML = `<div class="p-4 rounded bg-[#fdf3f4] border border-[#f8d7da] text-[#a4262c] text-xs"><b>Erro na consulta:</b> ${err.message}</div>`;
+        }
       } finally {
-      if (!searchSignal.aborted) {
+      if (!searchSignal.aborted && btn) {
         btn.disabled = false;
         btn.innerHTML = '<span>Buscar e Montar Tabelas</span>';
       }
