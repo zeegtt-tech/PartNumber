@@ -343,8 +343,8 @@ window.Cotador.tables.ms_solo = {
           // Força a montagem do PN com o plano selecionado na tela (ex: P1Y-Monthly) ao invés do que vem no banco
           const basePn = `${r.id_produto}-${skuId}-${c.soloTermo}-${c.soloPlano}`;
           const mods = core.obterModificadoresPnSolo ? core.obterModificadoresPnSolo() : { prefix: '', suffix: '' };
-          const pn = `${mods.prefix}${basePn}${mods.suffix}`;const pn = `${mods.prefix}${basePn}${mods.suffix}`;
-          const custoCom5Base = core.parsePrice(r.valor_5pct_servicos ?? r.valor_com_5_servicos ?? r['Valor com 5% servi os'] ?? r.fob_impostos);
+          const pn = `${mods.prefix}${basePn}${mods.suffix}`;
+          const custoCom5Base = core.parsePrice(r.valor_5pct_servicos ?? r.valor_com_5_servicos ?? r['Valor com 5% serviços'] ?? r.fob_impostos);
           const rawFob = core.parsePrice(r.fob_impostos);
           const rawMensalAnual = core.parsePrice(r.termo_anual_pagamento_mensal);
           const divisor = c.id === 'ta' ? 3 : (c.id === 'tm' ? 36 : 1);
