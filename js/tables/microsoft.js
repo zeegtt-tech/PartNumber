@@ -170,9 +170,8 @@ window.Cotador.tables.ms_scan = {
         const term = item.keywords[0];
         params.push(['or', `(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*)`]);
       } else {
-        item.keywords.forEach(kw => {
-            params.push(['offer_display_name', `ilike.*${kw}*`]);
-        });
+        const andClauses = item.keywords.map(kw => `offer_display_name.ilike.*${kw}*`).join(',');
+        if (andClauses) params.push(['and', `(${andClauses})`]);
       }
       if (segOrFilter) params.push(['or', segOrFilter]);
       let data = [];
@@ -181,7 +180,8 @@ window.Cotador.tables.ms_scan = {
       } catch (err) {
         if (err?.name === 'AbortError') throw err;
         const fallback = [['select', '*'], ['limit', '1000']];
-        item.keywords.forEach(kw => fallback.push(['offer_display_name', `ilike.*${kw}*`]));
+        const andClausesFb = item.keywords.map(kw => `offer_display_name.ilike.*${kw}*`).join(',');
+        if (andClausesFb) fallback.push(['and', `(${andClausesFb})`]);
         data = await core.fetchSupabase('microsoft_scan', fallback);
       }
 
@@ -274,10 +274,9 @@ window.Cotador.tables.ms_solo = {
         const basePn = term.split('-')[0];
         params.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
       } else {
-        // ERRO FUTURO EVITADO: Buscar também na descrição do produto, pois o nome comercial (ex: "Business Standard") às vezes não consta no titulo_sku
-        item.keywords.forEach(kw => {
-            params.push(['or', `(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`]);
-        });
+        // Combina as palavras-chave com AND e usa OR internamente para buscar no título ou descrição
+        const andClauses = item.keywords.map(kw => `or(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`).join(',');
+        if (andClauses) params.push(['and', `(${andClauses})`]);
       }
       if (segOrFilter) params.push(['or', segOrFilter]);
 
@@ -287,9 +286,8 @@ window.Cotador.tables.ms_solo = {
       } catch (err) {
         if (err?.name === 'AbortError') throw err;
         const fallback = [['select', '*'], ['limit', '1500']];
-        item.keywords.forEach(kw => {
-            fallback.push(['or', `(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`]);
-        });
+        const andClausesFb = item.keywords.map(kw => `or(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`).join(',');
+        if (andClausesFb) fallback.push(['and', `(${andClausesFb})`]);
         if (segOrFilter) fallback.push(['or', segOrFilter]);
         data = await core.fetchSupabase('microsoft_solo', fallback);
       }
@@ -464,7 +462,8 @@ window.Cotador.tables.ms_perpetuo = {
         const basePn = term.split('-')[0];
         params.push(['or', `(product_id.ilike.*${basePn}*,nome_produto.ilike.*${term}*)`]);
       } else {
-        item.keywords.forEach(kw => params.push(['nome_produto', `ilike.*${kw}*`]));
+        const andClauses = item.keywords.map(kw => `nome_produto.ilike.*${kw}*`).join(',');
+        if (andClauses) params.push(['and', `(${andClauses})`]);
       }
 
       if (segOrFilter) params.push(['or', segOrFilter]);
@@ -475,7 +474,8 @@ window.Cotador.tables.ms_perpetuo = {
       } catch (err) {
         if (err?.name === 'AbortError') throw err;
         const fallbackParams = [['select', '*'], ['limit', '1000']];
-        item.keywords.forEach(kw => fallbackParams.push(['nome_produto', `ilike.*${kw}*`]));
+        const andClausesFb = item.keywords.map(kw => `nome_produto.ilike.*${kw}*`).join(',');
+        if (andClausesFb) fallbackParams.push(['and', `(${andClausesFb})`]);
         data = await core.fetchSupabase('microsoft_perpetuo', fallbackParams);
       }
 
@@ -630,7 +630,8 @@ window.Cotador.tables.ms_mpsa = {
         const term = item.keywords[0];
         p1.push(['or', `(numero_item.ilike.*${term}*,nome_curto_peca.ilike.*${term}*)`]);
       } else {
-        item.keywords.forEach(kw => p1.push(['nome_curto_peca', `ilike.*${kw}*`]));
+        const andClauses = item.keywords.map(kw => `nome_curto_peca.ilike.*${kw}*`).join(',');
+        if (andClauses) p1.push(['and', `(${andClauses})`]);
       }
       if (segOrFilterMpsa) p1.push(['or', segOrFilterMpsa]);
       p1.push(['order', 'categoria_precos.asc']);
@@ -639,7 +640,8 @@ window.Cotador.tables.ms_mpsa = {
         core.fetchSupabase('microsoft_mpsa', p1).catch((err) => {
           if (err?.name === 'AbortError') throw err;
           const fallbackP1 = [['select', '*'], ['limit', '800']];
-          item.keywords.forEach(kw => fallbackP1.push(['nome_curto_peca', `ilike.*${kw}*`]));
+          const andClausesFb = item.keywords.map(kw => `nome_curto_peca.ilike.*${kw}*`).join(',');
+          if (andClausesFb) fallbackP1.push(['and', `(${andClausesFb})`]);
           return core.fetchSupabase('microsoft_mpsa', fallbackP1);
         })
       );
@@ -648,14 +650,16 @@ window.Cotador.tables.ms_mpsa = {
         const abrevTerms = this.gerarTermosAbreviadosMPSA(item.rawSearch, item.keywords);
         if (abrevTerms.length > 0) {
           const p2 = [['select', '*'], ['limit', '800']];
-          abrevTerms.forEach(kw => p2.push(['nome_curto_peca', `ilike.*${kw}*`]));
+          const andClausesP2 = abrevTerms.map(kw => `nome_curto_peca.ilike.*${kw}*`).join(',');
+          if (andClausesP2) p2.push(['and', `(${andClausesP2})`]);
           if (segOrFilterMpsa) p2.push(['or', segOrFilterMpsa]);
           p2.push(['order', 'categoria_precos.asc']);
           queries.push(
             core.fetchSupabase('microsoft_mpsa', p2).catch((err) => {
               if (err?.name === 'AbortError') throw err;
               const fallbackP2 = [['select', '*'], ['limit', '800']];
-              abrevTerms.forEach(kw => fallbackP2.push(['nome_curto_peca', `ilike.*${kw}*`]));
+              const andClausesFb2 = abrevTerms.map(kw => `nome_curto_peca.ilike.*${kw}*`).join(',');
+              if (andClausesFb2) fallbackP2.push(['and', `(${andClausesFb2})`]);
               return core.fetchSupabase('microsoft_mpsa', fallbackP2);
             })
           );
