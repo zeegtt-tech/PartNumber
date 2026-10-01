@@ -1,320 +1,551 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SyncTask - Agenda & Tarefas Diárias</title>
-    
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='18' rx='4' stroke='%239CA3AF' stroke-width='1.5'/><line x1='16' y1='2' x2='16' y2='6' stroke='%239CA3AF' stroke-width='1.5'/><line x1='8' y1='2' x2='8' y2='6' stroke='%239CA3AF' stroke-width='1.5'/><line x1='3' y1='10' x2='21' y2='10' stroke='%239CA3AF' stroke-width='1.5' stroke-opacity='0.5'/><path d='M9 15.5l2 2 4-4' stroke='%23CE1821' stroke-width='2'/></svg>">
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buscador de Produtos e Part Numbers | v1.0</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="./css/styles.css?v=5.9">
 
-    <link rel="stylesheet" href="css/style.css">
+  <!-- 1. SUPABASE SDK, NÚCLEO E AUTH (Síncronos na ordem correta) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./js/core.js?v=6.0"></script>
+  <script src="./js/auth.js?v=6.0"></script>
+  <script>
+    // Se não tiver sessão, redireciona para o login imediatamente (evita a tela piscar)
+    window.CotadorAuth.init();
+    window.CotadorAuth.getSession().then(session => {
+      if (!session) {
+        window.location.replace('login.html');
+      } else {
+        console.log("Usuário logado:", session.user.email);
+      }
+    });
+  </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
-    
+  <!-- 2. TABELAS, PAPAPARSE E APP (Carregamento com defer após o DOM) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script defer src="./js/tables/microsoft.js?v=5.9"></script>
+  <script defer src="./js/tables/adobe.js?v=5.9"></script>
+  <script defer src="./js/tables/kaspersky.js?v=5.9"></script>
+  <script defer src="./js/app.js?v=5.9"></script>
 </head>
-<body class="text-[#1E2024] font-sans min-h-screen p-4 md:p-8 transition-all" style="background-image: url('https://i.ibb.co/R4NNxskv/image.png'); background-size: cover; background-position: center; background-attachment: fixed;">
+<body data-vendor="microsoft" class="min-h-screen bg-[#faf9f8] text-[#323130] hide-secondary-details hide-subtotals markup-disabled">
 
-    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        <aside class="lg:col-span-4 xl:col-span-3 bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100 p-6 lg:sticky lg:top-8 h-fit z-10">
-            <div class="mb-6 border-b border-gray-100 pb-4">
-                <h1 class="text-2xl font-bold text-[#1E2024] whitespace-nowrap">
-                    <span class="text-lg">Bem-vindo ao</span> <span class="text-[#10B981]">Sync</span>Task!
-                </h1>
-                <p class="text-xs text-[#10B981] font-medium mt-1">Organize aqui as suas tarefas diárias.</p>
-            </div>
-
-            <div class="mb-6 bg-[#F5F6F8] p-4 rounded-xl border border-gray-200">
-                <label for="date-picker" class="block text-xs font-semibold text-[#757575] uppercase tracking-wider mb-2">
-                    <i class="fa-regular fa-calendar mr-1"></i> Navegar:
-                </label>
-                <div class="flex gap-2">
-                    <input type="date" id="date-picker" class="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium focus:outline-none focus:border-[#10B981] cursor-pointer text-[#1E2024]">
-                    <button id="btn-today" type="button" aria-label="Ir para hoje" class="bg-white hover:bg-gray-50 text-[#757575] hover:text-[#1E2024] border border-gray-200 font-medium px-3 py-2 rounded-lg text-xs transition-all cursor-pointer flex items-center justify-center whitespace-nowrap shadow-sm">Hoje</button>
-                </div>
-            </div>
-
-            <form id="todo-form" class="space-y-3">
-                <label class="block text-xs font-semibold text-[#757575] uppercase tracking-wider mb-1">
-                    <i class="fa-solid fa-plus mr-1"></i> Nova Tarefa:
-                </label>
-                
-                <div>
-                    <input type="text" id="todo-input" placeholder="Ex: Reunião de alinhamento" required class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#10B981] transition-all shadow-sm text-[#1E2024] placeholder:text-[#757575]/60">
-                </div>
-                
-                <div>
-                    <textarea id="todo-desc" placeholder="Descrição ou detalhes (opcional)..." rows="2" class="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#10B981] transition-all resize-none shadow-sm text-[#1E2024] placeholder:text-[#757575]/60"></textarea>
-                </div>
-
-                <div class="pt-2">
-                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-                        Adicionar à tarefa:
-                    </label>
-                    <div class="grid grid-cols-3 gap-1 mb-2">
-                    <label class="cursor-pointer select-none h-full">
-                        <input type="checkbox" id="has-time" class="peer hidden">
-                        <div class="w-full h-full px-1 py-1.5 rounded border border-gray-200 bg-white text-[#757575] text-[10px] font-semibold hover:bg-gray-50 peer-checked:bg-[#10B981]/10 peer-checked:text-[#10B981] peer-checked:border-[#10B981]/30 transition-all flex items-center justify-center gap-1.5 shadow-sm">
-                            <i class="fa-regular fa-clock"></i> Horário
-                        </div>
-                    </label>
-
-                    <label class="cursor-pointer select-none h-full">
-                        <input type="checkbox" id="is-inbox" class="peer hidden">
-                        <div class="w-full h-full px-1 py-1.5 rounded border border-gray-200 bg-white text-[#757575] text-[10px] font-semibold hover:bg-gray-50 peer-checked:bg-purple-50 peer-checked:text-purple-700 peer-checked:border-purple-200 transition-all flex items-center justify-center gap-1.5 shadow-sm">
-                            <i class="fa-solid fa-inbox"></i> Sem Data
-                        </div>
-                    </label>
-
-    <!-- Importante -->
-    <label class="cursor-pointer select-none h-full">
-        <input type="checkbox" id="is-important" class="peer hidden">
-        <div class="w-full h-full px-1 py-1.5 rounded border border-gray-200 bg-white text-[#757575] text-[10px] font-semibold hover:bg-gray-50 peer-checked:bg-amber-50 peer-checked:text-amber-600 peer-checked:border-amber-300 transition-all flex items-center justify-center gap-1.5 shadow-sm">
-            <i class="fa-solid fa-star"></i> Importante
-        </div>
-    </label>
-
-    <!-- Checklist -->
-    <label class="cursor-pointer select-none h-full">
-        <input type="checkbox" id="toggle-checklist" class="peer hidden">
-        <div class="w-full h-full px-1 py-1.5 rounded border border-gray-200 bg-white text-[#757575] text-[10px] font-semibold hover:bg-gray-50 peer-checked:bg-[#10B981]/10 peer-checked:text-[#10B981] peer-checked:border-[#10B981]/30 transition-all flex items-center justify-center gap-1.5 shadow-sm">
-            <i class="fa-solid fa-list-check"></i> Checklist
-        </div>
-    </label>
-
-    <!-- Custos -->
-    <label class="cursor-pointer select-none h-full">
-        <input type="checkbox" id="toggle-costs" class="peer hidden">
-        <div class="w-full h-full px-1 py-1.5 rounded border border-gray-200 bg-white text-[#757575] text-[10px] font-semibold hover:bg-gray-50 peer-checked:bg-[#10B981]/10 peer-checked:text-[#10B981] peer-checked:border-[#10B981]/30 transition-all flex items-center justify-center gap-1.5 shadow-sm">
-            <i class="fa-solid fa-hand-holding-dollar"></i> Custos
-        </div>
-    </label>
-
-    <!-- Categoria -->
-    <label class="cursor-pointer select-none h-full">
-        <input type="checkbox" id="toggle-category" class="peer hidden">
-        <div class="w-full h-full px-1 py-1.5 rounded border border-gray-200 bg-white text-[#757575] text-[10px] font-semibold hover:bg-gray-50 peer-checked:bg-[#10B981]/10 peer-checked:text-[#10B981] peer-checked:border-[#10B981]/30 transition-all flex items-center justify-center gap-1.5 shadow-sm">
-            <i class="fa-solid fa-tag"></i> Categoria
-        </div>
-    </label>
-
-    <!-- Recorrência (ESTE ITEM ESTAVA FALTANDO!) -->
-    <label class="cursor-pointer select-none h-full col-span-3">
-        <input type="checkbox" id="toggle-recurring" class="peer hidden">
-        <div class="w-full h-full px-1 py-1.5 rounded border border-gray-200 bg-white text-[#757575] text-[10px] font-semibold hover:bg-gray-50 peer-checked:bg-blue-50 peer-checked:text-blue-600 peer-checked:border-blue-300 transition-all flex items-center justify-center gap-1.5 shadow-sm">
-            <i class="fa-solid fa-arrows-rotate"></i> Adicionar Repetições
-        </div>
-    </label>
-</div>
-                </div>
-
-                <div class="space-y-3 mt-3">
-                    <div id="time-ui" class="hidden p-3.5 bg-[#F5F6F8] border border-gray-200 rounded-xl flex items-center gap-2 transition-all">
-                        <div class="flex-1">
-                            <label class="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Início</label>
-                            <input type="time" id="todo-start-time" aria-label="Horário de início" class="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#10B981] bg-white">
-                        </div>
-                        <div class="flex-1">
-                            <label class="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Fim</label>
-                            <input type="time" id="todo-end-time" aria-label="Horário de término" class="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#10B981] bg-white">
-                        </div>
-                    </div>
-                    
-                    <div id="ui-checklist" class="hidden p-3.5 bg-[#F5F6F8] border border-gray-200 rounded-xl transition-all">
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">
-                            <i class="fa-solid fa-list-check mr-1"></i> Checklist / Subtarefas
-                        </label>
-                        <div class="flex gap-2">
-                            <input type="text" id="temp-subtask-input" placeholder="Nova minitarefa..." aria-label="Nome da minitarefa" class="w-full min-w-0 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#10B981] bg-white">
-                            <button type="button" id="btn-add-temp-subtask" aria-label="Adicionar minitarefa" class="px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-[#1E2024] cursor-pointer shrink-0"><i class="fa-solid fa-plus"></i></button>
-                        </div>
-                        <ul id="temp-subtasks-list" class="space-y-1.5 mt-2 empty:hidden max-h-[120px] overflow-y-auto custom-scrollbar"></ul>
-                    </div>
-
-                    <div id="ui-costs" class="hidden p-3.5 bg-[#F5F6F8] border border-gray-200 rounded-xl transition-all">
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">
-                            <i class="fa-solid fa-hand-holding-dollar mr-1"></i> Custos / Orçamento
-                        </label>
-                        <div class="space-y-2">
-                            <input type="text" id="temp-cost-desc" placeholder="Ex: Combustível, Materiais..." class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#10B981] bg-white">
-                            <div class="flex gap-2">
-                                <input type="text" id="temp-cost-val" placeholder="R$ 0,00" class="w-full min-w-0 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#10B981] bg-white text-right" oninput="Utils.maskCurrency(this)">
-                                <button type="button" id="btn-add-temp-cost" class="px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-[#1E2024] shrink-0"><i class="fa-solid fa-plus"></i></button>
-                            </div>
-                        </div>
-                        <ul id="temp-costs-list" class="space-y-1.5 mt-2 empty:hidden max-h-[120px] overflow-y-auto custom-scrollbar"></ul>
-                    </div>
-
-                    <div id="ui-category" class="hidden p-3.5 bg-[#F5F6F8] border border-gray-200 rounded-xl transition-all">
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">
-                            <i class="fa-solid fa-tag mr-1"></i> Categoria / Tag
-                        </label>
-                        <div class="flex gap-2">
-                            <select id="todo-tag" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#10B981]"></select>
-                            <button type="button" onclick="Actions.createCustomTag()" class="px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold rounded-lg text-sm transition-all shadow-sm" title="Criar Nova Coleção">➕</button>
-                        </div>
-                    </div>
-
-                    <div id="ui-recurring" class="hidden p-3.5 bg-[#F5F6F8] border border-gray-200 rounded-xl transition-all">
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">
-                            <i class="fa-solid fa-calendar-days mr-1"></i> Datas de Repetição
-                        </label>
-                        <div class="flex justify-between items-center mb-2">
-                            <button type="button" aria-label="Mês Anterior" onclick="AppState.recMonthOffset--; UI.renderRecurrenceCalendar()" class="px-2 py-1 bg-white border border-gray-200 rounded hover:bg-gray-50"><i class="fa-solid fa-chevron-left text-[10px]"></i></button>
-                            <span id="rec-month-label" class="text-[11px] font-bold uppercase text-gray-700"></span>
-                            <button type="button" aria-label="Próximo Mês" onclick="AppState.recMonthOffset++; UI.renderRecurrenceCalendar()" class="px-2 py-1 bg-white border border-gray-200 rounded hover:bg-gray-50"><i class="fa-solid fa-chevron-right text-[10px]"></i></button>
-                        </div>
-                        <div class="grid grid-cols-7 gap-1 text-center text-[9px] font-bold text-gray-400 mb-1">
-                            <div>D</div><div>S</div><div>T</div><div>Q</div><div>Q</div><div>S</div><div>S</div>
-                        </div>
-                        <div class="grid grid-cols-7 gap-1" id="rec-cal-days"></div>
-                        <div class="mt-3 text-[9px] text-gray-500 leading-tight text-center">
-                            Selecione livremente os dias desejados. Uma tarefa independente será criada para cada data.
-                        </div>
-                    </div>
-
-                </div>
-
-                <button type="submit" class="w-full bg-[#10B981] hover:bg-[#059669] text-white font-medium px-4 py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[#10B981]/20 mt-2">
-                    <i class="fa-solid fa-check"></i> Adicionar Tarefa
-                </button>
-            </form>
-        </aside>
-
-        <main class="lg:col-span-8 xl:col-span-9 bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100 p-6 lg:p-8 flex flex-col max-h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar">
-            
-            <div class="flex flex-col mb-4 border-b border-gray-100 pb-4 gap-4">
-                <div class="flex flex-col xl:flex-row xl:justify-between xl:items-start gap-4">
-                    <div class="shrink-0">
-                        <h2 class="text-2xl font-bold text-[#1E2024] whitespace-nowrap" id="panel-title">Tarefas de Hoje</h2>
-                        <p class="text-sm text-[#757575] mt-1 whitespace-nowrap" id="panel-subtitle">Carregando data...</p>
-                    </div>
-                    
-                    <div class="flex flex-col items-end gap-2 w-full xl:w-auto">
-                        <div class="flex p-1 bg-[#F5F6F8] border border-gray-200 rounded-xl overflow-x-auto w-full xl:w-auto flex-nowrap scrollbar-hide">
-                            <button data-view="list" class="view-btn active px-4 py-1.5 text-xs font-semibold rounded-lg transition-all text-[#757575] hover:text-[#1E2024]">Lista</button>
-                            <button data-view="day" class="view-btn px-4 py-1.5 text-xs font-semibold rounded-lg transition-all text-[#757575] hover:text-[#1E2024]">Dia</button>
-                            <button data-view="week" class="view-btn px-4 py-1.5 text-xs font-semibold rounded-lg transition-all text-[#757575] hover:text-[#1E2024]">Semana</button>
-                            <button data-view="month" class="view-btn px-4 py-1.5 text-xs font-semibold rounded-lg transition-all text-[#757575] hover:text-[#1E2024]">Mês</button>
-                        </div>
-                        
-                        <div class="flex items-center gap-2 flex-wrap justify-end">
-                            <span class="bg-[#F5F6F8] text-[#757575] border border-gray-200 text-xs px-3 py-1.5 rounded-full whitespace-nowrap flex items-center" id="task-counter">0 tarefas</span>
-                            <div class="h-4 w-px bg-gray-200"></div>
-                            
-                            <div class="relative inline-block text-left">
-                                <button type="button" id="btn-lista-tempo" aria-haspopup="true" onclick="document.getElementById('tempo-opts').classList.toggle('hidden'); document.getElementById('listas-opts').classList.add('hidden');" class="text-gray-600 bg-gray-100 hover:bg-gray-200 text-[11px] font-semibold px-2 py-1 rounded-md transition-all mr-1 flex items-center">
-                                    <i class="fa-regular fa-clock mr-1.5"></i>Tempo
-                                </button>
-                                <div id="tempo-opts" class="hidden absolute right-0 top-full mt-1 flex flex-col bg-white border border-gray-200 shadow-lg rounded-lg overflow-hidden z-50 w-32">
-                                    <button data-view="past" class="text-left text-red-700 hover:bg-red-50 text-[11px] font-semibold px-3 py-2 transition-all border-b border-gray-100 flex items-center"><i class="fa-solid fa-clock-rotate-left w-4 text-center mr-1"></i> Passado</button>
-                                    <button data-view="today-list" class="text-left text-gray-700 hover:bg-gray-50 text-[11px] font-semibold px-3 py-2 transition-all border-b border-gray-100 flex items-center"><i class="fa-solid fa-calendar-day w-4 text-center mr-1"></i> Hoje</button>
-                                    <button data-view="future" class="text-left text-blue-700 hover:bg-blue-50 text-[11px] font-semibold px-3 py-2 transition-all flex items-center"><i class="fa-solid fa-forward-step w-4 text-center mr-1"></i> Futuro</button>
-                                </div>
-                            </div>
-    
-                            <div class="relative inline-block text-left">
-                                <button type="button" id="btn-listas" aria-haspopup="true" onclick="document.getElementById('listas-opts').classList.toggle('hidden'); document.getElementById('tempo-opts').classList.add('hidden');" class="text-purple-700 bg-purple-50 hover:bg-purple-100 text-[11px] font-semibold px-2.5 py-1 rounded-md transition-all flex items-center gap-1">
-                                    <i class="fa-solid fa-layer-group"></i> Listas
-                                </button>
-                                <div id="listas-opts" class="hidden absolute right-0 top-full mt-1 flex flex-col bg-white border border-gray-200 shadow-lg rounded-lg overflow-hidden z-50 w-36">
-                                    <button data-view="inbox" class="text-left text-purple-700 hover:bg-purple-50 text-[11px] font-bold px-3 py-2 transition-all border-b border-gray-100 flex items-center"><i class="fa-solid fa-inbox w-4 text-center mr-1"></i> Sem Data</button>
-                                    <button data-view="important" class="text-left text-amber-600 hover:bg-amber-50 text-[11px] font-bold px-3 py-2 transition-all border-b border-gray-200 flex items-center"><i class="fa-solid fa-star w-4 text-center mr-1"></i> Importantes</button>
-                                    <div id="dropdown-tags-list" class="flex flex-col"></div>
-                                </div>
-                            </div>
-                            
-                            <button data-view="archive" aria-label="Ir para Arquivo" class="text-orange-700 bg-orange-50 hover:bg-orange-100 text-[11px] font-semibold px-2 py-1 rounded-md transition-all"><i class="fa-solid fa-box-archive mr-1"></i>Arquivo</button>
-                            <button data-view="trash" aria-label="Ir para Lixeira" class="text-gray-600 bg-gray-100 hover:bg-gray-200 text-[11px] font-semibold px-2 py-1 rounded-md transition-all"><i class="fa-solid fa-trash-can mr-1"></i>Lixeira</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="relative w-full">
-                    <input type="text" id="search-input" aria-label="Buscar tarefas" placeholder="Buscar tarefas..." class="w-full pl-9 pr-4 py-1.5 text-xs bg-white border border-gray-200 rounded-full focus:outline-none focus:border-[#10B981] focus:ring-1 focus:ring-[#10B981] transition-all">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-                </div>
-                
-                <div class="flex items-center" id="filter-container">
-                    <label class="flex items-center text-xs font-semibold text-[#757575] cursor-pointer">
-                        <input type="checkbox" id="filter-unscheduled" class="mr-2 rounded accent-[#10B981] w-3.5 h-3.5 cursor-pointer">
-                        Mostrar apenas atividades sem horário definido.
-                    </label>
-                </div>
-            </div>
-
-            <div id="bulk-toolbar" class="hidden bg-[#1E2024] text-white rounded-xl p-3 mb-5 flex-wrap items-center justify-between gap-3 shadow-lg transition-all">
-                <div class="flex items-center gap-2 px-2">
-                    <span class="bg-white text-[#1E2024] text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full" id="selected-count">0</span>
-                    <span class="text-sm font-medium">selecionadas</span>
-                    <button data-action="selectAll" class="ml-4 text-xs bg-gray-700/50 hover:bg-gray-600 px-2.5 py-1.5 rounded-md transition-all"><i class="fa-solid fa-check-double"></i> Todos</button>
-                    <button data-action="deselectAll" class="text-xs bg-gray-700/50 hover:bg-gray-600 px-2.5 py-1.5 rounded-md transition-all"><i class="fa-solid fa-xmark"></i> Limpar</button>
-                </div>
-                <div id="bulk-standard-actions" class="flex gap-2 flex-wrap">
-                </div>
-            </div>
-
-            <ul id="view-list" class="flex flex-col gap-3 flex-1"></ul>
-
-            <div id="view-day" class="hidden flex-col flex-1 h-[600px] bg-white border border-gray-200 rounded-xl overflow-hidden relative">
-                <div class="flex-1 overflow-y-auto relative scrollbar-hide" id="day-timeline-scroll">
-                    <div class="flex min-h-[1440px] relative mt-4">
-                        <div class="w-16 shrink-0 border-r border-gray-200 bg-white relative z-10" id="day-hours-ruler"></div>
-                        <div class="flex-1 relative timeline-grid" id="day-agenda-grid"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="view-week" class="hidden flex-col flex-1 h-[600px] border border-gray-200 rounded-xl overflow-x-auto bg-white">
-                <div class="min-w-[800px] flex flex-col h-full">
-                    <div class="flex border-b border-gray-200 bg-[#F5F6F8] sticky top-0 z-20" id="week-headers"></div>
-                    <div class="flex-1 overflow-y-auto relative scrollbar-hide" id="week-timeline-scroll">
-                        <div class="flex min-h-[1440px] relative">
-                            <div class="w-12 shrink-0 border-r border-gray-200 bg-white sticky left-0 z-10" id="week-hours-ruler"></div>
-                            <div class="flex-1 flex timeline-grid" id="week-agenda-grid"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="view-month" class="hidden flex-col flex-1 w-full transition-all"></div>
-            
-            <div id="empty-state" class="text-center py-16 text-[#757575] hidden flex-col items-center justify-center flex-1">
-                <div class="bg-[#F5F6F8] p-6 rounded-full mb-4"><i class="fa-solid fa-mug-hot text-5xl text-[#757575]/40" id="empty-icon"></i></div>
-                <h3 class="text-lg font-semibold text-[#1E2024] mb-1" id="empty-title">Nenhuma tarefa por aqui.</h3>
-                <p class="text-sm" id="empty-desc">O seu dia está livre, ou você esqueceu de anotar algo.</p>
-            </div>
-            
-            <div id="task-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-[#1E2024]/40 backdrop-blur-sm p-4 md:p-8 opacity-0 transition-opacity duration-300 overflow-y-auto">
-                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-full transform scale-95 transition-transform duration-300 my-auto" id="task-modal-panel">
-                    
-                    <div class="flex justify-between items-center p-4 border-b border-gray-100 bg-[#F5F6F8]">
-                        <div class="flex items-center gap-3 overflow-hidden flex-1 mr-4">
-                            <div id="modal-status-dot" class="w-3 h-3 rounded-full flex-shrink-0 shadow-sm border border-black/10"></div>
-                            <h3 id="modal-header-title" class="font-bold text-lg text-[#1E2024] truncate flex items-center">Detalhes</h3>
-                        </div>
-                        <button onclick="UI.closeTaskModal()" aria-label="Fechar modal" class="text-gray-400 hover:text-[#10B981] w-8 h-8 rounded-full hover:bg-red-50 flex items-center justify-center transition-colors shrink-0"><i class="fa-solid fa-xmark text-lg"></i></button>
-                    </div>
-                    
-                    <div class="p-6 overflow-y-auto flex-1 custom-scrollbar" id="task-modal-content"></div>
-                    
-                    <div class="p-4 border-t border-gray-100 bg-gray-50 flex justify-between items-center" id="task-modal-actions"></div>
-                </div>
-            </div>
-        </main>
+  <!-- 1. DYNAMICS TOP BAR FIXA -->
+  <header class="dynamics-topbar sticky top-0 z-50 w-full flex flex-col sm:flex-row items-center justify-between px-4 py-2 shadow-md transition-colors duration-300">
+    <!-- Lado Esquerdo -->
+    <div class="flex items-center gap-2.5 text-white w-full sm:w-auto mb-2 sm:mb-0">
+      <svg class="w-4 h-4 opacity-90" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      <h1 class="text-sm font-semibold tracking-tight">Buscador de Produtos e Part Numbers</h1>
+      <span class="text-[10px] px-2 py-0.5 rounded-sm bg-white/20 font-medium uppercase tracking-wide">v1.0</span>
     </div>
-        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-        <script type="module" src="js/main.js"></script>
-    <div class="fixed bottom-3 left-4 text-[10px] font-semibold text-gray-500/60 transition-colors duration-300 z-40 bg-white/40 backdrop-blur-sm px-2 py-1 rounded-md border border-white/30 cursor-default flex items-center gap-2">
-        <span>© 2026 - Developed by José Garrett</span>
-        <div class="w-px h-3 bg-gray-300"></div>
-        <button onclick="Actions.logout()" class="hover:text-red-500 transition-colors cursor-pointer flex items-center gap-1">
-            <i class="fa-solid fa-arrow-right-from-bracket"></i> Sair
+
+    <!-- Lado Direito -->
+    <div class="flex flex-wrap items-center gap-2.5">
+      <!-- PTAX MOVIDO PARA A TOP BAR -->
+      <div id="header-ptax-panel" onclick="Cotador.core.copiarElemento(event, this)" data-copy="" data-label="Dólar PTAX" title="Consultando PTAX..." class="topbar-pill text-[11px] px-2.5 py-1 rounded font-medium flex items-center gap-1.5 select-none cursor-pointer tabular-nums">
+        <span id="header-ptax-dot" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+        <span class="font-normal opacity-90">PTAX:</span>
+        <span id="header-ptax-value" class="font-semibold text-white">R$ --,--</span>
+      </div>
+
+      <!-- BOTÃO + MINI JANELA DE DATAS DE ATUALIZAÇÃO -->
+      <div id="update-popover-wrapper" class="relative">
+        <button type="button" id="badge-last-update" onclick="Cotador.core.togglePainelAtualizacoes(event)" title="Ver data e horário de atualização" class="topbar-pill text-[11px] px-2.5 py-1 rounded font-medium flex items-center gap-1.5 select-none cursor-pointer">
+          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span id="badge-last-update-text">Atualização: --/--/----</span>
+          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
         </button>
+
+        <div id="popover-last-update" class="hidden absolute right-0 mt-2 w-80 bg-white border border-[#edebe9] rounded shadow-lg p-3 z-[60] text-xs text-[#323130]">
+          <div class="flex items-center justify-between pb-2 mb-2 border-b border-[#edebe9]">
+            <span class="font-semibold uppercase tracking-wider text-[#323130]">Atualização por Planilha</span>
+            <button type="button" onclick="Cotador.core.fecharPainelAtualizacoes()" class="text-gray-400 hover:text-gray-600 text-xs px-1 leading-none" title="Fechar">&#10005;</button>
+          </div>
+          <div id="popover-last-update-list" class="space-y-1.5 max-h-72 overflow-y-auto">
+            <div class="text-gray-400 text-[11px] py-2 text-center">Consultando datas...</div>
+          </div>
+        </div>
+      </div>
+
+      <span class="topbar-pill text-[11px] px-2.5 py-1 rounded font-medium flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span> Online
+      </span>
+
+      <!-- BOTÃO ALTERAR SENHA -->
+      <button type="button" onclick="Cotador.core.abrirModalAlterarSenha()" title="Alterar Senha" class="topbar-pill text-[11px] px-2.5 py-1 rounded font-medium flex items-center gap-1.5 select-none cursor-pointer hover:bg-white/20 transition">
+        <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <span>Alterar Senha</span>
+      </button>
+
+      <!-- BOTÃO SAIR -->
+      <button type="button" onclick="window.CotadorAuth.logout()" title="Sair do sistema" class="topbar-pill text-[11px] px-2.5 py-1 rounded font-medium flex items-center gap-1.5 select-none cursor-pointer hover:bg-red-500 hover:border-red-600 transition">
+        <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        <span>Sair</span>
+      </button>
     </div>
+  </header>
+
+  <!-- 2. CONTAINER PRINCIPAL -->
+  <div class="max-w-[1600px] mx-auto p-3 md:p-5 lg:px-6 lg:py-4 space-y-4">
+    
+    <!-- 3. COMMAND BAR (Ferramentas Unificadas) -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-[#edebe9] rounded px-3 py-2 shadow-sm">
+      <p class="text-[11px] text-[#605e5c]">
+        Clique nos dados para copiar &bull; Arraste as linhas para reordenar &bull; <kbd class="px-1.5 py-0.5 bg-[#f3f2f1] border border-[#edebe9] rounded text-[#323130] font-medium">Ctrl + Enter</kbd> p/ buscar
+      </p>
+      <div class="flex flex-wrap items-center gap-2.5">
+        <input type="checkbox" id="chk-mostrar-subtotal" class="sr-only" onchange="Cotador.core.recalcularSubtotais()">
+        <input type="checkbox" id="chk-mostrar-detalhes" class="sr-only" onchange="Cotador.core.atualizarVisibilidadeDetalhes()">
+
+        <!-- CONTROLES UNIFICADOS DE EXIBIÇÃO -->
+        <div class="unified-view-control" role="group" aria-label="Controles">
+          <button type="button" id="btn-toggle-all-view" onclick="Cotador.core.alternarVisaoUnificada()" title="Alternar visão completa/enxuta" class="mini-toggle-btn text-[#605e5c] px-2 border-r border-[#edebe9] rounded-none">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+            </svg>
+            <span>Visão</span>
+          </button>
+          <button type="button" id="btn-toggle-detalhes" onclick="Cotador.core.toggleDetalhesSecundarios()" class="mini-toggle-btn">
+            <span class="dot"></span><span>Detalhes</span>
+          </button>
+          <button type="button" id="btn-toggle-subtotal" onclick="Cotador.core.toggleMostrarSubtotal()" class="mini-toggle-btn">
+            <span class="dot"></span><span>Subtotais</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. LAYOUT GRID PRINCIPAL -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+      
+      <!-- PAINEL ESQUERDO -->
+      <div class="lg:col-span-4 xl:col-span-3 lg:sticky lg:top-20">
+        <div class="card card-accent-top p-4 space-y-4">
+          
+          <div>
+            <label class="section-label">1. Selecionar Fabricante</label>
+            <div class="grid grid-cols-3 gap-1.5">
+              <button onclick="Cotador.app.setVendor('microsoft')" id="btn-vendor-microsoft" class="vendor-btn active">Microsoft</button>
+              <button onclick="Cotador.app.setVendor('adobe')" id="btn-vendor-adobe" class="vendor-btn">Adobe</button>
+              <button onclick="Cotador.app.setVendor('kaspersky')" id="btn-vendor-kaspersky" class="vendor-btn">Kaspersky</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <div class="flex items-center gap-2">
+                <label class="section-label !mb-0">2. Lista de Produtos</label>
+                <span id="input-feedback" class="hidden px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[#f3f2f1] text-[#605e5c] border border-[#edebe9]"></span>
+              </div>
+              <div class="flex gap-2.5 text-[11px] font-medium">
+                <button onclick="Cotador.app.limparInput()" class="text-gray-400 hover:text-gray-600">Limpar</button>
+              </div>
+            </div>
+            <textarea id="input-itens" oninput="Cotador.app.analisarInputDebounced()" rows="4" placeholder="Ex:&#10;business basic 10&#10;business standard 26&#10;Exchange plan 1 80" class="textarea-input w-full rounded bg-[#faf9f8] border border-[#8a8886] p-2.5 text-xs text-[#323130] font-normal leading-relaxed transition resize-none overflow-y-auto"></textarea>
+          </div>
+
+          <button onclick="Cotador.app.gerarCotacao()" id="btn-buscar" class="btn-theme-primary w-full py-2.5 px-4 rounded font-semibold text-xs flex items-center justify-center gap-2">
+            <span>Buscar e Montar Tabelas</span>
+          </button>
+
+          <!-- 3. FILTROS MICROSOFT -->
+          <div id="filtros-microsoft" class="space-y-3 pt-3 border-t border-[#edebe9]">
+            
+            <!-- 3.1 MODALIDADES + MODIFICADOR COMERCIAL COMPACTO -->
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <label class="section-label !mb-0">Modalidade / Tabela</label>
+
+                <!-- Switch Compacto Inline: Scansource (-7%) -->
+                <div id="ms-box-scan-discount" title="Ativar ou desativar o desconto padrão Scansource (7%)">
+                  <label class="inline-flex items-center gap-1.5 cursor-pointer select-none text-[11px] bg-[#eff6fc] border border-[#c7e0f4] px-2 py-0.5 rounded">
+                    <input type="checkbox" id="chk-scan-discount" class="sr-only peer" checked onchange="Cotador.core.atualizarModificadoresMicrosoft();">
+                    <span class="text-[#323130] font-medium">Desc. Scan:</span>
+                    <span class="font-bold text-[#0078d4] peer-checked:inline hidden">-7%</span>
+                    <span class="font-bold text-gray-400 peer-checked:hidden inline">0%</span>
+                  </label>
+                  <input type="hidden" id="ms-scan-discount" value="7">
+                </div>
+
+                <!-- Switch Compacto Inline: CSP Solo (+5%) -->
+                <div id="ms-box-solo-service" class="hidden" title="Ativar ou desativar o adicional de serviços Solo (+5%)">
+                  <label class="inline-flex items-center gap-1.5 cursor-pointer select-none text-[11px] bg-[#eff6fc] border border-[#c7e0f4] px-2 py-0.5 rounded">
+                    <input type="checkbox" id="chk-solo-service" class="sr-only peer" checked onchange="Cotador.core.atualizarModificadoresMicrosoft();">
+                    <span class="text-[#323130] font-medium">Adic. Solo:</span>
+                    <span class="font-bold text-[#0078d4] peer-checked:inline hidden">+5%</span>
+                    <span class="font-bold text-gray-400 peer-checked:hidden inline">0%</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-1.5">
+                <button type="button" onclick="Cotador.app.toggleMsModalidade('scan')" id="btn-ms-mod-scan" class="modality-chip modality-chip-scan active">Scan</button>
+                <button type="button" onclick="Cotador.app.toggleMsModalidade('solo')" id="btn-ms-mod-solo" class="modality-chip">CSP Solo</button>
+                <button type="button" onclick="Cotador.app.toggleMsModalidade('perpetuo')" id="btn-ms-mod-perpetuo" class="modality-chip">CSP Perpetual</button>
+                <button type="button" onclick="Cotador.app.toggleMsModalidade('mpsa')" id="btn-ms-mod-mpsa" class="modality-chip">MPSA</button>
+              </div>
+            </div>
+
+            <!-- MODIFICADORES PN SOLO (PREFIXO E SUFIXO) -->
+            <div id="ms-box-solo-modifiers" class="hidden pt-2 mt-2 border-t border-[#edebe9]">
+              <details class="group bg-[#f3f2f1] rounded border border-[#edebe9] p-2">
+                <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[11px] font-semibold text-[#323130]">
+                  <div class="flex items-center gap-1.5">
+                    <span>⚙ Modificadores CRM (Prefixo/Sufixo)</span>
+                  </div>
+                  <svg class="w-3.5 h-3.5 text-[#0078d4] transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </summary>
+                <div class="space-y-3 pt-2.5 mt-2 border-t border-[#edebe9]">
+                  <!-- Prefixo -->
+                  <div>
+                    <div class="flex items-center justify-between mb-1">
+                      <label class="section-label !mb-0 text-[10px] text-gray-500 uppercase tracking-wider">Prefixo</label>
+                      <input type="hidden" id="ms-solo-prefix" value="">
+                    </div>
+                    <div class="grid grid-cols-5 gap-1">
+                      <button type="button" onclick="Cotador.app.setSoloPnPrefix('')" id="btn-solo-pfx-none" class="segment-chip active" title="PN base sem prefixo">Base</button>
+                      <button type="button" onclick="Cotador.app.setSoloPnPrefix('SN-NCE-')" id="btn-solo-pfx-SN" class="segment-chip" title="SN-NCE-">Solo</button>
+                      <button type="button" onclick="Cotador.app.setSoloPnPrefix('FC-SN-NCE-')" id="btn-solo-pfx-FC" class="segment-chip" title="FC-SN-NCE-">FC</button>
+                      <button type="button" onclick="Cotador.app.setSoloPnPrefix('PC-SN-NCE-')" id="btn-solo-pfx-PC" class="segment-chip" title="PC-SN-NCE-">PC</button>
+                      <button type="button" onclick="Cotador.app.setSoloPnPrefix('SP-SN-NCE-')" id="btn-solo-pfx-SP" class="segment-chip" title="SP-SN-NCE-">SP</button>
+                    </div>
+                  </div>
+                  <!-- Sufixo -->
+                  <div>
+                    <div class="flex items-center justify-between mb-1">
+                      <label class="section-label !mb-0 text-[10px] text-gray-500 uppercase tracking-wider">Sufixo</label>
+                      <input type="hidden" id="ms-solo-suffix" value="">
+                    </div>
+                    <div class="grid grid-cols-4 gap-1">
+                      <button type="button" onclick="Cotador.app.setSoloPnSuffix('')" id="btn-solo-sfx-none" class="segment-chip active" title="PN base sem sufixo">Padrão</button>
+                      <button type="button" onclick="Cotador.app.setSoloPnSuffix('-BSC')" id="btn-solo-sfx-BSC" class="segment-chip" title="-BSC">Basic</button>
+                      <button type="button" onclick="Cotador.app.setSoloPnSuffix('-STD')" id="btn-solo-sfx-STD" class="segment-chip" title="-STD">Standard</button>
+                      <button type="button" onclick="Cotador.app.setSoloPnSuffix('-PRM')" id="btn-solo-sfx-PRM" class="segment-chip" title="-PRM">Premium</button>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </div>
+
+            <!-- 3.2 CONTRATOS CSP -->
+            <div id="ms-box-contratos" class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <label class="section-label !mb-0">Ciclo / Vigência CSP</label>
+                <button type="button" id="btn-toggle-trienais" onclick="Cotador.app.toggleTrienaisCSP()" class="text-[10px] font-medium theme-text hover:underline">+ Trienais</button>
+              </div>
+              <div class="grid grid-cols-3 gap-1.5" onchange="Cotador.app.reexecutarSeHouverItens()">
+                <label class="contract-chip"><input type="checkbox" id="chk-anual-anual" checked> Anual/Anual</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-anual-mensal" checked> Anual/Mensal</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-mensal-mensal"> Mensal/Mensal</label>
+              </div>
+              <div id="ms-contratos-trienais" class="hidden grid grid-cols-3 gap-1.5 pt-0.5" onchange="Cotador.app.reexecutarSeHouverItens()">
+                <label class="contract-chip"><input type="checkbox" id="chk-trienal-anual"> Trienal/Anual</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-trienal-mensal"> Trienal/Mensal</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-trienal-trienal"> Trienal/Total</label>
+              </div>
+            </div>
+
+            <!-- 3.3 SEGMENTO DE MERCADO -->
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="section-label !mb-0">Segmento</label>
+              </div>
+              <div class="grid grid-cols-4 gap-1">
+                <button type="button" onclick="Cotador.app.setMsSegmento('commercial')" id="btn-ms-seg-commercial" class="segment-chip active">Comercial</button>
+                <button type="button" onclick="Cotador.app.setMsSegmento('education')" id="btn-ms-seg-education" class="segment-chip">Educação</button>
+                <button type="button" onclick="Cotador.app.setMsSegmento('government')" id="btn-ms-seg-government" class="segment-chip">Governo</button>
+                <button type="button" onclick="Cotador.app.setMsSegmento('charity')" id="btn-ms-seg-charity" class="segment-chip">Charity</button>
+              </div>
+            </div>
+
+            <!-- 3.4 GAVETA DE PRODUTOS SECUNDÁRIOS & REFINAMENTO (Fixa e Aberta por padrão) -->
+            <div id="ms-box-flags">
+              <details id="ms-drawer-secundarios" open class="group bg-[#f3f2f1] rounded border border-[#edebe9] p-2">
+                <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[11px] font-semibold text-[#323130]">
+                  <div class="flex items-center gap-1.5">
+                    <span>Linhas Secundárias &amp; Filtros</span>
+                    <span id="badge-ms-flags-count" class="px-1.5 py-0.5 rounded-full bg-white border border-[#c8c6c4] text-[9px] font-normal text-[#605e5c]">Busca Limpa</span>
+                  </div>
+                  <svg class="w-3.5 h-3.5 text-[#605e5c] transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </summary>
+
+                <div class="space-y-2.5 pt-2.5 mt-2 border-t border-[#edebe9] text-[11px]" onchange="Cotador.app.aoAlterarFlagsMicrosoft()">
+                  
+                  <!-- A. Variantes CSP -->
+                  <div id="ms-flags-csp" class="space-y-1">
+                    <span class="block text-[9px] font-bold uppercase tracking-wider text-[#605e5c]">Variantes de Oferta (CSP)</span>
+                    <div class="grid grid-cols-2 gap-1">
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-show-frontline"><span>Frontline (F1/F3)</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-show-noteams"><span>Sem Teams</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-show-copilot"><span>Bundles Copilot</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-show-trial"><span>Trial / Promo</span></label>
+                    </div>
+                  </div>
+
+                  <!-- B. Famílias de Baixa Saída (Nicho) -->
+                  <div id="ms-flags-niche" class="space-y-1 pt-1 border-t border-[#edebe9]">
+                    <span class="block text-[9px] font-bold uppercase tracking-wider text-[#605e5c]" title="Se você digitar o nome dessas linhas na busca, elas aparecem automaticamente">Famílias Secundárias (Nicho)</span>
+                    <div class="grid grid-cols-2 gap-1">
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-ms-show-phone"><span>Teams Phone / Voz</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-ms-show-dynamics"><span>Dynamics / PowerApps</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-ms-show-win365"><span>Windows 365 (Cloud PC)</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-ms-show-niche"><span>Clipchamp / Viva</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-ms-show-extconnector"><span>External Connector</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-ms-show-azurecloud"><span>Azure / Cloud</span></label>
+                    </div>
+                  </div>
+
+                  <!-- C. Perpétuo & MPSA -->
+                  <div id="ms-flags-perpetuo-mpsa" class="hidden space-y-1.5 pt-1.5 border-t border-[#edebe9]">
+                    <span class="block text-[9px] font-bold uppercase tracking-wider text-[#605e5c]">Escopo Perpétuo &amp; MPSA</span>
+                    <div class="grid grid-cols-2 gap-1">
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-cals" checked><span>CALs de Acesso</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-stepup"><span>Step-Up / Upgrade</span></label>
+                    </div>
+                    <label id="lbl-pm-show-temp" class="flex items-center gap-1.5 pt-1 cursor-pointer text-[10px] font-medium text-[#323130]">
+                      <input type="checkbox" id="chk-pm-show-temp" onchange="Cotador.app.syncTempFlagsFromMaster(this.checked)">
+                      <span>Incluir Assinaturas Temporárias:</span>
+                    </label>
+                    <div class="grid grid-cols-3 gap-1">
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-mensal" onchange="Cotador.app.syncMasterFromTempPills()"><span>Mensal</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-anual" onchange="Cotador.app.syncMasterFromTempPills()"><span>Anual</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-pm-show-trienal" onchange="Cotador.app.syncMasterFromTempPills()"><span>Trienal</span></label>
+                    </div>
+                  </div>
+
+                  <!-- D. Opções MPSA -->
+                  <div id="ms-flags-mpsa" class="hidden space-y-1 pt-1.5 border-t border-[#edebe9]">
+                    <span class="block text-[9px] font-bold uppercase tracking-wider text-[#605e5c]">Composição MPSA</span>
+                    <div class="grid grid-cols-3 gap-1">
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-mpsa-show-liconly" checked><span>Lic. Pura</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-mpsa-show-licsa"><span>Lic + SA</span></label>
+                      <label class="flag-mini-pill"><input type="checkbox" id="chk-mpsa-show-sa"><span>SA Avulso</span></label>
+                    </div>
+                  </div>
+
+                </div>
+              </details>
+            </div>
+          </div>
+
+          <!-- 3. FILTROS ADOBE -->
+          <div id="filtros-adobe" class="hidden space-y-3.5 pt-3 border-t border-[#edebe9]">
+            
+            <!-- Modelo de Compra -->
+            <div>
+              <label class="section-label">Modelo de Compra</label>
+              <input type="hidden" id="adobe-modelo" value="base">
+              <div class="grid grid-cols-3 gap-1.5">
+                <button type="button" onclick="Cotador.app.setAdobeModelo('base')" id="btn-adobe-mod-base" class="modality-chip active">Comercial</button>
+                <button type="button" onclick="Cotador.app.setAdobeModelo('gov')" id="btn-adobe-mod-gov" class="modality-chip">Governo</button>
+                <button type="button" onclick="Cotador.app.setAdobeModelo('edu')" id="btn-adobe-mod-edu" class="modality-chip">Educação</button>
+              </div>
+            </div>
+
+            <!-- Versão (Teams/Enterprise) -->
+            <div>
+              <label class="section-label">Versão do Produto</label>
+              <input type="hidden" id="adobe-segmento" value="teams">
+              <div class="grid grid-cols-2 gap-1.5">
+                <button type="button" onclick="Cotador.app.toggleAdobeSegmento('teams')" id="btn-adobe-seg-teams" class="modality-chip active">For Teams</button>
+                <button type="button" onclick="Cotador.app.toggleAdobeSegmento('enterprise')" id="btn-adobe-seg-enterprise" class="modality-chip">For Enterprise</button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="section-label">Filtro de Level</label>
+                <select id="adobe-level" onchange="Cotador.app.reexecutarSeHouverItens()" class="select-input">
+                  <option value="auto">Automático (Soma)</option>
+                  <option value="1">Level 1 (1-9)</option>
+                  <option value="2">Level 2 / 12 (10-49)</option>
+                  <option value="3">Level 3 / 13 (50-99)</option>
+                  <option value="4">Level 4 / 14 (100+)</option>
+                  <option value="all">Todos os Levels</option>
+                </select>
+              </div>
+              <div>
+                <label class="section-label">Meses (Pro-rata)</label>
+                <input type="number" id="adobe-meses" value="12" min="1" max="36" onchange="Cotador.app.reexecutarSeHouverItens()" class="select-input" title="Pro-rata (Ex: 4 = 4 meses)">
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="section-label !mb-0">Câmbio Dólar</label>
+                  <span id="adobe-ptax-status" class="text-[9px] font-medium text-gray-400 tabular-nums">Travado</span>
+                </div>
+                <input type="hidden" id="adobe-dolar" value="4.80" readonly>
+                <button type="button" id="btn-adobe-cambio-toggle" onclick="Cotador.app.toggleAdobeCambioMode()" role="switch" class="adobe-cambio-switch is-locked">
+                  <span class="flex items-center gap-1.5 min-w-0">
+                    <svg id="icon-adobe-cambio-lock" class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    <span id="adobe-cambio-btn-label" class="truncate tabular-nums">R$ 4,80 (Fixo)</span>
+                  </span>
+                  <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Gaveta de Filtros Secundários Adobe (Fixa e Aberta por padrão) -->
+            <div id="adobe-box-flags">
+              <details id="adobe-drawer-secundarios" open class="group bg-[#f3f2f1] rounded border border-[#edebe9] p-2">
+                <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[11px] font-semibold text-[#323130]">
+                  <div class="flex items-center gap-1.5">
+                    <span>Linhas Secundárias &amp; Filtros</span>
+                    <span id="badge-adobe-flags-count" class="px-1.5 py-0.5 rounded-full bg-white border border-[#c8c6c4] text-[9px] font-normal text-[#605e5c]">Busca Limpa</span>
+                  </div>
+                  <svg class="w-3.5 h-3.5 text-[#605e5c] transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </summary>
+                <div class="space-y-2.5 pt-2.5 mt-2 border-t border-[#edebe9] text-[11px]" onchange="Cotador.app.aoAlterarFlagsGlobal()">
+                  <div class="grid grid-cols-2 gap-1">
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-adobe-show-stock"><span>Com Adobe Stock</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-adobe-show-3y"><span>VIP Select (3 Anos)</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-adobe-show-frl"><span>FRL (Offline)</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-adobe-show-pack"><span>Packs / MOQ</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-adobe-show-renewal"><span>Renovações</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-adobe-show-upgrade"><span>Upgrades / Step-up</span></label>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </div>
+
+          <!-- 3. FILTROS KASPERSKY -->
+          <div id="filtros-kaspersky" class="hidden space-y-3.5 pt-3 border-t border-[#edebe9]">
+            <div>
+              <label class="section-label">Tipo de Licença Kaspersky</label>
+              <input type="hidden" id="kasp-tipo" value="Base">
+              <div class="grid grid-cols-2 gap-1.5">
+                <button type="button" onclick="Cotador.app.setKaspTipo('Base')" id="btn-kasp-tipo-base" class="modality-chip active">Base</button>
+                <button type="button" onclick="Cotador.app.setKaspTipo('Renewal')" id="btn-kasp-tipo-renewal" class="modality-chip">Renew</button>
+              </div>
+            </div>
+
+            <div>
+              <label class="section-label">Períodos</label>
+              <div class="grid grid-cols-5 gap-1" onchange="Cotador.app.reexecutarSeHouverItens()">
+                <label class="contract-chip"><input type="checkbox" id="chk-kasp-p1" class="sr-only" checked>1 Ano</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-kasp-p2" class="sr-only">2 Anos</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-kasp-p3" class="sr-only">3 Anos</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-kasp-p4" class="sr-only">4 Anos</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-kasp-p5" class="sr-only">5 Anos</label>
+              </div>
+            </div>
+
+            <div>
+              <label class="section-label">Faixa (Banda)</label>
+              <select id="kasp-banda" onchange="Cotador.app.reexecutarSeHouverItens()" class="select-input">
+                <option value="auto">Automático pela Soma</option>
+                <option value="5-9">5-9</option><option value="10-14">10-14</option><option value="15-19">15-19</option>
+                <option value="20-24">20-24</option><option value="25-49">25-49</option><option value="50-99">50-99</option>
+                <option value="100-149">100-149</option><option value="150-249">150-249</option><option value="250-499">250-499</option>
+                <option value="500-999">500-999</option><option value="1000-1499">1000-1499</option><option value="1500-2499">1500-2499</option>
+                <option value="all">Todas as Bandas</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="section-label">Flags de Preço</label>
+              <div class="space-y-1.5 text-[11px] text-[#323130] font-normal bg-[#f3f2f1] p-2.5 rounded border border-[#edebe9]" onchange="Cotador.app.reexecutarSeHouverItens()">
+                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-price-revenda" checked><span>Exibir "Valor de Revenda"</span></label>
+                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-price-ro"><span>Exibir "Valor com RO"</span></label>
+                <label class="flex items-center gap-2 cursor-pointer hover:text-black"><input type="checkbox" id="chk-kasp-price-naoprime"><span>Exibir "Não Prime sem RO"</span></label>
+              </div>
+            </div>
+
+            <!-- GAVETA DE FILTROS KASPERSKY (Fixa e Aberta por padrão) -->
+            <div id="kaspersky-box-flags">
+              <details id="kaspersky-drawer-secundarios" open class="group bg-[#f3f2f1] rounded border border-[#edebe9] p-2">
+                <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[11px] font-semibold text-[#323130]">
+                  <div class="flex items-center gap-1.5">
+                    <span>Linhas Secundárias &amp; Filtros</span>
+                    <span id="badge-kasp-flags-count" class="px-1.5 py-0.5 rounded-full bg-white border border-[#c8c6c4] text-[9px] font-normal text-[#605e5c]">Busca Limpa</span>
+                  </div>
+                  <svg class="w-3.5 h-3.5 text-[#605e5c] transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </summary>
+                <div class="space-y-2.5 pt-2.5 mt-2 border-t border-[#edebe9] text-[11px]" onchange="Cotador.app.aoAlterarFlagsGlobal()">
+                  <div class="grid grid-cols-2 gap-1">
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-baseplus"><span>Base Plus</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-successive"><span>Successive</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-public"><span>Public Sector</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-training"><span>ATC Training</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-crossgrade"><span>Cross-grade</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-educ"><span>Educational / Edu</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-xdr"><span>Linha XDR</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-noedr"><span>Fnd. (Sem EDR)</span></label>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      
+      <!-- PAINEL DIREITO (Tabelas e Respostas) -->
+      <div class="lg:col-span-8 xl:col-span-9">
+        <div class="card p-4 md:p-5 min-h-[560px] flex flex-col justify-between">
+          <div>
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#edebe9] pb-3.5 mb-4">
+              <div>
+                <h2 class="text-sm md:text-base font-semibold text-[#323130] flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-sm theme-bg-solid inline-block transition-colors"></span>
+                  Resultado da Cotação
+                </h2>
+                <p class="text-[11px] text-gray-500 mt-0.5">
+                  Clique em qualquer produto, PN ou valor para copiar &bull; Arraste pelo ícone lateral para ordenar
+                </p>
+              </div>
+              <button onclick="Cotador.core.alternarTodasTabelas()" class="text-[11px] px-2.5 py-1.5 rounded bg-white hover:bg-[#f3f2f1] text-[#323130] border border-[#edebe9] font-medium transition" title="Expandir ou recolher todas as tabelas">
+                Expandir / Recolher
+              </button>
+            </div>
+            
+            <div id="copy-toast" class="hidden fixed top-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-2.5 rounded-full theme-badge border text-xs text-center font-semibold shadow-lg backdrop-blur-sm opacity-95 pointer-events-none">
+              Copiado com sucesso!
+            </div>
+            
+            <div id="resultado-container" class="space-y-4 text-[#323130]">
+              <div class="text-center py-24 text-gray-500 text-xs bg-[#faf9f8] rounded border border-dashed border-[#c8c6c4]">
+                Cole os produtos no painel esquerdo e clique em <span class="theme-text font-semibold">Buscar e Montar Tabelas</span>.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <!-- MODAL ALTERAR SENHA -->
+  <div id="modal-alterar-senha" class="hidden fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-md shadow-2xl p-6 w-full max-w-sm border border-[#edebe9]">
+      <div class="flex justify-between items-center mb-4 border-b border-[#edebe9] pb-2">
+        <h3 class="font-semibold text-lg text-[#323130] flex items-center gap-2">
+          <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          Segurança da Conta
+        </h3>
+        <button type="button" onclick="Cotador.core.fecharModalAlterarSenha()" class="text-gray-400 hover:text-gray-600">&#10005;</button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="section-label">Nova Senha</label>
+          <input type="password" id="nova-senha" placeholder="Mínimo 6 caracteres" class="select-input w-full">
+        </div>
+        <div>
+          <label class="section-label">Confirmar Senha</label>
+          <input type="password" id="confirma-senha" placeholder="Digite novamente" class="select-input w-full">
+        </div>
+        <p class="text-[10px] text-gray-500 mt-1">Sua senha deve ter no mínimo 6 caracteres para atender aos requisitos básicos de segurança.</p>
+      </div>
+      <div class="flex justify-end gap-2 mt-6">
+        <button type="button" onclick="Cotador.core.fecharModalAlterarSenha()" class="px-4 py-2 bg-[#f3f2f1] hover:bg-[#edebe9] text-[#323130] rounded text-xs font-semibold transition">Cancelar</button>
+        <button type="button" onclick="Cotador.core.salvarNovaSenha()" id="btn-salvar-senha" class="px-4 py-2 btn-theme-primary rounded text-xs shadow-sm">
+          Salvar Nova Senha
+        </button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
