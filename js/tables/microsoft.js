@@ -338,19 +338,32 @@ window.Cotador.tables.ms_solo = {
           const termoBD = (r.termo_duracao || '').trim().toUpperCase();
           const planoBD = (r.plano_pagamento || '').trim().toLowerCase();
           
-          // Tratamento para Anual/Mensal (am): Permite puxar da linha Annual ou diretamente da Monthly
-          if (c.id === 'am') return termoBD === 'P1Y' && (planoBD === 'annual' || planoBD === 'monthly');
-          // Tratamento para Trienal/Mensal (tm): Permite puxar da linha Triennial, Annual ou Monthly
-          if (c.id === 'tm') return termoBD === 'P3Y' && (planoBD === 'triennial' || planoBD === 'annual' || planoBD === 'monthly');
-          
-          return termoBD === c.soloTermo && planoBD === c.soloPlano.toLowerCase();
+          const isP1Y = termoBD === 'P1Y' || termoBD === '1 YEAR' || termoBD === '1 ANO' || termoBD === 'ANUAL';
+          const isP3Y = termoBD === 'P3Y' || termoBD === '3 YEARS' || termoBD === '3 ANOS' || termoBD === 'TRIENAL';
+          const isP1M = termoBD === 'P1M' || termoBD === '1 MONTH' || termoBD === '1 MÊS' || termoBD === '1 MES' || termoBD === 'MENSAL';
+
+          const isAnnual = planoBD === 'annual' || planoBD === 'anual' || planoBD === 'yearly';
+          const isMonthly = planoBD === 'monthly' || planoBD === 'mensal';
+          const isTriennial = planoBD === 'triennial' || planoBD === 'trienal';
+
+          if (c.id === 'am') return isP1Y && (isAnnual || isMonthly);
+          if (c.id === 'tm') return isP3Y && (isTriennial || isAnnual || isMonthly);
+
+          const matchTermo = (c.soloTermo === 'P1Y' && isP1Y) || (c.soloTermo === 'P3Y' && isP3Y) || (c.soloTermo === 'P1M' && isP1M) || (termoBD === c.soloTermo);
+          const matchPlano = (c.soloPlano.toLowerCase() === 'annual' && isAnnual) || 
+                             (c.soloPlano.toLowerCase() === 'monthly' && isMonthly) || 
+                             (c.soloPlano.toLowerCase() === 'triennial' && isTriennial) || 
+                             (planoBD === c.soloPlano.toLowerCase());
+
+          return matchTermo && matchPlano;
         });
 
         // ERRO FUTURO EVITADO: Remove duplicadas priorizando o plano mensal caso a tabela do Dynamics traga ambas as linhas para o mesmo produto
         const unicos = new Map();
         filtradosRaw.forEach(r => {
             const key = r.id_produto || r.titulo_sku;
-            const isMonthly = String(r.plano_pagamento || '').trim().toLowerCase() === 'monthly';
+            const strPlano = String(r.plano_pagamento || '').trim().toLowerCase();
+            const isMonthly = strPlano === 'monthly' || strPlano === 'mensal';
             if (!unicos.has(key) || isMonthly) {
                 unicos.set(key, r);
             }
@@ -367,14 +380,14 @@ window.Cotador.tables.ms_solo = {
           const rawFob = core.parsePrice(r.fob_impostos);
           const rawMensalAnual = core.parsePrice(r.termo_anual_pagamento_mensal);
           const planoPagamento = String(r.plano_pagamento || '').trim().toLowerCase();
-          const divisor = c.id === 'ta' ? 3 : (c.id === 'tm' && planoPagamento !== 'monthly' ? 36 : 1);
+          const isMonthly = planoPagamento === 'monthly' || planoPagamento === 'mensal';
+          const divisor = c.id === 'ta' ? 3 : (c.id === 'tm' && !isMonthly ? 36 : 1);
           
           let custoFinal;
           let mensalSem5 = 0;
           let anualSem5 = 0;
-
           if (c.id === 'am') {
-            if (planoPagamento === 'monthly') {
+            if (isMonthly) {
                 mensalSem5 = rawFob;
                 anualSem5 = rawFob * 12;
                 custoFinal = isSoloEnabled ? custoCom5Base : rawFob;
@@ -385,7 +398,7 @@ window.Cotador.tables.ms_solo = {
                 custoFinal = isSoloEnabled ? mensalCom5Calc : mensalSem5Calc;
             }
           } else if (c.id === 'tm') {
-            if (planoPagamento === 'monthly') {
+            if (isMonthly) {
                 mensalSem5 = rawFob;
                 anualSem5 = rawFob * 12;
                 custoFinal = isSoloEnabled ? custoCom5Base : rawFob;
