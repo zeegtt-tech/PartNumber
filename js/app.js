@@ -776,7 +776,7 @@ window.Cotador.app = {
         };
 
         const resultadosMod = await Promise.all(
-          modalidades.map(mod => window.Cotador.tables[`ms_${mod}`].processar(this.parsedItems, flags))
+          modalidades.map(mod => window.Cotador.tables[`ms_${mod}`]?.processar(this.parsedItems, flags))
         );
 
         this.aplicarFiltrosDinamicosGlobal(facetTracker, 'ms-drawer-secundarios', 'badge-ms-flags-count', [
@@ -833,7 +833,7 @@ window.Cotador.app = {
           tabela = 'adobe_base';
         }
         
-        const resAdobe = await window.Cotador.tables[tabela].processar(this.parsedItems, flags);
+        const resAdobe = await window.Cotador.tables[tabela]?.processar(this.parsedItems, flags);
         missingItems = this.parsedItems.filter(it => !resAdobe?.matchedItemIndices?.has(it.itemIndex));
 
         this.aplicarFiltrosDinamicosGlobal(facetTracker, 'adobe-drawer-secundarios', 'badge-adobe-flags-count', [
@@ -878,7 +878,7 @@ window.Cotador.app = {
           showXdr: document.getElementById('chk-kasp-show-xdr')?.checked ?? false,
           showNoEdr: document.getElementById('chk-kasp-show-noedr')?.checked ?? false
         };
-        const resKasp = await window.Cotador.tables.kaspersky.processar(this.parsedItems, flags);
+        const resKasp = await window.Cotador.tables.kaspersky?.processar(this.parsedItems, flags);
         missingItems = this.parsedItems.filter(it => !resKasp?.matchedItemIndices?.has(it.itemIndex));
         this.aplicarFiltrosDinamicosGlobal(facetTracker, 'kaspersky-drawer-secundarios', 'badge-kasp-flags-count', [
           'chk-kasp-show-baseplus', 'chk-kasp-show-successive', 'chk-kasp-show-public', 'chk-kasp-show-training', 'chk-kasp-show-crossgrade', 'chk-kasp-show-educ', 'chk-kasp-show-xdr', 'chk-kasp-show-noedr'
