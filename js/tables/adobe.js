@@ -9,32 +9,96 @@ function obterInfoLevelAdobe(levelDetail) {
   const isVipSelectLevel = /\blevel\s*1[234]\b/i.test(ld);
   const is3Y = ld.includes('3 year commit') || ld.includes('3y commit');
   const suffix3Y = is3Y ? ' (3Y Commit)' : '';
-  const offset = is3Y ? (isVipSelectLevel ? 30 : 20) : (isVipSelectLevel ? 10 : 0);
-  
+  const offset = is3Y ? 20 : (isVipSelectLevel ? 10 : 0);
+
   if (/\blevel\s*0?1\b/i.test(ld) || /\b1\s*-\s*9\b/.test(ld) || /\b1\s+to\s+9\b/i.test(ld)) {
-    return { id: is3Y ? 'lvl-1-3y' : 'lvl-1', ordem: 1 + offset, groupCode: '1', exactCode: '1', is3Y, isVipSelectLevel: false, label: `Level 1 (1-9)${suffix3Y}` };
+    return {
+      id: is3Y ? 'lvl-1-3y' : 'lvl-1',
+      ordem: 1 + offset,
+      groupCode: '1',
+      exactCode: '1',
+      is3Y,
+      isVipSelectLevel: false,
+      label: `Level 1 (1-9)${suffix3Y}`
+    };
   }
   if (/\blevel\s*12\b/i.test(ld)) {
-    return { id: is3Y ? 'lvl-12-3y' : 'lvl-12', ordem: 2 + offset, groupCode: '2', exactCode: '12', is3Y, isVipSelectLevel: true, label: `Level 12 (10-49)${suffix3Y}` };
+    return {
+      id: is3Y ? 'lvl-12-3y' : 'lvl-12',
+      ordem: 2 + offset,
+      groupCode: '2',
+      exactCode: '12',
+      is3Y,
+      isVipSelectLevel: true,
+      label: `Level 12 (10-49)${suffix3Y}`
+    };
   }
   if (/\blevel\s*0?2\b/i.test(ld) || /\b10\s*-\s*49\b/.test(ld) || /\b10\s+to\s+49\b/i.test(ld)) {
-    return { id: is3Y ? 'lvl-2-3y' : 'lvl-2', ordem: 2 + offset, groupCode: '2', exactCode: '2', is3Y, isVipSelectLevel: false, label: `Level 2 (10-49)${suffix3Y}` };
+    return {
+      id: is3Y ? 'lvl-2-3y' : 'lvl-2',
+      ordem: 2 + offset,
+      groupCode: '2',
+      exactCode: '2',
+      is3Y,
+      isVipSelectLevel: false,
+      label: `Level 2 (10-49)${suffix3Y}`
+    };
   }
   if (/\blevel\s*13\b/i.test(ld)) {
-    return { id: is3Y ? 'lvl-13-3y' : 'lvl-13', ordem: 3 + offset, groupCode: '3', exactCode: '13', is3Y, isVipSelectLevel: true, label: `Level 13 (50-99)${suffix3Y}` };
+    return {
+      id: is3Y ? 'lvl-13-3y' : 'lvl-13',
+      ordem: 3 + offset,
+      groupCode: '3',
+      exactCode: '13',
+      is3Y,
+      isVipSelectLevel: true,
+      label: `Level 13 (50-99)${suffix3Y}`
+    };
   }
   if (/\blevel\s*0?3\b/i.test(ld) || /\b50\s*-\s*99\b/.test(ld) || /\b50\s+to\s+99\b/i.test(ld)) {
-    return { id: is3Y ? 'lvl-3-3y' : 'lvl-3', ordem: 3 + offset, groupCode: '3', exactCode: '3', is3Y, isVipSelectLevel: false, label: `Level 3 (50-99)${suffix3Y}` };
+    return {
+      id: is3Y ? 'lvl-3-3y' : 'lvl-3',
+      ordem: 3 + offset,
+      groupCode: '3',
+      exactCode: '3',
+      is3Y,
+      isVipSelectLevel: false,
+      label: `Level 3 (50-99)${suffix3Y}`
+    };
   }
   if (/\blevel\s*14\b/i.test(ld)) {
-    return { id: is3Y ? 'lvl-14-3y' : 'lvl-14', ordem: 4 + offset, groupCode: '4', exactCode: '14', is3Y, isVipSelectLevel: true, label: `Level 14 (100+)${suffix3Y}` };
+    return {
+      id: is3Y ? 'lvl-14-3y' : 'lvl-14',
+      ordem: 4 + offset,
+      groupCode: '4',
+      exactCode: '14',
+      is3Y,
+      isVipSelectLevel: true,
+      label: `Level 14 (100+)${suffix3Y}`
+    };
   }
   if (/\blevel\s*0?4\b/i.test(ld) || /100\+/.test(ld)) {
-    return { id: is3Y ? 'lvl-4-3y' : 'lvl-4', ordem: 4 + offset, groupCode: '4', exactCode: '4', is3Y, isVipSelectLevel: false, label: `Level 4 (100+)${suffix3Y}` };
+    return {
+      id: is3Y ? 'lvl-4-3y' : 'lvl-4',
+      ordem: 4 + offset,
+      groupCode: '4',
+      exactCode: '4',
+      is3Y,
+      isVipSelectLevel: false,
+      label: `Level 4 (100+)${suffix3Y}`
+    };
   }
-  
+
   const slug = raw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'other';
-  return { id: `lvl-${slug}`, ordem: 99, groupCode: 'other', exactCode: 'other', is3Y, isVipSelectLevel, label: raw || 'Padrão' };
+  return {
+    id: `lvl-${slug}`,
+    ordem: 99,
+    groupCode: 'other',
+    exactCode: 'other',
+    is3Y,
+    isVipSelectLevel,
+    label: raw || 'Padrão'
+  };
 }
 
 function extrairQualificadorAdobe(row) {
@@ -47,37 +111,78 @@ function extrairQualificadorAdobe(row) {
   const dur = String(row.duration || '').trim();
   const seg = String(row.segment || '').trim();
   const metric = String(row.metric || '').trim();
+
   const badges = [];
   let isPackOrSpecial = false;
   let moq = 1;
 
-  if (/renewal|renov/i.test(pTypeDetail) || /renewal/i.test(pType)) { badges.push('Renewal'); isPackOrSpecial = true; }
-  else if (/upgrade|migrat|step/i.test(pTypeDetail) || /upgrade|migrat/i.test(add)) { badges.push('Upgrade/Migration'); isPackOrSpecial = true; }
-  else if (pTypeDetail && !/^(subscription|cloud subscription|standard)$/i.test(pTypeDetail)) { badges.push(pTypeDetail); }
+  // 1. Tipo de Operação / Licença (New, Renewal, Upgrade, Term, FRL)
+  if (/renewal|renov/i.test(pTypeDetail) || /renewal/i.test(pType)) {
+    badges.push('Renewal');
+    isPackOrSpecial = true;
+  } else if (/upgrade|migrat|step/i.test(pTypeDetail) || /upgrade|migrat/i.test(add)) {
+    badges.push('Upgrade/Migration');
+    isPackOrSpecial = true;
+  } else if (pTypeDetail && !/^(subscription|cloud subscription|standard)$/i.test(pTypeDetail)) {
+    badges.push(pTypeDetail);
+  }
 
+  // 2. Packs, MOQ, Créditos e Assets
   const packMatch = add.match(/\b((\d+)\s*Pack)\b/i);
-  if (packMatch) { badges.push(packMatch[1]); isPackOrSpecial = true; const packNum = parseInt(packMatch[2], 10); if (!isNaN(packNum) && packNum > moq) moq = packNum; }
+  if (packMatch) {
+    badges.push(packMatch[1]);
+    isPackOrSpecial = true;
+    const packNum = parseInt(packMatch[2], 10);
+    if (!isNaN(packNum) && packNum > moq) moq = packNum;
+  }
 
   const moqMatch = add.match(/\b((?:High Growth Offer\s*)?(\d+)\s*MOQ)\b/i);
-  if (moqMatch) { badges.push(moqMatch[1]); isPackOrSpecial = true; const moqNum = parseInt(moqMatch[2], 10); if (!isNaN(moqNum) && moqNum > moq) moq = moqNum; }
+  if (moqMatch) {
+    badges.push(moqMatch[1]);
+    isPackOrSpecial = true;
+    const moqNum = parseInt(moqMatch[2], 10);
+    if (!isNaN(moqNum) && moqNum > moq) moq = moqNum;
+  }
 
   const creditMatch = add.match(/\b(\d+[K]?\s*(?:CREDIT PACK|Credits))\b/i);
-  if (creditMatch) { badges.push(creditMatch[1]); isPackOrSpecial = true; }
+  if (creditMatch) {
+    badges.push(creditMatch[1]);
+    isPackOrSpecial = true;
+  }
 
   const assetsMatch = add.match(/\b((?:Team\s+)?\d+\s*assets\s*per\s*month)\b/i);
-  if (assetsMatch) { badges.push(assetsMatch[1]); }
+  if (assetsMatch) {
+    badges.push(assetsMatch[1]);
+  }
 
   if (/\bMICROSOFT AZURE\b/i.test(add)) badges.push('Azure');
   else if (/\bAWS\b/i.test(add)) badges.push('AWS');
 
-  if (/Feature Restricted/i.test(pType) || /Feature Restricted/i.test(add)) { badges.push('FRL 36M'); isPackOrSpecial = true; }
-  else if (/Term License/i.test(pType)) { badges.push('Term License'); isPackOrSpecial = true; }
-
-  if (add) {
-    const cleanAdd = add.replace(/\b(\d+)\s*Pack\b/gi, '').replace(/\b(?:High Growth Offer\s*)?(\d+)\s*MOQ\b/gi, '').replace(/\b\d+[K]?\s*(?:CREDIT PACK|Credits)\b/gi, '').replace(/\b(?:Team\s+)?\d+\s*assets\s*per\s*month\b/gi, '').replace(/\b(MICROSOFT AZURE|AWS|Feature Restricted)\b/gi, '').replace(/^[\s\-|,; ]+|[\s\-|,; ]+$/g, '').trim();
-    if (cleanAdd && !badges.some(b => b.toLowerCase() === cleanAdd.toLowerCase())) { badges.push(cleanAdd); isPackOrSpecial = true; }
+  if (/Feature Restricted/i.test(pType) || /Feature Restricted/i.test(add)) {
+    badges.push('FRL 36M');
+    isPackOrSpecial = true;
+  } else if (/Term License/i.test(pType)) {
+    badges.push('Term License');
+    isPackOrSpecial = true;
   }
 
+  // 3. Qualquer outro texto relevante em additional_detail ainda não capturado
+  if (add) {
+    const cleanAdd = add
+      .replace(/\b(\d+)\s*Pack\b/gi, '')
+      .replace(/\b(?:High Growth Offer\s*)?(\d+)\s*MOQ\b/gi, '')
+      .replace(/\b\d+[K]?\s*(?:CREDIT PACK|Credits)\b/gi, '')
+      .replace(/\b(?:Team\s+)?\d+\s*assets\s*per\s*month\b/gi, '')
+      .replace(/\b(MICROSOFT AZURE|AWS|Feature Restricted)\b/gi, '')
+      .replace(/^[\s\-|,;•]+|[\s\-|,;•]+$/g, '')
+      .trim();
+    if (cleanAdd && !badges.some(b => b.toLowerCase() === cleanAdd.toLowerCase())) {
+      badges.push(cleanAdd);
+      isPackOrSpecial = true;
+    }
+  }
+
+  // 4. Idioma (diferencia PT-BR, LATAM, North American, European e ALL/MUL)
   if (lang) {
     if (/brazil|portuguese|pt[\s\-_]?br/i.test(lang)) badges.push('PT-BR');
     else if (/latin|latam/i.test(lang)) badges.push('LATAM');
@@ -89,13 +194,33 @@ function extrairQualificadorAdobe(row) {
     else badges.push(lang);
   }
 
-  if (os && !/^(multiple platforms|mlp|all|multi|cross platform|-)$/i.test(os)) badges.push(os);
-  if (ver && !/^(all|dc|cc|-)$/i.test(ver)) badges.push(`v.${ver}`);
-  if (dur && !/^(1 year|12 months|annual|anual|-)$/i.test(dur)) badges.push(dur);
-  if (seg && !/^(commercial|comercial|corporate|-)$/i.test(seg)) { badges.push(seg); isPackOrSpecial = true; }
-  if (metric && !/^(per user|user|named user|1|-)$/i.test(metric) && !badges.includes(metric)) badges.push(metric);
-  
-  return { badges: Array.from(new Set(badges.filter(Boolean))), fullDetail: [pTypeDetail, add, lang, os, dur, metric, seg].filter(Boolean).join(' | '), isPackOrSpecial, moq };
+  // 5. Plataforma / OS, Versão, Duração ou Segmento não-comercial
+  if (os && !/^(multiple platforms|mlp|all|multi|cross platform|-)$/i.test(os)) {
+    badges.push(os);
+  }
+  if (ver && !/^(all|dc|cc|-)$/i.test(ver)) {
+    badges.push(`v.${ver}`);
+  }
+  if (dur && !/^(1 year|12 months|annual|anual|-)$/i.test(dur)) {
+    badges.push(dur);
+  }
+  if (seg && !/^(commercial|comercial|corporate|-)$/i.test(seg)) {
+    badges.push(seg);
+    isPackOrSpecial = true;
+  }
+  if (metric && !/^(per user|user|named user|1|-)$/i.test(metric) && !badges.includes(metric)) {
+    badges.push(metric);
+  }
+
+  const uniqueBadges = Array.from(new Set(badges.filter(Boolean)));
+  const fullParts = [pTypeDetail, add, lang, os, dur, metric, seg].filter(Boolean);
+
+  return {
+    badges: uniqueBadges,
+    fullDetail: fullParts.join(' | '),
+    isPackOrSpecial,
+    moq
+  };
 }
 
 function enriquecerDiferencasIrmaosAdobe(rows) {
@@ -107,18 +232,36 @@ function enriquecerDiferencasIrmaosAdobe(rows) {
     if (!grupos.has(key)) grupos.set(key, []);
     grupos.get(key).push(r);
   });
+
   const colsCandidatas = [
-    { col: 'product_type_detail', label: '' }, { col: 'additional_detail', label: '' }, { col: 'language', label: 'Idioma: ' },
-    { col: 'product_type', label: 'Tipo: ' }, { col: 'duration', label: 'Duração: ' }, { col: 'operating_system', label: 'OS: ' },
-    { col: 'version', label: 'Ver: ' }, { col: 'metric', label: 'Métrica: ' }, { col: 'users', label: 'Users: ' },
-    { col: 'pool', label: 'Pool: ' }, { col: 'segment', label: 'Seg: ' }, { col: 'channel', label: 'Canal: ' }
+    { col: 'product_type_detail', label: '' },
+    { col: 'additional_detail', label: '' },
+    { col: 'language', label: 'Idioma: ' },
+    { col: 'product_type', label: 'Tipo: ' },
+    { col: 'duration', label: 'Duração: ' },
+    { col: 'operating_system', label: 'OS: ' },
+    { col: 'version', label: 'Ver: ' },
+    { col: 'metric', label: 'Métrica: ' },
+    { col: 'users', label: 'Users: ' },
+    { col: 'pool', label: 'Pool: ' },
+    { col: 'segment', label: 'Seg: ' },
+    { col: 'channel', label: 'Canal: ' },
+    { col: 'acd_description', label: '' }
   ];
+
   grupos.forEach(lista => {
     if (lista.length <= 1) return;
-    const colsDiferentes = colsCandidatas.filter(({ col }) => new Set(lista.map(r => String(r[col] || '').trim().toLowerCase())).size > 1);
+    const colsDiferentes = colsCandidatas.filter(({ col }) => {
+      const vals = new Set(lista.map(r => String(r[col] || '').trim().toLowerCase()));
+      return vals.size > 1;
+    });
+
     lista.forEach(r => {
       const extras = [];
-      colsDiferentes.forEach(({ col, label }) => { const val = String(r[col] || '').trim(); if (val) extras.push(`${label}${val}`); });
+      colsDiferentes.forEach(({ col, label }) => {
+        const val = String(r[col] || '').trim();
+        if (val) extras.push(`${label}${val}`);
+      });
       r._diffExtras = extras;
     });
   });
@@ -134,13 +277,24 @@ function calcularLevelPorSomaAdobe(somaQtd) {
 function renderizarCelulaQtdAdobe(core, qty, moq, fullDetail) {
   const baseInputHTML = core.renderQtyInput(qty);
   if (!moq || moq <= 1) return `<td>${baseInputHTML}</td>`;
+
   const numQty = Number(qty);
   const abaixoMoq = qty === '-' || qty === null || qty === '' || isNaN(numQty) || numQty < moq;
   const detalheMsg = core.escapeHTML(fullDetail || `Mínimo exigido: ${moq}`);
-  return `<td class="adobe-qty-cell" data-moq="${moq}" oninput="const val = parseFloat(event.target.value); const warn = this.querySelector('.moq-warning'); if (warn) { warn.classList.toggle('hidden', isNaN(val) || val < ${moq}); }">
+
+  return `<td class="adobe-qty-cell" data-moq="${moq}" oninput="
+    const val = parseFloat(event.target.value);
+    const warn = this.querySelector('.moq-warning');
+    if (warn) {
+      const invalido = isNaN(val) || val < ${moq};
+      warn.classList.toggle('hidden', !invalido);
+    }
+  ">
     <div class="flex flex-col items-start gap-1">
       ${baseInputHTML}
-      <span class="moq-warning ${abaixoMoq ? '' : 'hidden'} inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200 whitespace-nowrap" title="Quantidade abaixo do MOQ exigido (${detalheMsg})">MOQ mín: ${moq}</span>
+      <span class="moq-warning ${abaixoMoq ? '' : 'hidden'} inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200 whitespace-nowrap" title="Quantidade abaixo do MOQ exigido (${detalheMsg})">
+        ⚠️ MOQ mín: ${moq}
+      </span>
     </div>
   </td>`;
 }
@@ -251,7 +405,7 @@ function criarModuloAdobe(tableName, labelTitulo) {
         );
 
         if (itensAdobeValidos.length === 0 || algumValidoSemQuantidade) {
-          effectiveLevel = '1';
+          effectiveLevel = 'all';
         } else {
           const somaQtdAdobeValidos = itensAdobeValidos.reduce((acc, it) => acc + Number(it.qty), 0);
           effectiveLevel = calcularLevelPorSomaAdobe(somaQtdAdobeValidos);
@@ -269,7 +423,7 @@ function criarModuloAdobe(tableName, labelTitulo) {
           if (isTargetVipSelect) {
             return infoLvl.exactCode === target;
           }
-          return infoLvl.groupCode === target && !infoLvl.isVipSelectLevel;
+          return infoLvl.groupCode === target;
         });
 
         return { item, data: filtradosPorLevel };
@@ -322,11 +476,9 @@ function criarModuloAdobe(tableName, labelTitulo) {
 
             filtrados.forEach(r => {
               matchedItemIndices.add(item.itemIndex);
-              const meses = flags.mesesProRata || 12;
-              const baseUsd = core.parsePrice(r.partner_price);
-              const usd = meses === 12 ? baseUsd : (baseUsd / 12) * meses;
+              const usd = core.parsePrice(r.partner_price);
               const brl = usd * flags.taxaDolar;
-              const pn = meses === 12 ? r.part_number : `${r.part_number}-${meses}`;
+              const pn = r.part_number;
               const fmtUSD = `US$ ${core.formatUSD(usd)}`;
               const fmtBRL = `R$ ${core.formatBRL(brl)}`;
               const nomeBase = (r.product_family || '').trim();
@@ -378,6 +530,7 @@ function criarModuloAdobe(tableName, labelTitulo) {
           });
 
           if (!rowsHTML) continue;
+
           const segLabel = seg === 'enterprise' ? 'For Enterprise' : 'For Teams';
           const bId = `blk-${tableName}-${seg}-${lvl.id}`;
           const headerTitle = `${labelTitulo} (${segLabel}) | Faixa: ${lvl.label} | Câmbio: R$ ${core.formatBRL(flags.taxaDolar)}`;
@@ -391,7 +544,5 @@ function criarModuloAdobe(tableName, labelTitulo) {
   };
 }
 
-window.Cotador.tables.adobe_base = criarModuloAdobe('adobe_base', 'Adobe VIP - Comercial');
-window.Cotador.tables.adobe_edu = criarModuloAdobe('adobe_edu', 'Adobe VIP - Educação');
-window.Cotador.tables.adobe_gov = criarModuloAdobe('adobe_gov', 'Adobe VIP - Governo');
-window.Cotador.tables.adobe_promo = criarModuloAdobe('adobe_promo', 'Adobe VIP - Promoção');
+window.Cotador.tables.adobe_base = criarModuloAdobe('adobe_base', 'Adobe Base (Padrão)');
+window.Cotador.tables.adobe_promo = criarModuloAdobe('adobe_promo', 'Adobe Promo (Novos Clientes)');
