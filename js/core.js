@@ -761,7 +761,7 @@ window.Cotador.core = {
     if (table === 'crm_mapping') {
       const pnCrm = get('Part Number');
       if (!pnCrm) return null;
-      return { pn_crm: pnCrm, id_produto_it: get('ID do produto (product ID)', 'ID do produto'), nome_crm: get('Nome') };
+      return { pn_crm: pnCrm, id_produto_it: get('ID do produto (product ID)', 'ID do produto'), nome_crm: get('Nome do item', 'Nome') };
     }
     if (table === 'adobe_base' || table === 'adobe_promo' || table === 'adobe_edu' || table === 'adobe_gov') {
       const partNumber = get('Part Number');
