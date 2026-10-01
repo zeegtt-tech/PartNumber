@@ -40,7 +40,7 @@ window.Cotador.app = {
     } catch (_) {}
     
     const flagsResetFalse = [
-      'chk-show-copilot', 'chk-show-noteams', 'chk-show-trial', 'chk-show-frontline',
+      'chk-show-copilot', 'chk-show-trial', 'chk-show-frontline',
       'chk-ms-show-phone', 'chk-ms-show-dynamics', 'chk-ms-show-win365', 'chk-ms-show-niche',
       'chk-ms-show-extconnector', 'chk-ms-show-azurecloud', 'chk-pm-show-temp',
       'chk-pm-show-mensal', 'chk-pm-show-anual', 'chk-pm-show-trienal', 'chk-pm-show-stepup',
