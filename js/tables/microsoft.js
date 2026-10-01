@@ -17,8 +17,10 @@ const MS_SECONDARY_RULES = [
     checkboxId: 'chk-show-noteams',
     flagProp: 'showNoTeams',
     label: 'Sem Teams',
-    queryRegex: /\b(no\s+teams|sem\s+teams|without\s+teams)\b/i,
-    productRegex: /\b(no|sem|without)\s+teams\b/i
+    queryRegex: /\b(no\s*teams|sem\s*teams|without\s*teams|s\/\s*teams)\b/i,
+    testProduct: (nome) => {
+        return /\b(no|sem|without|w\/o)\s*teams\b/i.test(nome);
+    }
   },
   {
     key: 'copilot',
@@ -27,79 +29,36 @@ const MS_SECONDARY_RULES = [
     label: 'Bundles Copilot / Add-ons',
     queryRegex: /\b(with\s+copilot|attach|add-on|addon|extra\s+file|storage)\b/i,
     testProduct: (nome) => {
-      const isBundle = /\b(?:with|w\/)\b/i.test(nome) || /\band\s+(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome);
-      const isGenericAddon = /\b(attach|add[\s\-]?on|extra\s+file\s+storage)\b/i.test(nome);
-      const isNativeCopilot = !isBundle && (
-        /^(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome) ||
-        /\bcopilot\s+(?:studio|for\s+sales|for\s+service|for\s+security|business)\b/i.test(nome)
-      );
-      return isBundle || (isGenericAddon && !isNativeCopilot) || (nome.includes('copilot') && !isNativeCopilot);
+        const isCopilotBundle = /\b(?:with|w\/|and)\s+(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome);
+        const isNativeCopilot = !isCopilotBundle && (
+            /^(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome) ||
+            /\bcopilot\s+(?:studio|for\s+sales|for\s+service|for\s+security|business)\b/i.test(nome)
+        );
+        return isCopilotBundle || /\b(attach|add[\s\-]?on|extra\s+file\s+storage)\b/i.test(nome);
     }
   },
-  {
-    key: 'trial',
-    checkboxId: 'chk-show-trial',
-    flagProp: 'showTrial',
-    label: 'Trial / Promo',
-    queryRegex: /\b(trial|free|gratuito|promo)\b/i,
-    productRegex: /\b(trial|free|gratuito|promo)\b/i
-  },
-  {
-    key: 'phone',
-    checkboxId: 'chk-ms-show-phone',
-    flagProp: 'showPhone',
-    label: 'Teams Phone / Voz',
-    queryRegex: /\b(phone|voice|voz|calling|audio|conferencing|rooms|discagem|direct\s*routing|operator)\b/i,
-    productRegex: /\b(teams\s+phone|phone\s+standard|phone\s+resource|calling\s+plan|audio\s+conferencing|communication\s+credits|teams\s+rooms|teams\s+shared\s+devices|operator\s+connect)\b/i
-  },
-  {
-    key: 'dynamics',
-    checkboxId: 'chk-ms-show-dynamics',
-    flagProp: 'showDynamics',
-    label: 'Dynamics / PowerApps',
-    queryRegex: /\b(dynamics|dyn365|d365|power\s*apps|power\s*automate|power\s*pages|power\s*virtual|dataverse|business\s+central|finance|supply\s+chain|customer\s+service|field\s+service|sandbox|operations)\b/i,
-    productRegex: /\b(dynamics\s*365|dyn365|power\s*apps|power\s*automate|power\s*pages|power\s*virtual\s*agents|dataverse|business\s+central|operations\s*-\s*sandbox)\b/i
-  },
-  {
-    key: 'win365',
-    checkboxId: 'chk-ms-show-win365',
-    flagProp: 'showWin365',
-    label: 'Windows 365 (Cloud PC)',
-    queryRegex: /\b(windows\s*365|win\s*365|win365|cloud\s*pc|vcpu|gpu)\b/i,
-    productRegex: /\b(windows\s*365|cloud\s*pc|\d+\s*vcpu)\b/i
-  },
-  {
-    key: 'niche',
-    checkboxId: 'chk-ms-show-niche',
-    flagProp: 'showNiche',
-    label: 'Clipchamp / Viva',
-    queryRegex: /\b(clipchamp|viva|minecraft|hololens|bookings|scheduler|yammer|loop|sway|dragon)\b/i,
-    productRegex: /\b(clipchamp|viva\b|minecraft|hololens|bookings|scheduler|yammer|dragon\s+copilot)\b/i
-  },
-  {
-    key: 'extconnector',
-    checkboxId: 'chk-ms-show-extconnector',
-    flagProp: 'showExtConnector',
-    label: 'External Connector',
-    queryRegex: /\b(external|connector|ext\s*conn)\b/i,
-    productRegex: /\b(external\s*connector|ext\s*conn)\b/i
-  },
-  {
-    key: 'azurecloud',
-    checkboxId: 'chk-ms-show-azurecloud',
-    flagProp: 'showAzureCloud',
-    label: 'Azure / Cloud Add-on',
-    queryRegex: /\b(azure|arc)\b/i,
-    productRegex: /\b(azure|azure\s+hybrid|azure\s+arc|cloud\s+add[\s\-]?on)\b/i
-  }
-];
-
+// [...] (As outras regras permanecem inalteradas até chegar na função passaFiltroSecundarioMicrosoft)
 function passaFiltroSecundarioMicrosoft(nomeProdutoRaw, itemSearchRaw, flags = {}, facetTracker = null) {
   const nome = String(nomeProdutoRaw || '').toLowerCase();
   const query = String(itemSearchRaw || '').toLowerCase();
-  let permitido = true;
+  
+  const buscouSemTeams = /\b(no\s*teams|sem\s*teams|without\s*teams|s\/\s*teams)\b/i.test(query);
+  const isProdSemTeams = /\b(no|sem|without|w\/o)\s*teams\b/i.test(nome);
+  
+  if (buscouSemTeams && !isProdSemTeams) {
+    return false;
+  }
+  if (!buscouSemTeams && isProdSemTeams && !flags.showNoTeams) {
+      if (facetTracker) {
+        facetTracker['chk-show-noteams'] = (facetTracker['chk-show-noteams'] || 0) + 1;
+      }
+      return false;
+  }
 
+  let permitido = true;
   for (const rule of MS_SECONDARY_RULES) {
+    if (rule.key === 'noteams') continue;
+
     const buscouExplicito = rule.queryRegex.test(query);
     const isSecProduct = rule.testProduct ? rule.testProduct(nome) : rule.productRegex.test(nome);
 

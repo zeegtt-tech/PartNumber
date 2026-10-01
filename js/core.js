@@ -1031,10 +1031,29 @@ window.Cotador.core = {
         });
       }
     });
-
     this.recalcularSubtotais();
   },
-
+  obterModificadoresPnSolo() {
+    const prefix = document.getElementById('ms-solo-prefix')?.value || '';
+    const suffix = document.getElementById('ms-solo-suffix')?.value || '';
+    return { prefix, suffix };
+  },
+  atualizarModificadoresPnSoloEmTempoReal() {
+    const mods = this.obterModificadoresPnSolo();
+    document.querySelectorAll('tbody tr[data-row-kind="ms_solo"]').forEach(tr => {
+      const basePn = tr.getAttribute('data-base-pn') || tr.getAttribute('data-pn') || '';
+      if (!basePn) return;
+      if (!tr.hasAttribute('data-base-pn')) tr.setAttribute('data-base-pn', basePn);
+      const novoPn = `${mods.prefix}${basePn}${mods.suffix}`;
+      tr.setAttribute('data-pn', novoPn);
+      const pnBadge = tr.querySelector('td.col-pn [data-pn-val]');
+      if (pnBadge) {
+        pnBadge.setAttribute('data-pn-val', novoPn);
+        pnBadge.setAttribute('data-copy', novoPn);
+        pnBadge.textContent = novoPn;
+      }
+    });
+  },
   iniciarNovaSessaoBusca() {
     if (this._searchAbortController) this._searchAbortController.abort();
     this._searchAbortController = new AbortController();
@@ -1458,12 +1477,27 @@ window.Cotador.core = {
   },
 
   normalizarChaveProdutoMS(rawName, itemIndex) {
-    const clean = String(rawName || '').toLowerCase().replace(/\(.*?\)/g, ' ')
+    const clean = String(rawName || '').toLowerCase()
+      .replace(/\(\s*(?:non-profit\vert{}nonprofit\vert{}charity\vert{}education\vert{}academic\vert{}faculty\vert{}student\vert{}government\vert{}gov\vert{}commercial)[^)]*\)/gi, ' ')
       .replace(/\b(commercial|education|academic|faculty|student|charity|non-profit|nonprofit|government|gov)\b/gi, ' ')
+      .replace(/\b(sem\s+teams|without\s+teams)\b/gi, 'no teams')
+      .replace(/[()]/g, ' ')
       .replace(/\s+/g, ' ').trim();
     return `ms-item-${itemIndex ?? 0}::${clean}`;
   },
-
+  limparRuidoComercialLinha(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/[\u2010-\u2015\u2212]/g, '-')
+      .replace(/\bnew\s+co[mr]{1,3}er?ce(\s+experience)?\b/gi, ' ')
+      .replace(/\b(nce|csp|legacy|open\s+value|ovp)\b/gi, ' ')
+      .replace(/(?:^|\s|[-/|])+\b([mp]ensal|anual|trienal|monthly|annual|yearly|triennial|p1y|p1m|p3y|1\s*ano|3\s*anos)\b/gi, ' ')
+      .replace(/\b(add[\s\-]?on|adoon|addon|assinatura|subscricao|subscription|faturamento|renovacao)\b/gi, ' ')
+      .replace(/\b(sem\s+teams|s\/\s*teams|without\s+teams)\b/gi, 'no teams')
+      .replace(/(?:\s+-\s+|\s+-\b|\b-\s+|-+$|^-+)/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  },
   extrairKeywords(prodName) {
     const rawTrimmed = String(prodName || '').trim();
     if (!rawTrimmed) return [];
@@ -1472,19 +1506,36 @@ window.Cotador.core = {
       if (nceMatch) return [this.sanitizarTermoPostgrest(nceMatch[1])];
       return [this.sanitizarTermoPostgrest(rawTrimmed)];
     }
-    const deaccented = rawTrimmed.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const lower = this.sanitizarTermoPostgrest(deaccented).toLowerCase();
-    if (this.SEARCH_KEYWORDS[lower]) return this.SEARCH_KEYWORDS[lower].map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
-
+    const cleanedProd = this.limparRuidoComercialLinha(rawTrimmed);
+    const hasNoTeamsIntent = /\b(no\s+teams|without\s+teams|sem\s+teams)\b/i.test(rawTrimmed);
+    const deaccented = cleanedProd.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     let normalized = this.sanitizarTermoPostgrest(deaccented)
+      .replace(/\b(no\s+teams|without\s+teams)\b/gi, '')
       .replace(/\b(exchenge|exchage|excange|exhange|exchagne)\b/gi, 'Exchange')
       .replace(/\bexchange\s+(?:online\s+)?(?:plan(?:o)?|p)\s*(\d+)\b/gi, 'Exchange Online __PLAN_$1__')
       .replace(/\b(project|visio|planner|intune)\s+(?:plan(?:o)?|p)\s*(\d+)\b/gi, '$1 __PLAN_$2__')
-      .replace(/\bplan(?:o)?\s*(\d+)\b/gi, '__PLAN_$1__');
+      .replace(/\bplan(?:o)?\s*(\d+)\b/gi, '__PLAN_$1__')
+      .replace(/\s+/g, ' ').trim();
 
-    const lowerNorm = normalized.toLowerCase().trim();
-    for (const [key, kwList] of Object.entries(this.SEARCH_KEYWORDS)) {
-      if (lowerNorm === key) return kwList.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
+    const lowerNorm = normalized.toLowerCase();
+
+    if (this.SEARCH_KEYWORDS[lowerNorm]) {
+      const kws = [...this.SEARCH_KEYWORDS[lowerNorm]];
+      if (hasNoTeamsIntent && !kws.includes('Teams')) kws.push('Teams');
+      return kws.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
+    }
+
+    const multiWordKeys = Object.keys(this.SEARCH_KEYWORDS)
+      .filter(k => k.includes(' '))
+      .sort((a, b) => b.length - a.length);
+
+    for (const key of multiWordKeys) {
+      const regex = new RegExp(`\\b${key}\\b`, 'i');
+      if (regex.test(lowerNorm)) {
+        const kws = [...this.SEARCH_KEYWORDS[key]];
+        if (hasNoTeamsIntent && !kws.includes('Teams')) kws.push('Teams');
+        return kws.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
+      }
     }
 
     return normalized.split(/\s+/).filter(w => w.length > 0).flatMap(w => {
@@ -1556,6 +1607,7 @@ window.Cotador.core = {
         }
       }
       prodName = prodName.replace(/^[\s\- :|=/ *+]+|[\s\- :|=/ *+]+$/g, '').trim();
+      prodName = this.limparRuidoComercialLinha(prodName);
       if (!prodName) return;
       if (qty !== null && !isNaN(qty)) sumLicenses += qty;
       items.push({ itemIndex: idx, original: this.escapeHTML(prodName), rawSearch: prodName, keywords: this.extrairKeywords(prodName), qty: qty !== null ? qty : '-' });
@@ -1856,9 +1908,29 @@ window.Cotador.core = {
 
   renderQtyInput(qty) {
     const val = (qty === '-' || isNaN(qty)) ? '' : qty;
-    return `<input type="number" min="1" value="${val}" placeholder="-" oninput="Cotador.core.aoAlterarQuantidade(event, this)" title="Altera em todas as tabelas (Shift p/ alterar só nesta)" class="qty-input">`;
+    return `<div class="qty-control-wrap inline-flex items-center gap-1">
+      <input type="number" min="1" value="${val}" placeholder="-" oninput="Cotador.core.aoAlterarQuantidade(event, this)" title="Altera em todas as tabelas (Shift p/ alterar só nesta)" class="qty-input">
+      <button type="button" onclick="Cotador.core.copiarQuantidadeLinha(event, this)" title="Copiar quantidade (1 clique)" class="no-export copy-qty-btn">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+        </svg>
+      </button>
+    </div>`;
   },
-
+  copiarQuantidadeLinha(event, btnEl) {
+    if (event) event.stopPropagation();
+    const td = btnEl ? btnEl.closest('td') : null;
+    const input = td ? td.querySelector('.qty-input') : null;
+    const val = input && input.value ? String(input.value).trim() : '';
+    if (!val || val === '-') {
+      this.mostrarToast('Defina uma quantidade antes de copiar.');
+      return;
+    }
+    navigator.clipboard.writeText(val);
+    btnEl.classList.add('is-copied');
+    setTimeout(() => btnEl.classList.remove('is-copied'), 450);
+    this.mostrarToast(`Quantidade copiada: ${val}`);
+  },
   aoAlterarQuantidade(event, inputEl) {
     const tr = inputEl ? inputEl.closest('tr') : null;
     const novaQtd = inputEl ? inputEl.value : '';
@@ -1918,9 +1990,15 @@ window.Cotador.core = {
     const infoData = tabelaRef ? this.ultimasAtualizacoes[tabelaRef] : null;
     const dataCurta = infoData ? this.formatarDataCurta(infoData.iso) : null;
     const badgeDataHTML = dataCurta ? `<span class="sec-detail no-export text-[10px] font-normal text-gray-400 bg-white border border-gray-200 px-2 py-0.5 rounded-full whitespace-nowrap">Atualizado em ${dataCurta}</span>` : '';
-    return `<div onclick="Cotador.core.toggleBlock('${blockId}')" class="block-header-bar flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none"><div class="flex items-center gap-2"><svg class="w-4 h-4 text-gray-400 chevron-icon transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg><h3 onclick="Cotador.core.copiarBlocoAoClicarTitulo(event, '${blockId}')" class="copy-link text-xs font-semibold text-[#323130]">${safeTitle}</h3></div><div class="flex items-center gap-2" onclick="event.stopPropagation()">${badgeDataHTML}<span id="total-${blockId}" onclick="Cotador.core.copiarElemento(event, this)" data-copy="" data-label="Total da Tabela" class="copy-link block-total-badge text-xs font-semibold theme-badge px-2.5 py-0.5 rounded tabular-nums hidden"></span></div></div>`;
+    return `<div onclick="Cotador.core.toggleBlock('${blockId}')" class="block-header-bar flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none"><div class="flex items-center gap-2"><svg class="w-4 h-4 text-gray-400 chevron-icon transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg><h3 onclick="Cotador.core.copiarBlocoAoClicarTitulo(event, '${blockId}')" class="copy-link text-xs font-semibold text-[#323130]">${safeTitle}</h3></div><div class="flex items-center gap-2" onclick="event.stopPropagation()">${badgeDataHTML}<span id="total-${blockId}" onclick="Cotador.core.copiarElemento(event, this)" data-copy="" data-label="Total da Tabela" class="copy-link block-total-badge text-xs font-semibold theme-badge px-2.5 py-0.5 rounded tabular-nums hidden"></span><button type="button" onclick="Cotador.core.copiarPropostaBlocoCliente(event, '${blockId}')" title="Copiar lista completa do cliente" class="client-only-inline-btn no-export bg-[#ffffff] border border-[#c8c6c4] text-[#323130] hover:bg-[#f3f2f1] px-2 py-0.5 rounded text-[10px] font-semibold items-center gap-1 transition"><svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg><span>Copiar Lista</span></button></div></div>`;
   },
-
+  copiarPropostaBlocoCliente(event, blockId) {
+    if (event) event.stopPropagation();
+    const block = document.getElementById(blockId);
+    if (!block) return;
+    const { tsv, html } = this.gerarExtracaoBloco(block);
+    this.copiarRichTextOuTexto(tsv, html, 'Lista completa copiada para o cliente!');
+  },
   renderUnmatchedWarning(missingItems) {
     const old = document.getElementById('unmatched-items-banner');
     if (old) old.remove();
