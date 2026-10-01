@@ -1212,25 +1212,6 @@ window.Cotador.core = {
       }
     } catch (_) {}
 
-    const pendentes = this.CATALOGO_TABELAS.filter(t => !this.ultimasAtualizacoes[t.id]);
-    if (pendentes.length > 0) {
-      await Promise.allSettled(pendentes.map(async t => {
-        try {
-          const res = await this.fetchSupabase(t.id, [['select', 'updated_at'], ['order', 'updated_at.desc'], ['limit', '1']], { useAbort: false });
-          if (res && res[0] && res[0].updated_at) {
-            this.ultimasAtualizacoes[t.id] = { iso: res[0].updated_at, fabricante: t.fab, nome: t.nome };
-            return;
-          }
-        } catch (_) {}
-        try {
-          const resCreated = await this.fetchSupabase(t.id, [['select', 'created_at'], ['order', 'created_at.desc'], ['limit', '1']], { useAbort: false });
-          if (resCreated && resCreated[0] && resCreated[0].created_at) {
-            this.ultimasAtualizacoes[t.id] = { iso: resCreated[0].created_at, fabricante: t.fab, nome: t.nome };
-          }
-        } catch (_) {}
-      }));
-    }
-
     this.atualizarBadgeDataFabricante(window.Cotador.app?.currentVendor || 'microsoft');
   },
 
