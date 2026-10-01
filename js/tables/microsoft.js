@@ -324,17 +324,24 @@ window.Cotador.tables.ms_solo = {
       let rowsHTML = '';
 
       for (const { item, data } of resultadosPorItem) {
-        const filtrados = data.filter(r =>
-          (r.termo_duracao || '').trim().toUpperCase() === c.soloTermo &&
-          (r.plano_pagamento || '').trim().toLowerCase() === c.soloPlano.toLowerCase()
-        );
-
+        const filtrados = data.filter(r => {
+          const termoBD = (r.termo_duracao || '').trim().toUpperCase();
+          const planoBD = (r.plano_pagamento || '').trim().toLowerCase();
+          
+          // Tratamento para Anual/Mensal (am): Puxa da linha Annual
+          if (c.id === 'am') return termoBD === 'P1Y' && planoBD === 'annual';
+          // Tratamento para Trienal/Mensal (tm): Puxa da linha Triennial ou Annual
+          if (c.id === 'tm') return termoBD === 'P3Y' && (planoBD === 'triennial' || planoBD === 'annual');
+          
+          return termoBD === c.soloTermo && planoBD === c.soloPlano.toLowerCase();
+        });
         filtrados.forEach(r => {
           matchedItemIndices.add(item.itemIndex);
           const skuId = String(r.sku_id || '').padStart(4, '0');
-          const basePn = `${r.id_produto}-${skuId}-${r.termo_duracao}-${r.plano_pagamento}`;
+          // Força a montagem do PN com o plano selecionado na tela (ex: P1Y-Monthly) ao invés do que vem no banco
+          const basePn = `${r.id_produto}-${skuId}-${c.soloTermo}-${c.soloPlano}`;
           const mods = core.obterModificadoresPnSolo ? core.obterModificadoresPnSolo() : { prefix: '', suffix: '' };
-          const pn = `${mods.prefix}${basePn}${mods.suffix}`;
+          const pn = `${mods.prefix}${basePn}${mods.suffix}`;const pn = `${mods.prefix}${basePn}${mods.suffix}`;
           const custoCom5Base = core.parsePrice(r.valor_5pct_servicos ?? r.valor_com_5_servicos ?? r['Valor com 5% servi os'] ?? r.fob_impostos);
           const rawFob = core.parsePrice(r.fob_impostos);
           const rawMensalAnual = core.parsePrice(r.termo_anual_pagamento_mensal);
