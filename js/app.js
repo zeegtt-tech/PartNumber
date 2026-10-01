@@ -818,7 +818,7 @@ window.Cotador.app = {
              ? (this.totalLicenses > 0 ? this.getAdobeAutoLevel(this.totalLicenses) : 'all')
              : lvlSelect,
           mesesProRata: parseInt(document.getElementById('adobe-meses')?.value) || 12,
-          taxaDolar: parseFloat(document.getElementById('adobe-dolar')?.value) || 4.80,taxaDolar: parseFloat(document.getElementById('adobe-dolar')?.value) || 4.80,
+          taxaDolar: parseFloat(document.getElementById('adobe-dolar')?.value) || 4.80,
           showAdobeStock: document.getElementById('chk-adobe-show-stock')?.checked ?? false,
           show3Y: document.getElementById('chk-adobe-show-3y')?.checked ?? false,
           showFRL: document.getElementById('chk-adobe-show-frl')?.checked ?? false,
@@ -826,7 +826,13 @@ window.Cotador.app = {
           showRenewal: document.getElementById('chk-adobe-show-renewal')?.checked ?? false,
           showUpgrade: document.getElementById('chk-adobe-show-upgrade')?.checked ?? false
         };
-
+        
+        // Proteção contra erro de tabela não carregada
+        if (!window.Cotador.tables[tabela]) {
+          console.warn(`Tabela ${tabela} não encontrada. Recaindo para adobe_base`);
+          tabela = 'adobe_base';
+        }
+        
         const resAdobe = await window.Cotador.tables[tabela].processar(this.parsedItems, flags);
         missingItems = this.parsedItems.filter(it => !resAdobe?.matchedItemIndices?.has(it.itemIndex));
 
