@@ -141,7 +141,7 @@ window.Cotador.app = {
         }
       });
 
-      if (facetTracker && totalDisponiveis > 0 && totalAtivos === 0) drawer.open = false;
+      // Linha removida para manter a gaveta sempre aberta por padrão (só fecha se o usuário clicar)
 
       // NOVO CÓDIGO: Ocultar o box inteiro (wrapper) quando a busca for "Limpa" (0 opções aplicáveis)
       const wrapper = drawer.closest('div[id$="-box-flags"]') || drawer.parentElement;
