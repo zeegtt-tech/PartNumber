@@ -9,6 +9,7 @@ window.Cotador.app = {
   msModalidades: new Set(['scan']),
   msSegmentos: new Set(['commercial']),
   adobeSegmentos: new Set(['teams']),
+  adobeModelo: 'base',
   adobeCambioMode: 'fixo',
   ptaxRateCache: null,
   ptaxDateCache: null,
@@ -406,33 +407,46 @@ window.Cotador.app = {
     if (master) master.checked = Boolean(m && a && t);
   },
 
-  setAdobeSegmento(seg) {
-  if (this.adobeSegmentos.has(seg)) return;
-  this.adobeSegmentos = new Set([seg || 'teams']);
-  this.atualizarUIAdobeSegmentos();
-  this.analisarInput();
-  if (this.parsedItems.length > 0) {
+  setAdobeModelo(mod) {
+    if (this.adobeModelo === mod) return;
+    this.adobeModelo = mod || 'base';
+    const hiddenInput = document.getElementById('adobe-modelo');
+    if (hiddenInput) hiddenInput.value = this.adobeModelo;
+    ['base', 'gov', 'edu'].forEach(m => {
+      const btn = document.getElementById(`btn-adobe-mod-${m}`);
+      if (btn) btn.classList.toggle('active', this.adobeModelo === m);
+    });
+    this.analisarInput();
+    if (this.parsedItems.length > 0) {
       this.gerarCotacao();
     } else {
-      this.limparOutputPorSeguranca('Segmento Adobe', seg);
+      this.limparOutputPorSeguranca('Modelo Adobe', mod);
     }
   },
-
+  setAdobeSegmento(seg) {
+    if (this.adobeSegmentos.has(seg)) return;
+    this.adobeSegmentos = new Set([seg || 'teams']);
+    this.atualizarUIAdobeSegmentos();
+    this.analisarInput();
+    if (this.parsedItems.length > 0) {
+      this.gerarCotacao();
+    } else {
+      this.limparOutputPorSeguranca('Vers o Adobe', seg);
+    }
+  },
   toggleAdobeSegmento(seg) {
     this.setAdobeSegmento(seg);
   },
-
   obterAdobeSegmentosAtivos() {
-    const ordem = ['teams', 'enterprise', 'education', 'government'];
+    const ordem = ['teams', 'enterprise'];
     const selecionado = Array.from(this.adobeSegmentos).find(s => ordem.includes(s));
     return [selecionado || 'teams'];
   },
-
   atualizarUIAdobeSegmentos() {
     const ativos = this.obterAdobeSegmentosAtivos();
     const hiddenInput = document.getElementById('adobe-segmento');
     if (hiddenInput) hiddenInput.value = ativos[0];
-    ['teams', 'enterprise', 'education', 'government'].forEach(s => {
+    ['teams', 'enterprise'].forEach(s => {
       const btn = document.getElementById(`btn-adobe-seg-${s}`);
       if (btn) btn.classList.toggle('active', this.adobeSegmentos.has(s));
     });
@@ -784,14 +798,14 @@ window.Cotador.app = {
         missingItems = this.parsedItems.filter(it => !globalMatchedIndices.has(it.itemIndex));
 
       } else if (this.currentVendor === 'adobe') {
-        const chkPromo = document.getElementById('chk-adobe-promo');
-        const usarPromo = chkPromo ? chkPromo.checked : false;
+        const modelo = this.adobeModelo || 'base';
         const segmentos = this.obterAdobeSegmentosAtivos();
         const seg = segmentos[0] || 'teams';
+        
         let tabela = 'adobe_base';
-        if (usarPromo) tabela = 'adobe_promo';
-        else if (seg === 'education') tabela = 'adobe_edu';
-        else if (seg === 'government') tabela = 'adobe_gov';
+        if (modelo === 'edu') tabela = 'adobe_edu';
+        else if (modelo === 'gov') tabela = 'adobe_gov';
+        
         const lvlSelect = document.getElementById('adobe-level')?.value || 'auto';
         
         const facetTracker = {};

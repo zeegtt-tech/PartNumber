@@ -160,7 +160,7 @@ window.Cotador.tables.kaspersky = {
         const isCrossgrade = /\b(cross[\s\-]?grade|cross)\b/i.test(nome) || /\bcross\b/i.test(tipo);
         const isEduc = /\b(educational|education|academic|escola|edu)\b/i.test(nome) || /\b(educ|acad)\b/i.test(tipo);
         const isXdr = /\bxdr\b/i.test(nome);
-        const isNoEdr = /\bfoundation\b/i.test(nome) && !/\bedr\b/i.test(nome);
+        const isNoEdr = /\bfoundations?\b/i.test(nome) && !/\bedr\b/i.test(nome);
         const isServiceOrTraining = tipo === '-' || isTraining;
         if (flags.facetTracker) {
           if (isBasePlus) flags.facetTracker['chk-kasp-show-baseplus'] = (flags.facetTracker['chk-kasp-show-baseplus'] || 0) + 1;

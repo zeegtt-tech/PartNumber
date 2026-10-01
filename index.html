@@ -332,28 +332,26 @@
 
           <!-- 3. FILTROS ADOBE -->
           <div id="filtros-adobe" class="hidden space-y-3.5 pt-3 border-t border-[#edebe9]">
+            
+            <!-- Modelo de Compra -->
             <div>
-              <div class="flex items-center justify-between mb-1">
-                <label class="section-label !mb-0">Segmento Adobe</label>
-                <label class="inline-flex items-center gap-1.5 cursor-pointer select-none text-[11px] bg-[#fdf3f4] border border-[#f8d7da] px-2 py-0.5 rounded" title="Alternar entre tabela Adobe Base e Adobe Promo (Novos Clientes)">
-                  <input type="checkbox" id="chk-adobe-promo" class="sr-only peer" onchange="Cotador.app.reexecutarSeHouverItens()">
-                  <span class="text-[#323130] font-medium">Tabela:</span>
-                  <span class="font-bold text-[#a4262c] peer-checked:inline hidden">Promo</span>
-                  <span class="font-bold text-gray-500 peer-checked:hidden inline">Base</span>
-                </label>
+              <label class="section-label">Modelo de Compra</label>
+              <input type="hidden" id="adobe-modelo" value="base">
+              <div class="grid grid-cols-3 gap-1.5">
+                <button type="button" onclick="Cotador.app.setAdobeModelo('base')" id="btn-adobe-mod-base" class="modality-chip active">Comercial</button>
+                <button type="button" onclick="Cotador.app.setAdobeModelo('gov')" id="btn-adobe-mod-gov" class="modality-chip">Governo</button>
+                <button type="button" onclick="Cotador.app.setAdobeModelo('edu')" id="btn-adobe-mod-edu" class="modality-chip">Educa o</button>
               </div>
+            </div>
+
+            <!-- Versão (Teams/Enterprise) -->
+            <div>
+              <label class="section-label">Vers o do Produto</label>
               <input type="hidden" id="adobe-segmento" value="teams">
-              <option value="auto">Detectar Tabela Automaticamente (Multi-CSVs suportado)</option>
-              <option value="crm_mapping">Dicion rio CRM Dynamics (crm_mapping)</option>
-              <option value="microsoft_scan">Microsoft CSP - Scan (microsoft_scan)</option>
-              <option value="microsoft_solo">Microsoft CSP - Solo (microsoft_solo)</option>
-              <option value="microsoft_perpetuo">Microsoft CSP Perp tuo - Solo (microsoft_perpetuo)</option>
-              <option value="microsoft_mpsa">Microsoft MPSA - Solo (microsoft_mpsa)</option>
-              <option value="adobe_base">Adobe Base (adobe_base)</option>
-              <option value="adobe_promo">Adobe Promo (adobe_promo)</option>
-              <option value="adobe_edu">Adobe Education (adobe_edu)</option>
-              <option value="adobe_gov">Adobe Government (adobe_gov)</option>
-              <option value="kaspersky">Kaspersky Completo (kaspersky)</option>
+              <div class="grid grid-cols-2 gap-1.5">
+                <button type="button" onclick="Cotador.app.toggleAdobeSegmento('teams')" id="btn-adobe-seg-teams" class="modality-chip active">For Teams</button>
+                <button type="button" onclick="Cotador.app.toggleAdobeSegmento('enterprise')" id="btn-adobe-seg-enterprise" class="modality-chip">For Enterprise</button>
+              </div>
             </div>
 
             <div class="grid grid-cols-2 gap-2">
