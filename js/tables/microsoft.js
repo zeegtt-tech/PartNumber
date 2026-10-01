@@ -281,41 +281,73 @@ window.Cotador.tables.ms_solo = {
         if (isPnQuery) {
           const term = item.keywords[0];
           const basePn = term.split('-')[0];
-          if (segOrFilter) {
-            params.push(['and', `(or(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*),or${segOrFilter})`]);
-          } else {
-            params.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
-          }
-        } else {
-            // ERRO FUTURO EVITADO: Buscar também na descrição do produto, pois o nome comercial (ex: "Business Standard") às vezes não consta no titulo_sku
-            const andClauses = item.keywords.map(kw => `or(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`).join(',');
-            if (segOrFilter && andClauses) {
-              params.push(['and', `(${andClauses},or${segOrFilter})`]);
-            } else if (andClauses) {
-              params.push(['and', `(${andClauses})`]);
-            } else if (segOrFilter) {
-              params.push(['or', segOrFilter]);
+          if (isPnQuery) {
+                const term = item.keywords[0];
+                const basePn = term.split('-')[0];
+                params.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
+            } else {
+                // ERRO FUTURO EVITADO: Buscar também na descrição do produto e mapear abreviações nativas do Dynamics CSP Solo
+                const andClauses = item.keywords.map(kw => {
+                    let clause = `titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*`;
+                    const kwL = kw.toLowerCase();
+                    
+                    if (kwL.includes('standard')) {
+                        const abrev = kw.replace(/standard/ig, 'Std');
+                        clause += `,titulo_sku.ilike.*${abrev}*,descricao_produto.ilike.*${abrev}*`;
+                    }
+                    if (kwL.includes('enterprise')) {
+                        const abrev = kw.replace(/enterprise/ig, 'Ent');
+                        clause += `,titulo_sku.ilike.*${abrev}*,descricao_produto.ilike.*${abrev}*`;
+                    }
+                    if (kwL.includes('premium')) {
+                        const abrev = kw.replace(/premium/ig, 'Prm');
+                        clause += `,titulo_sku.ilike.*${abrev}*,descricao_produto.ilike.*${abrev}*`;
+                    }
+                    if (kwL.includes('business')) {
+                        const abrev = kw.replace(/business/ig, 'Bus');
+                        clause += `,titulo_sku.ilike.*${abrev}*,descricao_produto.ilike.*${abrev}*`;
+                    }
+                    return `or(${clause})`;
+                }).join(',');
+                
+                if (andClauses) params.push(['and', `(${andClauses})`]);
             }
-        }
+        if (segOrFilter) params.push(['or', segOrFilter]);
       }
 
       let data = [];
       try {
         data = await core.fetchSupabase('microsoft_solo', params);
       } catch (err) {
-        if (err?.name === 'AbortError') throw err;
-        const fallback = [['select', '*'], ['limit', '1500']];
-        // Aplica a mesma robustez no fallback
-        const andClausesFb = item.keywords.map(kw => `or(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`).join(',');
-        if (segOrFilter && andClausesFb) {
-          fallback.push(['and', `(${andClausesFb},or${segOrFilter})`]);
-        } else if (andClausesFb) {
-          fallback.push(['and', `(${andClausesFb})`]);
-        } else if (segOrFilter) {
-          fallback.push(['or', segOrFilter]);
+            if (err?.name === 'AbortError') throw err;
+            const fallback = [['select', '*'], ['limit', '1500']];
+            // Aplica a mesma robustez no fallback (com tratamento de abreviações)
+            const andClausesFb = item.keywords.map(kw => {
+                let clause = `titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*`;
+                const kwL = kw.toLowerCase();
+                
+                if (kwL.includes('standard')) {
+                    const abrev = kw.replace(/standard/ig, 'Std');
+                    clause += `,titulo_sku.ilike.*${abrev}*,descricao_produto.ilike.*${abrev}*`;
+                }
+                if (kwL.includes('enterprise')) {
+                    const abrev = kw.replace(/enterprise/ig, 'Ent');
+                    clause += `,titulo_sku.ilike.*${abrev}*,descricao_produto.ilike.*${abrev}*`;
+                }
+                if (kwL.includes('premium')) {
+                    const abrev = kw.replace(/premium/ig, 'Prm');
+                    clause += `,titulo_sku.ilike.*${abrev}*,descricao_produto.ilike.*${abrev}*`;
+                }
+                if (kwL.includes('business')) {
+                    const abrev = kw.replace(/business/ig, 'Bus');
+                    clause += `,titulo_sku.ilike.*${abrev}*,descricao_produto.ilike.*${abrev}*`;
+                }
+                return `or(${clause})`;
+            }).join(',');
+            
+            if (andClausesFb) fallback.push(['and', `(${andClausesFb})`]);
+            data = await core.fetchSupabase('microsoft_solo', fallback);
         }
-        data = await core.fetchSupabase('microsoft_solo', fallback);
-      }
 
       data = data.filter(r => {
         const tags = String(r.tags || '').toLowerCase();
