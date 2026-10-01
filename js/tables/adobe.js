@@ -251,7 +251,7 @@ function criarModuloAdobe(tableName, labelTitulo) {
         );
 
         if (itensAdobeValidos.length === 0 || algumValidoSemQuantidade) {
-          effectiveLevel = 'all';
+          effectiveLevel = '1';
         } else {
           const somaQtdAdobeValidos = itensAdobeValidos.reduce((acc, it) => acc + Number(it.qty), 0);
           effectiveLevel = calcularLevelPorSomaAdobe(somaQtdAdobeValidos);
@@ -392,6 +392,6 @@ function criarModuloAdobe(tableName, labelTitulo) {
 }
 
 window.Cotador.tables.adobe_base = criarModuloAdobe('adobe_base', 'Adobe VIP - Comercial');
-window.Cotador.tables.adobe_edu = criarModuloAdobe('adobe_edu', 'Adobe VIP - Educa o');
+window.Cotador.tables.adobe_edu = criarModuloAdobe('adobe_edu', 'Adobe VIP - Educação');
 window.Cotador.tables.adobe_gov = criarModuloAdobe('adobe_gov', 'Adobe VIP - Governo');
-window.Cotador.tables.adobe_promo = criarModuloAdobe('adobe_promo', 'Adobe VIP - Promo o');
+window.Cotador.tables.adobe_promo = criarModuloAdobe('adobe_promo', 'Adobe VIP - Promoção');

@@ -326,15 +326,15 @@ window.Cotador.core = {
             <label class="section-label">Tabela de Destino</label>
             <select id="admin-upload-table" class="select-input text-xs">
                 <option value="auto">Detectar Tabela Automaticamente (Multi-CSVs suportado)</option>
-                <option value="crm_mapping">Dicion rio CRM Dynamics (crm_mapping)</option>
+                <option value="crm_mapping">Dicionário CRM Dynamics (crm_mapping)</option>
                 <option value="microsoft_scan">Microsoft CSP - Scan (microsoft_scan)</option>
                 <option value="microsoft_solo">Microsoft CSP - Solo (microsoft_solo)</option>
-                <option value="microsoft_perpetuo">Microsoft CSP Perp tuo - Solo (microsoft_perpetuo)</option>
+                <option value="microsoft_perpetuo">Microsoft CSP Perpétuo - Solo (microsoft_perpetuo)</option>
                 <option value="microsoft_mpsa">Microsoft MPSA - Solo (microsoft_mpsa)</option>
                 <option value="adobe_base">Adobe VIP - Comercial (adobe_base)</option>
                 <option value="adobe_edu">Adobe VIP - Education (adobe_edu)</option>
                 <option value="adobe_gov">Adobe VIP - Government (adobe_gov)</option>
-                <option value="adobe_promo">Adobe VIP - Promo (adobe_promo)</option>
+                <option value="adobe_promo">Adobe VIP - Promoção (adobe_promo)</option>
                 <option value="kaspersky">Kaspersky Completo (kaspersky)</option>
               </select>
           </div>
@@ -1183,10 +1183,10 @@ window.Cotador.core = {
   _popoverListenerInitialized: false,
 
   CATALOGO_TABELAS: [
-    { id: 'crm_mapping', fab: 'crm', nome: 'Dicion rio CRM Dynamics' },
+    { id: 'crm_mapping', fab: 'crm', nome: 'Dicionário CRM Dynamics' },
     { id: 'microsoft_scan', fab: 'microsoft', nome: 'Microsoft CSP - Scan' },
     { id: 'microsoft_solo', fab: 'microsoft', nome: 'Microsoft CSP - Solo' },
-    { id: 'microsoft_perpetuo', fab: 'microsoft', nome: 'Microsoft CSP Perp tuo' },
+    { id: 'microsoft_perpetuo', fab: 'microsoft', nome: 'Microsoft CSP Perpétuo' },
     { id: 'microsoft_mpsa', fab: 'microsoft', nome: 'Microsoft MPSA' },
     { id: 'adobe_base', fab: 'adobe', nome: 'Adobe VIP - Comercial' },
     { id: 'adobe_edu', fab: 'adobe', nome: 'Adobe VIP - Education' },

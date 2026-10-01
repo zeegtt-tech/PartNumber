@@ -219,7 +219,7 @@
                       <input type="hidden" id="ms-solo-suffix" value="">
                     </div>
                     <div class="grid grid-cols-4 gap-1">
-                      <button type="button" onclick="Cotador.app.setSoloPnSuffix('')" id="btn-solo-sfx-none" class="segment-chip active" title="PN base sem sufixo">Padr o</button>
+                      <button type="button" onclick="Cotador.app.setSoloPnSuffix('')" id="btn-solo-sfx-none" class="segment-chip active" title="PN base sem sufixo">Padrão</button>
                       <button type="button" onclick="Cotador.app.setSoloPnSuffix('-BSC')" id="btn-solo-sfx-BSC" class="segment-chip" title="-BSC">Basic</button>
                       <button type="button" onclick="Cotador.app.setSoloPnSuffix('-STD')" id="btn-solo-sfx-STD" class="segment-chip" title="-STD">Standard</button>
                       <button type="button" onclick="Cotador.app.setSoloPnSuffix('-PRM')" id="btn-solo-sfx-PRM" class="segment-chip" title="-PRM">Premium</button>
@@ -340,13 +340,13 @@
               <div class="grid grid-cols-3 gap-1.5">
                 <button type="button" onclick="Cotador.app.setAdobeModelo('base')" id="btn-adobe-mod-base" class="modality-chip active">Comercial</button>
                 <button type="button" onclick="Cotador.app.setAdobeModelo('gov')" id="btn-adobe-mod-gov" class="modality-chip">Governo</button>
-                <button type="button" onclick="Cotador.app.setAdobeModelo('edu')" id="btn-adobe-mod-edu" class="modality-chip">Educa o</button>
+                <button type="button" onclick="Cotador.app.setAdobeModelo('edu')" id="btn-adobe-mod-edu" class="modality-chip">Educação</button>
               </div>
             </div>
 
             <!-- Versão (Teams/Enterprise) -->
             <div>
-              <label class="section-label">Vers o do Produto</label>
+              <label class="section-label">Versão do Produto</label>
               <input type="hidden" id="adobe-segmento" value="teams">
               <div class="grid grid-cols-2 gap-1.5">
                 <button type="button" onclick="Cotador.app.toggleAdobeSegmento('teams')" id="btn-adobe-seg-teams" class="modality-chip active">For Teams</button>
@@ -358,7 +358,7 @@
               <div>
                 <label class="section-label">Filtro de Level</label>
                 <select id="adobe-level" onchange="Cotador.app.reexecutarSeHouverItens()" class="select-input">
-                  <option value="auto">Autom tico (Soma)</option>
+                  <option value="auto">Automático (Soma)</option>
                   <option value="1">Level 1 (1-9)</option>
                   <option value="2">Level 2 / 12 (10-49)</option>
                   <option value="3">Level 3 / 13 (50-99)</option>
@@ -422,7 +422,7 @@
             </div>
 
             <div>
-              <label class="section-label">Per odos</label>
+              <label class="section-label">Períodos</label>
               <div class="grid grid-cols-5 gap-1" onchange="Cotador.app.reexecutarSeHouverItens()">
                 <label class="contract-chip"><input type="checkbox" id="chk-kasp-p1" class="sr-only" checked>1 Ano</label>
                 <label class="contract-chip"><input type="checkbox" id="chk-kasp-p2" class="sr-only">2 Anos</label>

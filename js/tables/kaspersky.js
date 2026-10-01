@@ -13,7 +13,7 @@ function extrairOrdemBandaKaspersky(bandaStr) {
 
 function obterBandaAutoPorQtdKaspersky(qty) {
   const n = parseInt(qty, 10);
-  if (isNaN(n) || n <= 0) return 'all';
+  if (isNaN(n) || n <= 0) return '5-9';
   if (n <= 9) return '5-9';
   if (n <= 14) return '10-14';
   if (n <= 19) return '15-19';
@@ -203,9 +203,9 @@ window.Cotador.tables.kaspersky = {
       let effectiveBanda = flags.targetBanda;
 
       if (modoBanda === 'auto' || modoBanda === 'auto_sum') {
-        effectiveBanda = somaTotalQtd > 0 ? obterBandaAutoPorQtdKaspersky(somaTotalQtd) : 'all';
+        effectiveBanda = somaTotalQtd > 0 ? obterBandaAutoPorQtdKaspersky(somaTotalQtd) : '5-9';
       } else if (modoBanda === 'auto_item') {
-        effectiveBanda = semQuantidade ? 'all' : obterBandaAutoPorQtdKaspersky(item.qty);
+        effectiveBanda = semQuantidade ? '5-9' : obterBandaAutoPorQtdKaspersky(item.qty);
       }
 
       if (effectiveBanda && effectiveBanda !== 'all') {

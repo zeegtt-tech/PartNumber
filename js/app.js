@@ -815,7 +815,7 @@ window.Cotador.app = {
           segmento: segmentos[0] || 'teams',
           levelSelect: lvlSelect,
           targetLevel: (lvlSelect === 'auto')
-             ? (this.totalLicenses > 0 ? this.getAdobeAutoLevel(this.totalLicenses) : 'all')
+             ? (this.totalLicenses > 0 ? this.getAdobeAutoLevel(this.totalLicenses) : '1')
              : lvlSelect,
           mesesProRata: parseInt(document.getElementById('adobe-meses')?.value) || 12,
           taxaDolar: parseFloat(document.getElementById('adobe-dolar')?.value) || 4.80,
@@ -863,7 +863,7 @@ window.Cotador.app = {
           periodos,
           bandaSelect,
           targetBanda: (bandaSelect === 'auto') 
-            ? (this.totalLicenses > 0 ? this.getKaspAutoBanda(this.totalLicenses) : 'all') 
+            ? (this.totalLicenses > 0 ? this.getKaspAutoBanda(this.totalLicenses) : '5-9') 
             : bandaSelect,
           tipo: document.getElementById('kasp-tipo')?.value || 'Base',
           showPriceRevenda: temAlgumPreco ? priceRevenda : true,
