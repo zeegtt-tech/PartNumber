@@ -37,8 +37,92 @@ const MS_SECONDARY_RULES = [
         return isCopilotBundle || /\b(attach|add[\s\-]?on|extra\s+file\s+storage)\b/i.test(nome);
     }
   },
-// [...] (As outras regras permanecem inalteradas até chegar na função passaFiltroSecundarioMicrosoft)
+  {
+    key: 'trial',
+    checkboxId: 'chk-show-trial',
+    flagProp: 'showTrial',
+    label: 'Trial / Promo',
+    queryRegex: /\b(trial|free|gratuito|promo)\b/i,
+    productRegex: /\b(trial|free|gratuito|promo)\b/i
+  },
+  {
+    key: 'phone',
+    checkboxId: 'chk-ms-show-phone',
+    flagProp: 'showPhone',
+    label: 'Teams Phone / Voz',
+    queryRegex: /\b(phone|voice|voz|calling|audio|conferencing|rooms|discagem|direct\s*routing|operator)\b/i,
+    productRegex: /\b(teams\s+phone|phone\s+standard|phone\s+resource|calling\s+plan|audio\s+conferencing|communication\s+credits|teams\s+rooms|teams\s+shared\s+devices|operator\s+connect)\b/i
+  },
+  {
+    key: 'dynamics',
+    checkboxId: 'chk-ms-show-dynamics',
+    flagProp: 'showDynamics',
+    label: 'Dynamics / PowerApps',
+    queryRegex: /\b(dynamics|dyn365|d365|power\s*apps|power\s*automate|power\s*pages|power\s*virtual|dataverse|business\s+central|finance|supply\s+chain|customer\s+service|field\s+service|sandbox|operations)\b/i,
+    productRegex: /\b(dynamics\s*365|dyn365|power\s*apps|power\s*automate|power\s*pages|power\s*virtual\s*agents|dataverse|business\s+central|operations\s*-\s*sandbox)\b/i
+  },
+  {
+    key: 'win365',
+    checkboxId: 'chk-ms-show-win365',
+    flagProp: 'showWin365',
+    label: 'Windows 365 (Cloud PC)',
+    queryRegex: /\b(windows\s*365|win\s*365|win365|cloud\s*pc|vcpu|gpu)\b/i,
+    productRegex: /\b(windows\s*365|cloud\s*pc|\d+\s*vcpu)\b/i
+  },
+  {
+    key: 'niche',
+    checkboxId: 'chk-ms-show-niche',
+    flagProp: 'showNiche',
+    label: 'Clipchamp / Viva',
+    queryRegex: /\b(clipchamp|viva|minecraft|hololens|bookings|scheduler|yammer|loop|sway|dragon)\b/i,
+    productRegex: /\b(clipchamp|viva\b|minecraft|hololens|bookings|scheduler|yammer|dragon\s+copilot)\b/i
+  },
+  {
+    key: 'extconnector',
+    checkboxId: 'chk-ms-show-extconnector',
+    flagProp: 'showExtConnector',
+    label: 'External Connector',
+    queryRegex: /\b(external|connector|ext\s*conn)\b/i,
+    productRegex: /\b(external\s*connector|ext\s*conn)\b/i
+  },
+  {
+    key: 'azurecloud',
+    checkboxId: 'chk-ms-show-azurecloud',
+    flagProp: 'showAzureCloud',
+    label: 'Azure / Cloud Add-on',
+    queryRegex: /\b(azure|arc)\b/i,
+    productRegex: /\b(azure|azure\s+hybrid|azure\s+arc|cloud\s+add[\s\-]?on)\b/i
+  }
+];
+
 function passaFiltroSecundarioMicrosoft(nomeProdutoRaw, itemSearchRaw, flags = {}, facetTracker = null) {
+  const nome = String(nomeProdutoRaw || '').toLowerCase();
+  const query = String(itemSearchRaw || '').toLowerCase();
+  
+  const buscouSemTeams = /\b(no\s*teams|sem\s*teams|without\s*teams|s\/\s*teams)\b/i.test(query);
+  const isProdSemTeams = /\b(no|sem|without|w\/o)\s*teams\b/i.test(nome);
+  
+  if (buscouSemTeams && !isProdSemTeams) return false;
+  if (!buscouSemTeams && isProdSemTeams && !flags.showNoTeams) {
+      if (facetTracker) facetTracker['chk-show-noteams'] = (facetTracker['chk-show-noteams'] || 0) + 1;
+      return false;
+  }
+
+  let permitido = true;
+  for (const rule of MS_SECONDARY_RULES) {
+    if (rule.key === 'noteams') continue;
+    const buscouExplicito = rule.queryRegex.test(query);
+    const isSecProduct = rule.testProduct ? rule.testProduct(nome) : rule.productRegex.test(nome);
+    if (isSecProduct && !buscouExplicito) {
+      if (facetTracker) facetTracker[rule.checkboxId] = (facetTracker[rule.checkboxId] || 0) + 1;
+      if (!flags[rule.flagProp]) permitido = false;
+    }
+  }
+  return permitido;
+}
+
+// Ordena resultados colocando os produtos Core mais vendidos no topo
+function calcularScoreRelevanciaMSfunction passaFiltroSecundarioMicrosoft(nomeProdutoRaw, itemSearchRaw, flags = {}, facetTracker = null) {
   const nome = String(nomeProdutoRaw || '').toLowerCase();
   const query = String(itemSearchRaw || '').toLowerCase();
   
@@ -123,23 +207,18 @@ window.Cotador.tables.ms_scan = {
         const term = item.keywords[0];
         params.push(['or', `(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*)`]);
       } else {
-        item.keywords.forEach(kw => params.push(['offer_display_name', `ilike.*${kw}*`]));
+        const andClauses = item.keywords.map(kw => `offer_display_name.ilike.*${kw}*`).join(',');
+        if (andClauses) params.push(['and', `(${andClauses})`]);
       }
-
       if (segOrFilter) params.push(['or', segOrFilter]);
-
       let data = [];
       try {
         data = await core.fetchSupabase('microsoft_scan', params);
       } catch (err) {
         if (err?.name === 'AbortError') throw err;
         const fallback = [['select', '*'], ['limit', '1000']];
-        if (isPnQuery) {
-          const term = item.keywords[0];
-          fallback.push(['or', `(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*)`]);
-        } else {
-          item.keywords.forEach(kw => fallback.push(['offer_display_name', `ilike.*${kw}*`]));
-        }
+        const andClausesFb = item.keywords.map(kw => `offer_display_name.ilike.*${kw}*`).join(',');
+        if (andClausesFb) fallback.push(['and', `(${andClausesFb})`]);
         data = await core.fetchSupabase('microsoft_scan', fallback);
       }
 
@@ -232,24 +311,19 @@ window.Cotador.tables.ms_solo = {
         const basePn = term.split('-')[0];
         params.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
       } else {
-        item.keywords.forEach(kw => params.push(['titulo_sku', `ilike.*${kw}*`]));
+        const andClauses = item.keywords.map(kw => `or(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`).join(',');
+        if (andClauses) params.push(['and', `(${andClauses})`]);
       }
-
       if (segOrFilter) params.push(['or', segOrFilter]);
-
       let data = [];
       try {
         data = await core.fetchSupabase('microsoft_solo', params);
       } catch (err) {
         if (err?.name === 'AbortError') throw err;
         const fallback = [['select', '*'], ['limit', '1500']];
-        if (isPnQuery) {
-          const term = item.keywords[0];
-          const basePn = term.split('-')[0];
-          fallback.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
-        } else {
-          item.keywords.forEach(kw => fallback.push(['titulo_sku', `ilike.*${kw}*`]));
-        }
+        const andClausesFb = item.keywords.map(kw => `or(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`).join(',');
+        if (andClausesFb) fallback.push(['and', `(${andClausesFb})`]);
+        if (segOrFilter) fallback.push(['or', segOrFilter]);
         data = await core.fetchSupabase('microsoft_solo', fallback);
       }
 
@@ -375,7 +449,8 @@ window.Cotador.tables.ms_perpetuo = {
         const basePn = term.split('-')[0];
         params.push(['or', `(product_id.ilike.*${basePn}*,nome_produto.ilike.*${term}*)`]);
       } else {
-        item.keywords.forEach(kw => params.push(['nome_produto', `ilike.*${kw}*`]));
+        const andClauses = item.keywords.map(kw => `nome_produto.ilike.*${kw}*`).join(',');
+        if (andClauses) params.push(['and', `(${andClauses})`]);
       }
 
       if (segOrFilter) params.push(['or', segOrFilter]);
@@ -386,7 +461,8 @@ window.Cotador.tables.ms_perpetuo = {
       } catch (err) {
         if (err?.name === 'AbortError') throw err;
         const fallbackParams = [['select', '*'], ['limit', '1000']];
-        item.keywords.forEach(kw => fallbackParams.push(['nome_produto', `ilike.*${kw}*`]));
+        const andClausesFb = item.keywords.map(kw => `nome_produto.ilike.*${kw}*`).join(',');
+        if (andClausesFb) fallbackParams.push(['and', `(${andClausesFb})`]);
         data = await core.fetchSupabase('microsoft_perpetuo', fallbackParams);
       }
 
@@ -537,41 +613,38 @@ window.Cotador.tables.ms_mpsa = {
       const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z\-]{5,22}$/i.test(item.keywords[0]) && /\d/.test(item.keywords[0]);
 
       const p1 = [['select', '*'], ['limit', '800']];
-      if (isPnQuery) {
+      iif (isPnQuery) {
         const term = item.keywords[0];
         p1.push(['or', `(numero_item.ilike.*${term}*,nome_curto_peca.ilike.*${term}*)`]);
       } else {
-        item.keywords.forEach(kw => p1.push(['nome_curto_peca', `ilike.*${kw}*`]));
+        const andClauses = item.keywords.map(kw => `nome_curto_peca.ilike.*${kw}*`).join(',');
+        if (andClauses) p1.push(['and', `(${andClauses})`]);
       }
       if (segOrFilterMpsa) p1.push(['or', segOrFilterMpsa]);
       p1.push(['order', 'categoria_precos.asc']);
-
       queries.push(
         core.fetchSupabase('microsoft_mpsa', p1).catch((err) => {
           if (err?.name === 'AbortError') throw err;
           const fallbackP1 = [['select', '*'], ['limit', '800']];
-          if (isPnQuery) {
-            const term = item.keywords[0];
-            fallbackP1.push(['or', `(numero_item.ilike.*${term}*,nome_curto_peca.ilike.*${term}*)`]);
-          } else {
-            item.keywords.forEach(kw => fallbackP1.push(['nome_curto_peca', `ilike.*${kw}*`]));
-          }
+          const andClausesFb = item.keywords.map(kw => `nome_curto_peca.ilike.*${kw}*`).join(',');
+          if (andClausesFb) fallbackP1.push(['and', `(${andClausesFb})`]);
           return core.fetchSupabase('microsoft_mpsa', fallbackP1);
         })
       );
-
       if (!isPnQuery) {
         const abrevTerms = this.gerarTermosAbreviadosMPSA(item.rawSearch, item.keywords);
         if (abrevTerms.length > 0) {
           const p2 = [['select', '*'], ['limit', '800']];
-          abrevTerms.forEach(kw => p2.push(['nome_curto_peca', `ilike.*${kw}*`]));
+          const andClausesP2 = abrevTerms.map(kw => `nome_curto_peca.ilike.*${kw}*`).join(',');
+          if (andClausesP2) p2.push(['and', `(${andClausesP2})`]);
           if (segOrFilterMpsa) p2.push(['or', segOrFilterMpsa]);
           p2.push(['order', 'categoria_precos.asc']);
           queries.push(
             core.fetchSupabase('microsoft_mpsa', p2).catch((err) => {
               if (err?.name === 'AbortError') throw err;
               const fallbackP2 = [['select', '*'], ['limit', '800']];
-              abrevTerms.forEach(kw => fallbackP2.push(['nome_curto_peca', `ilike.*${kw}*`]));
+              const andClausesFb2 = abrevTerms.map(kw => `nome_curto_peca.ilike.*${kw}*`).join(',');
+              if (andClausesFb2) fallbackP2.push(['and', `(${andClausesFb2})`]);
               return core.fetchSupabase('microsoft_mpsa', fallbackP2);
             })
           );
