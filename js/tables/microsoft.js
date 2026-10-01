@@ -281,13 +281,22 @@ window.Cotador.tables.ms_solo = {
         if (isPnQuery) {
           const term = item.keywords[0];
           const basePn = term.split('-')[0];
-          params.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
+          if (segOrFilter) {
+            params.push(['and', `(or(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*),or${segOrFilter})`]);
+          } else {
+            params.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
+          }
         } else {
             // ERRO FUTURO EVITADO: Buscar também na descrição do produto, pois o nome comercial (ex: "Business Standard") às vezes não consta no titulo_sku
             const andClauses = item.keywords.map(kw => `or(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`).join(',');
-            if (andClauses) params.push(['and', `(${andClauses})`]);
+            if (segOrFilter && andClauses) {
+              params.push(['and', `(${andClauses},or${segOrFilter})`]);
+            } else if (andClauses) {
+              params.push(['and', `(${andClauses})`]);
+            } else if (segOrFilter) {
+              params.push(['or', segOrFilter]);
+            }
         }
-        if (segOrFilter) params.push(['or', segOrFilter]);
       }
 
       let data = [];
@@ -298,7 +307,13 @@ window.Cotador.tables.ms_solo = {
         const fallback = [['select', '*'], ['limit', '1500']];
         // Aplica a mesma robustez no fallback
         const andClausesFb = item.keywords.map(kw => `or(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`).join(',');
-        if (andClausesFb) fallback.push(['and', `(${andClausesFb})`]);
+        if (segOrFilter && andClausesFb) {
+          fallback.push(['and', `(${andClausesFb},or${segOrFilter})`]);
+        } else if (andClausesFb) {
+          fallback.push(['and', `(${andClausesFb})`]);
+        } else if (segOrFilter) {
+          fallback.push(['or', segOrFilter]);
+        }
         data = await core.fetchSupabase('microsoft_solo', fallback);
       }
 
