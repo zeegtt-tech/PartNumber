@@ -1613,18 +1613,29 @@ window.Cotador.core = {
 
     const lowerNorm = normalized.toLowerCase();
 
-    // Melhoria: Ordena chaves pelas maiores frases e busca contida na string.
-    // Assim captura o produto exato no dicionário mesmo se o usuário digitar palavras a mais (ruído).
-    const sortedKeys = Object.keys(this.SEARCH_KEYWORDS).sort((a, b) => b.length - a.length);
-    for (const key of sortedKeys) {
+    // 1. Tenta correspondência EXATA primeiro (ex: "standard" digitado sozinho)
+    if (this.SEARCH_KEYWORDS[lowerNorm]) {
+      const kws = [...this.SEARCH_KEYWORDS[lowerNorm]];
+      if (hasNoTeamsIntent && !kws.includes('Teams')) kws.push('Teams');
+      return kws.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
+    }
+
+    // 2. Tenta encontrar frases COMPOSTAS (multi-word) para extrair o produto central
+    // Ex: "comprar business standard anual" -> encontra apenas "business standard"
+    const multiWordKeys = Object.keys(this.SEARCH_KEYWORDS)
+      .filter(k => k.includes(' '))
+      .sort((a, b) => b.length - a.length);
+
+    for (const key of multiWordKeys) {
       const regex = new RegExp(`\\b${key}\\b`, 'i');
-      if (regex.test(lowerNorm) || lowerNorm === key) {
+      if (regex.test(lowerNorm)) {
         const kws = [...this.SEARCH_KEYWORDS[key]];
         if (hasNoTeamsIntent && !kws.includes('Teams')) kws.push('Teams');
         return kws.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
       }
     }
 
+    // 3. Fallback: analisa palavra por palavra mantendo suporte a erros de digitação (fuzzy)
     return normalized.split(/\s+/).filter(w => w.length > 0).flatMap(w => {
       const planMatch = w.match(/^__PLAN_(\d+)__$/i);
       if (planMatch) return [`Plan ${planMatch[1]}`];
