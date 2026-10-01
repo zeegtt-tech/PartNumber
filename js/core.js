@@ -1,6 +1,12 @@
 // ============================================================================
 // NÚCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.9 ENTERPRISE
 // ============================================================================
+const _origWarn = console.warn;
+console.warn = function(...args) {
+  if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com should not be used in production')) return;
+  _origWarn.apply(console, args);
+};
+
 window.Cotador = { core: {}, tables: {}, app: {} };
 
 window.Cotador.core = {
@@ -1543,7 +1549,10 @@ window.Cotador.core = {
   },
 
   construirFiltroAndKeywords(columnName, keywords) {
-    return keywords.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean).map(kw => [columnName, `ilike.*${kw}*`]);
+    const cleanKws = (keywords || []).map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
+    // Trava de segurança: se a pesquisa gerar 0 palavras válidas, impede de travar o sistema carregando a tabela inteira
+    if (cleanKws.length === 0) return [[columnName, 'eq.______INVALID______']];
+    return cleanKws.map(kw => [columnName, `ilike.*${kw}*`]);
   },
 
   isPartNumber(str) {
@@ -1594,26 +1603,26 @@ window.Cotador.core = {
     const cleanedProd = this.limparRuidoComercialLinha(rawTrimmed);
     const hasNoTeamsIntent = /\b(no\s+teams|without\s+teams|sem\s+teams)\b/i.test(rawTrimmed);
     const deaccented = cleanedProd.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const baseWithoutTeamsMod = this.sanitizarTermoPostgrest(deaccented).toLowerCase().replace(/\b(no\s+teams|without\s+teams)\b/gi, '').replace(/\s+/g, ' ').trim();
-
-    if (this.SEARCH_KEYWORDS[baseWithoutTeamsMod]) {
-      const kws = [...this.SEARCH_KEYWORDS[baseWithoutTeamsMod]];
-      if (hasNoTeamsIntent) kws.push('Teams');
-      return kws.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
-    }
-    
-    const lower = this.sanitizarTermoPostgrest(deaccented).toLowerCase();
-    if (this.SEARCH_KEYWORDS[lower]) return this.SEARCH_KEYWORDS[lower].map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
-    
     let normalized = this.sanitizarTermoPostgrest(deaccented)
+      .replace(/\b(no\s+teams|without\s+teams)\b/gi, '')
       .replace(/\b(exchenge|exchage|excange|exhange|exchagne)\b/gi, 'Exchange')
       .replace(/\bexchange\s+(?:online\s+)?(?:plan(?:o)?|p)\s*(\d+)\b/gi, 'Exchange Online __PLAN_$1__')
       .replace(/\b(project|visio|planner|intune)\s+(?:plan(?:o)?|p)\s*(\d+)\b/gi, '$1 __PLAN_$2__')
-      .replace(/\bplan(?:o)?\s*(\d+)\b/gi, '__PLAN_$1__');
+      .replace(/\bplan(?:o)?\s*(\d+)\b/gi, '__PLAN_$1__')
+      .replace(/\s+/g, ' ').trim();
 
-    const lowerNorm = normalized.toLowerCase().trim();
-    for (const [key, kwList] of Object.entries(this.SEARCH_KEYWORDS)) {
-      if (lowerNorm === key) return kwList.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
+    const lowerNorm = normalized.toLowerCase();
+
+    // Melhoria: Ordena chaves pelas maiores frases e busca contida na string.
+    // Assim captura o produto exato no dicionário mesmo se o usuário digitar palavras a mais (ruído).
+    const sortedKeys = Object.keys(this.SEARCH_KEYWORDS).sort((a, b) => b.length - a.length);
+    for (const key of sortedKeys) {
+      const regex = new RegExp(`\\b${key}\\b`, 'i');
+      if (regex.test(lowerNorm) || lowerNorm === key) {
+        const kws = [...this.SEARCH_KEYWORDS[key]];
+        if (hasNoTeamsIntent && !kws.includes('Teams')) kws.push('Teams');
+        return kws.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
+      }
     }
 
     return normalized.split(/\s+/).filter(w => w.length > 0).flatMap(w => {
