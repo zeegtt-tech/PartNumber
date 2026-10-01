@@ -9,6 +9,7 @@ window.Cotador.app = {
   msModalidades: new Set(['scan']),
   msSegmentos: new Set(['commercial']),
   adobeSegmentos: new Set(['teams']),
+  adobeModelo: 'base',
   adobeCambioMode: 'fixo',
   ptaxRateCache: null,
   ptaxDateCache: null,
@@ -39,7 +40,7 @@ window.Cotador.app = {
     } catch (_) {}
     
     const flagsResetFalse = [
-      'chk-show-copilot', 'chk-show-noteams', 'chk-show-trial', 'chk-show-frontline',
+      'chk-show-noteams', 'chk-show-copilot', 'chk-show-trial', 'chk-show-frontline',
       'chk-ms-show-phone', 'chk-ms-show-dynamics', 'chk-ms-show-win365', 'chk-ms-show-niche',
       'chk-ms-show-extconnector', 'chk-ms-show-azurecloud', 'chk-pm-show-temp',
       'chk-pm-show-mensal', 'chk-pm-show-anual', 'chk-pm-show-trienal', 'chk-pm-show-stepup',
@@ -47,7 +48,8 @@ window.Cotador.app = {
       'chk-adobe-show-stock', 'chk-adobe-show-3y', 'chk-adobe-show-frl',
       'chk-adobe-show-pack', 'chk-adobe-show-renewal', 'chk-adobe-show-upgrade',
       'chk-kasp-show-baseplus', 'chk-kasp-show-successive', 'chk-kasp-show-public',
-      'chk-kasp-show-training', 'chk-kasp-show-crossgrade', 'chk-kasp-show-educ'
+      'chk-kasp-show-training', 'chk-kasp-show-crossgrade', 'chk-kasp-show-educ',
+      'chk-kasp-show-xdr', 'chk-kasp-show-noedr'
     ];
     flagsResetFalse.forEach(id => {
       const el = document.getElementById(id);
@@ -141,7 +143,7 @@ window.Cotador.app = {
         }
       });
 
-      if (facetTracker && totalDisponiveis > 0 && totalAtivos === 0) drawer.open = false;
+      // Linha removida para manter a gaveta sempre aberta por padrão (só fecha se o usuário clicar)
 
       // NOVO CÓDIGO: Ocultar o box inteiro (wrapper) quando a busca for "Limpa" (0 opções aplicáveis)
       const wrapper = drawer.closest('div[id$="-box-flags"]') || drawer.parentElement;
@@ -208,12 +210,14 @@ window.Cotador.app = {
       const prefs = {
         vendor: this.currentVendor,
         scanDiscount: document.getElementById('ms-scan-discount')?.value ?? '7',
-        msModalidades: Array.from(this.msModalidades)
+        msModalidades: Array.from(this.msModalidades),
+        calcMode: window.Cotador.core.calcMode || 'margin',
+        soloPnPrefix: document.getElementById('ms-solo-prefix')?.value || '',
+        soloPnSuffix: document.getElementById('ms-solo-suffix')?.value || ''
       };
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(prefs));
     } catch (_) {}
   },
-
   carregarPreferencias() {
     try {
       const raw = localStorage.getItem(this.STORAGE_KEY);
@@ -222,9 +226,20 @@ window.Cotador.app = {
       
       if (prefs.scanDiscount !== undefined && document.getElementById('ms-scan-discount')) {
         document.getElementById('ms-scan-discount').value = prefs.scanDiscount;
+        const scanCheck = document.getElementById('chk-scan-discount');
+        if (scanCheck) scanCheck.checked = (Number(prefs.scanDiscount) > 0);
       }
       if (Array.isArray(prefs.msModalidades) && prefs.msModalidades.length > 0) {
         this.msModalidades = new Set([prefs.msModalidades[0] || 'scan']);
+      }
+      if (prefs.calcMode && window.Cotador.core.setCalcMode) {
+        window.Cotador.core.setCalcMode(prefs.calcMode);
+      }
+      if (prefs.soloPnPrefix !== undefined && typeof this.setSoloPnPrefix === 'function') {
+        this.setSoloPnPrefix(prefs.soloPnPrefix);
+      }
+      if (prefs.soloPnSuffix !== undefined && typeof this.setSoloPnSuffix === 'function') {
+        this.setSoloPnSuffix(prefs.soloPnSuffix);
       }
     } catch (_) {}
   },
@@ -282,6 +297,27 @@ window.Cotador.app = {
     this.setMsModalidade(mod);
   },
 
+  setSoloPnPrefix(prefix) {
+    const input = document.getElementById('ms-solo-prefix');
+    if (input) input.value = prefix || '';
+    ['none', 'SN', 'FC', 'PC', 'SP'].forEach(k => {
+      const id = k === 'none' ? 'btn-solo-pfx-none' : `btn-solo-pfx-${k}`;
+      const matchVal = k === 'none' ? '' : `${k}-SN-NCE-`;
+      const isMatch = (k === 'SN' && prefix === 'SN-NCE-') || (prefix === matchVal);
+      document.getElementById(id)?.classList.toggle('active', isMatch);
+    });
+    window.Cotador.core.atualizarModificadoresPnSoloEmTempoReal();
+  },
+  setSoloPnSuffix(suffix) {
+    const input = document.getElementById('ms-solo-suffix');
+    if (input) input.value = suffix || '';
+    ['none', 'BSC', 'STD', 'PRM'].forEach(k => {
+      const id = k === 'none' ? 'btn-solo-sfx-none' : `btn-solo-sfx-${k}`;
+      const matchVal = k === 'none' ? '' : `-${k}`;
+      document.getElementById(id)?.classList.toggle('active', suffix === matchVal);
+    });
+    window.Cotador.core.atualizarModificadoresPnSoloEmTempoReal();
+  },
   obterModalidadesAtivas() {
     const todas = ['scan', 'solo', 'perpetuo', 'mpsa'];
     const selecionada = Array.from(this.msModalidades).find(m => todas.includes(m));
@@ -304,16 +340,16 @@ window.Cotador.app = {
 
     const boxScanDiscount = document.getElementById('ms-box-scan-discount');
     const boxSoloService = document.getElementById('ms-box-solo-service');
+    const boxSoloModifiers = document.getElementById('ms-box-solo-modifiers');
     const boxContratos = document.getElementById('ms-box-contratos');
     const flagsCSP = document.getElementById('ms-flags-csp');
     const flagsPM = document.getElementById('ms-flags-perpetuo-mpsa');
     const flagsMPSA = document.getElementById('ms-flags-mpsa');
-
     const boxFlags = document.getElementById('ms-box-flags');
     if (boxFlags && hasPM) boxFlags.classList.remove('hidden');
-
     if (boxScanDiscount) boxScanDiscount.classList.toggle('hidden', !isScan);
     if (boxSoloService) boxSoloService.classList.toggle('hidden', !isSolo);
+    if (boxSoloModifiers) boxSoloModifiers.classList.toggle('hidden', !isSolo);
     if (boxContratos) boxContratos.classList.toggle('hidden', !hasCSP);
     if (flagsCSP) flagsCSP.classList.toggle('hidden', !hasCSP);
     if (flagsPM) flagsPM.classList.toggle('hidden', !hasPM);
@@ -371,33 +407,45 @@ window.Cotador.app = {
     if (master) master.checked = Boolean(m && a && t);
   },
 
-  setAdobeSegmento(seg) {
-  if (this.adobeSegmentos.has(seg)) return;
-  this.adobeSegmentos = new Set([seg || 'teams']);
-  this.atualizarUIAdobeSegmentos();
-  this.analisarInput();
-  if (this.parsedItems.length > 0) {
+  setAdobeModelo(mod) {
+    if (this.adobeModelo === mod) return;
+    this.adobeModelo = mod || 'base';
+    const hiddenInput = document.getElementById('adobe-modelo');
+    if (hiddenInput) hiddenInput.value = this.adobeModelo;
+    ['base', 'gov', 'edu'].forEach(m => {
+      const btn = document.getElementById(`btn-adobe-mod-${m}`);
+      if (btn) btn.classList.toggle('active', this.adobeModelo === m);
+    });
+    this.analisarInput();
+    if (this.parsedItems.length > 0) {
       this.gerarCotacao();
     } else {
-      this.limparOutputPorSeguranca('Segmento Adobe', seg);
+      this.limparOutputPorSeguranca('Modelo Adobe', mod);
     }
   },
-
+  setAdobeSegmento(seg) {
+    if (this.adobeSegmentos.has(seg)) return;
+    this.adobeSegmentos = new Set([seg || 'teams']);
+    this.atualizarUIAdobeSegmentos();
+    this.analisarInput();
+    if (this.parsedItems.length > 0) {
+      this.gerarCotacao();
+    } else {
+      this.limparOutputPorSeguranca('Vers o Adobe', seg);
+    }
+  },
   toggleAdobeSegmento(seg) {
     this.setAdobeSegmento(seg);
   },
-
   obterAdobeSegmentosAtivos() {
     const ordem = ['teams', 'enterprise'];
     const selecionado = Array.from(this.adobeSegmentos).find(s => ordem.includes(s));
     return [selecionado || 'teams'];
   },
-
   atualizarUIAdobeSegmentos() {
     const ativos = this.obterAdobeSegmentosAtivos();
     const hiddenInput = document.getElementById('adobe-segmento');
     if (hiddenInput) hiddenInput.value = ativos[0];
-
     ['teams', 'enterprise'].forEach(s => {
       const btn = document.getElementById(`btn-adobe-seg-${s}`);
       if (btn) btn.classList.toggle('active', this.adobeSegmentos.has(s));
@@ -539,12 +587,15 @@ window.Cotador.app = {
   },
 
   setKaspTipo(tipo) {
-  const currentTipo = document.getElementById('kasp-tipo').value;
-  if (currentTipo === tipo) return;
+    const kaspTipoEl = document.getElementById('kasp-tipo');
+    if (!kaspTipoEl) return;
+    
+    const currentTipo = kaspTipoEl.value;
+    if (currentTipo === tipo) return;
 
-  document.getElementById('kasp-tipo').value = tipo;
-  document.getElementById('btn-kasp-tipo-base').classList.toggle('active', tipo === 'Base');
-  document.getElementById('btn-kasp-tipo-renewal').classList.toggle('active', tipo === 'Renewal');
+    kaspTipoEl.value = tipo;
+    document.getElementById('btn-kasp-tipo-base')?.classList.toggle('active', tipo === 'Base');
+    document.getElementById('btn-kasp-tipo-renewal')?.classList.toggle('active', tipo === 'Renewal');
 
   this.analisarInput();
     if (this.parsedItems.length > 0) {
@@ -555,7 +606,9 @@ window.Cotador.app = {
   },
 
   limparInput() {
-    document.getElementById('input-itens').value = '';
+    const inputEl = document.getElementById('input-itens');
+    if (inputEl) inputEl.value = '';
+    
     this.analisarInput();
     this.resetarVisualGavetas();
     
@@ -566,7 +619,7 @@ window.Cotador.app = {
           Cole os produtos no painel esquerdo e clique em <span class="theme-text font-semibold">Buscar e Montar Tabelas</span>.
         </div>`;
     }
-    document.getElementById('input-itens').focus();
+    if (inputEl) inputEl.focus();
   },
 
   getAdobeAutoLevel(sum) {
@@ -590,12 +643,35 @@ window.Cotador.app = {
     if (sum <= 1499) return '1000-1499';
     return '1500-2499';
   },
-
+  _analisarTimer: null,
+  analisarInputDebounced() {
+    clearTimeout(this._analisarTimer);
+    this._analisarTimer = setTimeout(() => {
+      this.analisarInput();
+      const el = document.getElementById('input-itens');
+      if (el) {
+        el.style.height = 'auto';
+        el.style.height = Math.min(el.scrollHeight, 350) + 'px';
+      }
+    }, 250);
+  },
   analisarInput() {
-    const raw = document.getElementById('input-itens').value;
+    const inputEl = document.getElementById('input-itens');
+    if (!inputEl) return;
+    const raw = inputEl.value;
     const { items, sumLicenses } = window.Cotador.core.parseInputLines(raw);
     this.parsedItems = items;
     this.totalLicenses = sumLicenses;
+    
+    const feedbackEl = document.getElementById('input-feedback');
+    if (feedbackEl) {
+      if (items.length > 0) {
+        feedbackEl.textContent = items.length === 1 ? '1 Item' : `${items.length} Itens`;
+        feedbackEl.classList.remove('hidden');
+      } else {
+        feedbackEl.classList.add('hidden');
+      }
+    }
   },
 
   async gerarCotacao() {
@@ -657,9 +733,13 @@ window.Cotador.app = {
     const btn = document.getElementById('btn-buscar');
     const container = document.getElementById('resultado-container');
 
-    btn.disabled = true;
-    btn.innerHTML = '<span>Consultando SKUs em paralelo e montando propostas...</span>';
-    container.innerHTML = '<div class="text-center py-20 text-gray-500 text-xs font-normal animate-pulse bg-[#faf9f8] rounded border border-[#edebe9]">Consultando banco de dados corporativo...</div>';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span>Consultando SKUs em paralelo e montando propostas...</span>';
+    }
+    if (container) {
+      container.innerHTML = '<div class="text-center py-20 text-gray-500 text-xs font-normal animate-pulse bg-[#faf9f8] rounded border border-[#edebe9]">Consultando banco de dados corporativo...</div>';
+    }
 
     try {
       let missingItems = [];
@@ -696,7 +776,7 @@ window.Cotador.app = {
         };
 
         const resultadosMod = await Promise.all(
-          modalidades.map(mod => window.Cotador.tables[`ms_${mod}`].processar(this.parsedItems, flags))
+          modalidades.map(mod => window.Cotador.tables[`ms_${mod}`]?.processar(this.parsedItems, flags))
         );
 
         this.aplicarFiltrosDinamicosGlobal(facetTracker, 'ms-drawer-secundarios', 'badge-ms-flags-count', [
@@ -714,15 +794,19 @@ window.Cotador.app = {
           }
         });
 
-        container.innerHTML = combinedHTML;
+        if (container) container.innerHTML = combinedHTML;
         missingItems = this.parsedItems.filter(it => !globalMatchedIndices.has(it.itemIndex));
 
       } else if (this.currentVendor === 'adobe') {
-        const chkPromo = document.getElementById('chk-adobe-promo');
-        const usarPromo = chkPromo ? chkPromo.checked : false;
-        const tabela = usarPromo ? 'adobe_promo' : 'adobe_base';
-        const lvlSelect = document.getElementById('adobe-level').value;
+        const modelo = this.adobeModelo || 'base';
         const segmentos = this.obterAdobeSegmentosAtivos();
+        const seg = segmentos[0] || 'teams';
+        
+        let tabela = 'adobe_base';
+        if (modelo === 'edu') tabela = 'adobe_edu';
+        else if (modelo === 'gov') tabela = 'adobe_gov';
+        
+        const lvlSelect = document.getElementById('adobe-level')?.value || 'auto';
         
         const facetTracker = {};
         const flags = {
@@ -730,10 +814,11 @@ window.Cotador.app = {
           segmentos,
           segmento: segmentos[0] || 'teams',
           levelSelect: lvlSelect,
-          targetLevel: (lvlSelect === 'auto') 
-            ? (this.totalLicenses > 0 ? this.getAdobeAutoLevel(this.totalLicenses) : 'all') 
-            : lvlSelect,
-          taxaDolar: parseFloat(document.getElementById('adobe-dolar').value) || 4.80,
+          targetLevel: (lvlSelect === 'auto')
+             ? (this.totalLicenses > 0 ? this.getAdobeAutoLevel(this.totalLicenses) : '1')
+             : lvlSelect,
+          mesesProRata: parseInt(document.getElementById('adobe-meses')?.value) || 12,
+          taxaDolar: parseFloat(document.getElementById('adobe-dolar')?.value) || 4.80,
           showAdobeStock: document.getElementById('chk-adobe-show-stock')?.checked ?? false,
           show3Y: document.getElementById('chk-adobe-show-3y')?.checked ?? false,
           showFRL: document.getElementById('chk-adobe-show-frl')?.checked ?? false,
@@ -741,8 +826,14 @@ window.Cotador.app = {
           showRenewal: document.getElementById('chk-adobe-show-renewal')?.checked ?? false,
           showUpgrade: document.getElementById('chk-adobe-show-upgrade')?.checked ?? false
         };
-
-        const resAdobe = await window.Cotador.tables[tabela].processar(this.parsedItems, flags);
+        
+        // Proteção contra erro de tabela não carregada
+        if (!window.Cotador.tables[tabela]) {
+          console.warn(`Tabela ${tabela} não encontrada. Recaindo para adobe_base`);
+          tabela = 'adobe_base';
+        }
+        
+        const resAdobe = await window.Cotador.tables[tabela]?.processar(this.parsedItems, flags);
         missingItems = this.parsedItems.filter(it => !resAdobe?.matchedItemIndices?.has(it.itemIndex));
 
         this.aplicarFiltrosDinamicosGlobal(facetTracker, 'adobe-drawer-secundarios', 'badge-adobe-flags-count', [
@@ -772,7 +863,7 @@ window.Cotador.app = {
           periodos,
           bandaSelect,
           targetBanda: (bandaSelect === 'auto') 
-            ? (this.totalLicenses > 0 ? this.getKaspAutoBanda(this.totalLicenses) : 'all') 
+            ? (this.totalLicenses > 0 ? this.getKaspAutoBanda(this.totalLicenses) : '5-9') 
             : bandaSelect,
           tipo: document.getElementById('kasp-tipo')?.value || 'Base',
           showPriceRevenda: temAlgumPreco ? priceRevenda : true,
@@ -783,33 +874,34 @@ window.Cotador.app = {
           showPublic: document.getElementById('chk-kasp-show-public')?.checked ?? false,
           showTraining: document.getElementById('chk-kasp-show-training')?.checked ?? false,
           showCrossgrade: document.getElementById('chk-kasp-show-crossgrade')?.checked ?? false,
-          showEduc: document.getElementById('chk-kasp-show-educ')?.checked ?? false
+          showEduc: document.getElementById('chk-kasp-show-educ')?.checked ?? false,
+          showXdr: document.getElementById('chk-kasp-show-xdr')?.checked ?? false,
+          showNoEdr: document.getElementById('chk-kasp-show-noedr')?.checked ?? false
         };
-
-        const resKasp = await window.Cotador.tables.kaspersky.processar(this.parsedItems, flags);
+        const resKasp = await window.Cotador.tables.kaspersky?.processar(this.parsedItems, flags);
         missingItems = this.parsedItems.filter(it => !resKasp?.matchedItemIndices?.has(it.itemIndex));
-
         this.aplicarFiltrosDinamicosGlobal(facetTracker, 'kaspersky-drawer-secundarios', 'badge-kasp-flags-count', [
-          'chk-kasp-show-baseplus', 'chk-kasp-show-successive', 'chk-kasp-show-public', 'chk-kasp-show-training', 'chk-kasp-show-crossgrade', 'chk-kasp-show-educ'
+          'chk-kasp-show-baseplus', 'chk-kasp-show-successive', 'chk-kasp-show-public', 'chk-kasp-show-training', 'chk-kasp-show-crossgrade', 'chk-kasp-show-educ', 'chk-kasp-show-xdr', 'chk-kasp-show-noedr'
         ]);
       }
 
       window.Cotador.core.limparBlocosVazios();
       window.Cotador.core.renderUnmatchedWarning(missingItems);
       window.Cotador.core.recalcularSubtotais();
-
+      setTimeout(() => window.Cotador.core.enriquecerCRMBadges(), 800);
     } catch (err) {
-      if (err && err.name === 'AbortError') {
-        return;
-      }
-      container.innerHTML = `<div class="p-4 rounded bg-[#fdf3f4] border border-[#f8d7da] text-[#a4262c] text-xs"><b>Erro na consulta:</b> ${err.message}</div>`;
-    } finally {
-      if (!searchSignal.aborted) {
+        if (err && err.name === 'AbortError') {
+          return;
+        }
+        if (container) {
+          container.innerHTML = `<div class="p-4 rounded bg-[#fdf3f4] border border-[#f8d7da] text-[#a4262c] text-xs"><b>Erro na consulta:</b> ${err.message}</div>`;
+        }
+      } finally {
+      if (!searchSignal.aborted && btn) {
         btn.disabled = false;
         btn.innerHTML = '<span>Buscar e Montar Tabelas</span>';
       }
     }
   }
 };
-
 document.addEventListener('DOMContentLoaded', () => window.Cotador.app.init());

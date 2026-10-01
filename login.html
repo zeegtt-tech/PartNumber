@@ -206,7 +206,7 @@
     }
 
     async function realizarLogin() {
-      const email = document.getElementById('login-email').value;
+      const email = document.getElementById('login-email').value.trim();
       const pass = document.getElementById('login-password').value;
       const btn = document.getElementById('btn-login-submit');
       if (btn) {
@@ -230,9 +230,9 @@
     }
 
     async function enviarSolicitacao() {
-      const nome = document.getElementById('req-nome').value;
-      const email = document.getElementById('req-email').value;
-      const motivo = document.getElementById('req-motivo').value;
+      const nome = document.getElementById('req-nome').value.trim();
+      const email = document.getElementById('req-email').value.trim();
+      const motivo = document.getElementById('req-motivo').value.trim();
       const btn = document.getElementById('btn-req-submit');
 
       if(!nome || !email) {
@@ -249,6 +249,10 @@
         await window.CotadorAuth.solicitarAcesso(nome, email, motivo);
         alert('Solicitação enviada com sucesso! O administrador avaliará seu acesso.');
         showStep('step-email');
+        
+        document.getElementById('req-nome').value = '';
+        document.getElementById('req-email').value = '';
+        document.getElementById('req-motivo').value = '';
       } catch (error) {
         alert('Erro ao enviar solicitação: ' + error.message);
       } finally {
@@ -256,14 +260,11 @@
           btn.innerText = 'Solicitar';
           btn.disabled = false;
         }
-        document.getElementById('req-nome').value = '';
-        document.getElementById('req-email').value = '';
-        document.getElementById('req-motivo').value = '';
       }
     }
 
-    document.getElementById('login-email').addEventListener('keypress', e => e.key === 'Enter' && avancarParaSenha());
-    document.getElementById('login-password').addEventListener('keypress', e => e.key === 'Enter' && realizarLogin());
+    document.getElementById('login-email').addEventListener('keydown', e => e.key === 'Enter' && avancarParaSenha());
+    document.getElementById('login-password').addEventListener('keydown', e => e.key === 'Enter' && realizarLogin());
   </script>
   <div class="fixed bottom-3 right-4 text-white/70 hover:text-white text-[11px] font-medium tracking-wide drop-shadow-md z-50 transition-colors cursor-default">
     Developed by José Garrett - 2026
