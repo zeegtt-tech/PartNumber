@@ -197,7 +197,7 @@ table td:first-child .copy-link, .copy-link.copy-link-product { display: inline;
 .copy-link:hover { color: var(--accent-primary) !important; background-color: var(--accent-light); }
 .copy-link:active { transform: scale(0.98); }
 .copy-link.pn-mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.74rem; color: #605e5c; }
-.copy-link.is-copied { background-color: #dff6dd !important; color: #107c10 !important; }
+.copy-link.is-copied { background-color: #dff6dd !important; color: #107c10 !important; transform: scale(1.06); font-weight: 600; box-shadow: 0 2px 4px rgba(16, 124, 16, 0.15); transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important; z-index: 10; position: relative; }
 
 .row-grip-wrap { display: inline-flex; align-items: center; margin-right: 0.45rem; vertical-align: middle; user-select: none; }
 .drag-handle {

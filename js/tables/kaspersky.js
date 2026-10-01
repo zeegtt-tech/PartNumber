@@ -159,8 +159,9 @@ window.Cotador.tables.kaspersky = {
           /\btraining\b/i.test(tipo);
         const isCrossgrade = /\b(cross[\s\-]?grade|cross)\b/i.test(nome) || /\bcross\b/i.test(tipo);
         const isEduc = /\b(educational|education|academic|escola|edu)\b/i.test(nome) || /\b(educ|acad)\b/i.test(tipo);
+        const isXdr = /\bxdr\b/i.test(nome);
+        const isNoEdr = /\bfoundation\b/i.test(nome) && !/\bedr\b/i.test(nome);
         const isServiceOrTraining = tipo === '-' || isTraining;
-
         if (flags.facetTracker) {
           if (isBasePlus) flags.facetTracker['chk-kasp-show-baseplus'] = (flags.facetTracker['chk-kasp-show-baseplus'] || 0) + 1;
           if (isSuccessive) flags.facetTracker['chk-kasp-show-successive'] = (flags.facetTracker['chk-kasp-show-successive'] || 0) + 1;
@@ -168,14 +169,17 @@ window.Cotador.tables.kaspersky = {
           if (isTraining) flags.facetTracker['chk-kasp-show-training'] = (flags.facetTracker['chk-kasp-show-training'] || 0) + 1;
           if (isCrossgrade) flags.facetTracker['chk-kasp-show-crossgrade'] = (flags.facetTracker['chk-kasp-show-crossgrade'] || 0) + 1;
           if (isEduc) flags.facetTracker['chk-kasp-show-educ'] = (flags.facetTracker['chk-kasp-show-educ'] || 0) + 1;
+          if (isXdr) flags.facetTracker['chk-kasp-show-xdr'] = (flags.facetTracker['chk-kasp-show-xdr'] || 0) + 1;
+          if (isNoEdr) flags.facetTracker['chk-kasp-show-noedr'] = (flags.facetTracker['chk-kasp-show-noedr'] || 0) + 1;
         }
-
         if (!flags.showBasePlus && isBasePlus) return false;
         if (!flags.showSuccessive && isSuccessive) return false;
         if (!flags.showPublic && isPublic) return false;
         if (!flags.showTraining && isTraining) return false;
         if (!flags.showCrossgrade && isCrossgrade) return false;
         if (!flags.showEduc && isEduc) return false;
+        if (!flags.showXdr && isXdr) return false;
+        if (!flags.showNoEdr && isNoEdr) return false;
 
         if (flags.tipo && flags.tipo !== 'all' && !isServiceOrTraining) {
           const targetTipo = String(flags.tipo).toLowerCase();

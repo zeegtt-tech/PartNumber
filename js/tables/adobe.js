@@ -376,8 +376,7 @@ function criarModuloAdobe(tableName, labelTitulo) {
           });
 
           if (!rowsHTML) continue;
-
-          const segLabel = seg === 'enterprise' ? 'For Enterprise' : 'For Teams';
+          const segLabel = seg === 'enterprise' ? 'For Enterprise' : (seg === 'education' ? 'Education' : (seg === 'government' ? 'Government' : 'For Teams'));
           const bId = `blk-${tableName}-${seg}-${lvl.id}`;
           const headerTitle = `${labelTitulo} (${segLabel}) | Faixa: ${lvl.label} | Câmbio: R$ ${core.formatBRL(flags.taxaDolar)}`;
 
@@ -392,3 +391,5 @@ function criarModuloAdobe(tableName, labelTitulo) {
 
 window.Cotador.tables.adobe_base = criarModuloAdobe('adobe_base', 'Adobe Base (Padrão)');
 window.Cotador.tables.adobe_promo = criarModuloAdobe('adobe_promo', 'Adobe Promo (Novos Clientes)');
+window.Cotador.tables.adobe_edu = criarModuloAdobe('adobe_edu', 'Adobe Education');
+window.Cotador.tables.adobe_gov = criarModuloAdobe('adobe_gov', 'Adobe Government');

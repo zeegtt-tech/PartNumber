@@ -714,6 +714,7 @@ window.Cotador.core = {
   _detectarTabelaPorColunasCSV(headers, fileName) {
     const cols = headers.map(h => this._normalizarChaveCSV(h));
     const fn = this._normalizarChaveCSV(fileName);
+    if (cols.includes('id do produto (product id)') || cols.includes('id do produto')) return 'crm_mapping';
     if (cols.includes('numero do item') || cols.includes('nome curto da peca')) return 'microsoft_mpsa';
     if (cols.includes('saleitemname') || cols.includes('preco nao prime')) return 'kaspersky';
     if (cols.includes('offer display name') || cols.includes('ciclo de pagamento')) return 'microsoft_scan';
@@ -754,8 +755,12 @@ window.Cotador.core = {
       const s = String(val).trim();
       return /^\d{1,3}$/.test(s) ? s.padStart(4, '0') : s;
     };
-
-    if (table === 'adobe_base' || table === 'adobe_promo') {
+    if (table === 'crm_mapping') {
+      const pnCrm = get('Part Number');
+      if (!pnCrm) return null;
+      return { pn_crm: pnCrm, id_produto_it: get('ID do produto (product ID)', 'ID do produto'), nome_crm: get('Nome') };
+    }
+    if (table === 'adobe_base' || table === 'adobe_promo' || table === 'adobe_edu' || table === 'adobe_gov') {
       const partNumber = get('Part Number');
       if (!partNumber) return null;
       return {
@@ -847,7 +852,8 @@ window.Cotador.core = {
 
     const sb = window.CotadorAuth.supabase;
     const pkByTable = {
-      adobe_base: 'part_number', adobe_promo: 'part_number', kaspersky: 'part_number',
+      adobe_base: 'part_number', adobe_promo: 'part_number', adobe_edu: 'part_number', adobe_gov: 'part_number',
+      kaspersky: 'part_number', crm_mapping: 'pn_crm',
       microsoft_scan: 'sku', microsoft_solo: 'id_produto', microsoft_perpetuo: 'product_id', microsoft_mpsa: 'numero_item'
     };
 
@@ -1070,6 +1076,35 @@ window.Cotador.core = {
     const suffix = document.getElementById('ms-solo-suffix')?.value || '';
     return { prefix, suffix };
   },
+  async enriquecerCRMBadges() {
+    try {
+      const pnElements = document.querySelectorAll('td.col-pn [data-pn-val]');
+      const pns = Array.from(new Set(Array.from(pnElements).map(el => el.getAttribute('data-pn-val'))));
+      if (pns.length === 0) return;
+      const pnsFilter = pns.map(p => `"${p}"`).join(',');
+      const params = [['select', 'pn_crm,id_produto_it']];
+      if(pns.length <= 60) params.push(['pn_crm', `in.(${pnsFilter})`]);
+      const data = await window.Cotador.core.fetchSupabase('crm_mapping', params);
+      const crmMap = {};
+      if (data && data.length > 0) {
+        data.forEach(r => crmMap[r.pn_crm] = r.id_produto_it);
+      }
+      pnElements.forEach(el => {
+        const pn = el.getAttribute('data-pn-val');
+        const existingBadge = el.parentElement.querySelector('.crm-badge');
+        if (crmMap[pn]) {
+          if (existingBadge) {
+            existingBadge.setAttribute('data-copy', crmMap[pn]);
+            existingBadge.innerHTML = crmMap[pn];
+          } else {
+            el.insertAdjacentHTML('afterend', `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${crmMap[pn]}" data-label="ID Dynamics" title="Copiar ID do Dynamics para inserir no CRM" class="copy-link crm-badge ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#0078d4] text-white cursor-pointer hover:bg-[#106ebe] transition-colors inline-flex items-center gap-1"><svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>${crmMap[pn]}</span>`);
+          }
+        } else if (existingBadge) {
+          existingBadge.remove();
+        }
+      });
+    } catch(e) {}
+  },
   atualizarModificadoresPnSoloEmTempoReal() {
     const mods = this.obterModificadoresPnSolo();
     document.querySelectorAll('tbody tr[data-row-kind="ms_solo"]').forEach(tr => {
@@ -1087,6 +1122,8 @@ window.Cotador.core = {
         pnBadge.textContent = novoPn;
       }
     });
+    clearTimeout(this._crmTimer);
+    this._crmTimer = setTimeout(() => this.enriquecerCRMBadges(), 300);
   },
   copiarPropostaBlocoCliente(event, blockId) {
     if (event) event.stopPropagation();
@@ -2258,7 +2295,14 @@ window.Cotador.core = {
     this.recalcularSubtotais();
   },
 
+  _recalcTimer: null,
   recalcularSubtotais() {
+    if (this._recalcTimer) clearTimeout(this._recalcTimer);
+    this._recalcTimer = setTimeout(() => {
+      this._executarRecalculoSubtotais();
+    }, 150);
+  },
+  _executarRecalculoSubtotais() {
     this.prepararLinhasDrag();
     this.atualizarTitulosColunasModoCliente();
     const chkSub = document.getElementById('chk-mostrar-subtotal');

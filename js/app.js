@@ -47,7 +47,8 @@ window.Cotador.app = {
       'chk-adobe-show-stock', 'chk-adobe-show-3y', 'chk-adobe-show-frl',
       'chk-adobe-show-pack', 'chk-adobe-show-renewal', 'chk-adobe-show-upgrade',
       'chk-kasp-show-baseplus', 'chk-kasp-show-successive', 'chk-kasp-show-public',
-      'chk-kasp-show-training', 'chk-kasp-show-crossgrade', 'chk-kasp-show-educ'
+      'chk-kasp-show-training', 'chk-kasp-show-crossgrade', 'chk-kasp-show-educ',
+      'chk-kasp-show-xdr', 'chk-kasp-show-noedr'
     ];
     flagsResetFalse.forEach(id => {
       const el = document.getElementById(id);
@@ -422,7 +423,7 @@ window.Cotador.app = {
   },
 
   obterAdobeSegmentosAtivos() {
-    const ordem = ['teams', 'enterprise'];
+    const ordem = ['teams', 'enterprise', 'education', 'government'];
     const selecionado = Array.from(this.adobeSegmentos).find(s => ordem.includes(s));
     return [selecionado || 'teams'];
   },
@@ -431,8 +432,7 @@ window.Cotador.app = {
     const ativos = this.obterAdobeSegmentosAtivos();
     const hiddenInput = document.getElementById('adobe-segmento');
     if (hiddenInput) hiddenInput.value = ativos[0];
-
-    ['teams', 'enterprise'].forEach(s => {
+    ['teams', 'enterprise', 'education', 'government'].forEach(s => {
       const btn = document.getElementById(`btn-adobe-seg-${s}`);
       if (btn) btn.classList.toggle('active', this.adobeSegmentos.has(s));
     });
@@ -629,7 +629,18 @@ window.Cotador.app = {
     if (sum <= 1499) return '1000-1499';
     return '1500-2499';
   },
-
+  _analisarTimer: null,
+  analisarInputDebounced() {
+    clearTimeout(this._analisarTimer);
+    this._analisarTimer = setTimeout(() => {
+      this.analisarInput();
+      const el = document.getElementById('input-itens');
+      if (el) {
+        el.style.height = 'auto';
+        el.style.height = Math.min(el.scrollHeight, 350) + 'px';
+      }
+    }, 250);
+  },
   analisarInput() {
     const inputEl = document.getElementById('input-itens');
     if (!inputEl) return;
@@ -637,6 +648,16 @@ window.Cotador.app = {
     const { items, sumLicenses } = window.Cotador.core.parseInputLines(raw);
     this.parsedItems = items;
     this.totalLicenses = sumLicenses;
+    
+    const feedbackEl = document.getElementById('input-feedback');
+    if (feedbackEl) {
+      if (items.length > 0) {
+        feedbackEl.textContent = `${items.length} item(ns)`;
+        feedbackEl.classList.remove('hidden');
+      } else {
+        feedbackEl.classList.add('hidden');
+      }
+    }
   },
 
   async gerarCotacao() {
@@ -765,9 +786,13 @@ window.Cotador.app = {
       } else if (this.currentVendor === 'adobe') {
         const chkPromo = document.getElementById('chk-adobe-promo');
         const usarPromo = chkPromo ? chkPromo.checked : false;
-        const tabela = usarPromo ? 'adobe_promo' : 'adobe_base';
-        const lvlSelect = document.getElementById('adobe-level')?.value || 'auto';
         const segmentos = this.obterAdobeSegmentosAtivos();
+        const seg = segmentos[0] || 'teams';
+        let tabela = 'adobe_base';
+        if (usarPromo) tabela = 'adobe_promo';
+        else if (seg === 'education') tabela = 'adobe_edu';
+        else if (seg === 'government') tabela = 'adobe_gov';
+        const lvlSelect = document.getElementById('adobe-level')?.value || 'auto';
         
         const facetTracker = {};
         const flags = {
@@ -828,20 +853,21 @@ window.Cotador.app = {
           showPublic: document.getElementById('chk-kasp-show-public')?.checked ?? false,
           showTraining: document.getElementById('chk-kasp-show-training')?.checked ?? false,
           showCrossgrade: document.getElementById('chk-kasp-show-crossgrade')?.checked ?? false,
-          showEduc: document.getElementById('chk-kasp-show-educ')?.checked ?? false
+          showEduc: document.getElementById('chk-kasp-show-educ')?.checked ?? false,
+          showXdr: document.getElementById('chk-kasp-show-xdr')?.checked ?? false,
+          showNoEdr: document.getElementById('chk-kasp-show-noedr')?.checked ?? false
         };
-
         const resKasp = await window.Cotador.tables.kaspersky.processar(this.parsedItems, flags);
         missingItems = this.parsedItems.filter(it => !resKasp?.matchedItemIndices?.has(it.itemIndex));
-
         this.aplicarFiltrosDinamicosGlobal(facetTracker, 'kaspersky-drawer-secundarios', 'badge-kasp-flags-count', [
-          'chk-kasp-show-baseplus', 'chk-kasp-show-successive', 'chk-kasp-show-public', 'chk-kasp-show-training', 'chk-kasp-show-crossgrade', 'chk-kasp-show-educ'
+          'chk-kasp-show-baseplus', 'chk-kasp-show-successive', 'chk-kasp-show-public', 'chk-kasp-show-training', 'chk-kasp-show-crossgrade', 'chk-kasp-show-educ', 'chk-kasp-show-xdr', 'chk-kasp-show-noedr'
         ]);
       }
 
       window.Cotador.core.limparBlocosVazios();
       window.Cotador.core.renderUnmatchedWarning(missingItems);
       window.Cotador.core.recalcularSubtotais();
+      setTimeout(() => window.Cotador.core.enriquecerCRMBadges(), 250);
     } catch (err) {
         if (err && err.name === 'AbortError') {
           return;
