@@ -19,10 +19,7 @@ const MS_SECONDARY_RULES = [
     label: 'Sem Teams',
     queryRegex: /\b(no\s*teams|sem\s*teams|without\s*teams|s\/\s*teams)\b/i,
     testProduct: (nome) => {
-        const isNoTeams = /\b(no|sem|without|w\/o)\s*teams\b/i.test(nome);
-        // Isenta os produtos primários de serem ocultados pelo filtro secundário "Sem Teams"
-        const isPrimary = /\b(business\s+(basic|standard|premium)|apps\s+for\s+(business|enterprise)|e1|e3|e5|f1|f3)\b/i.test(nome);
-        return isNoTeams && !isPrimary;
+        return /\b(no|sem|without|w\/o)\s*teams\b/i.test(nome);
     }
   },
   {
