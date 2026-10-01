@@ -168,7 +168,8 @@ window.Cotador.tables.ms_scan = {
           const term = item.keywords[0];
           params.push(['or', `(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*)`]);
         } else {
-            item.keywords.forEach(kw => params.push(['offer_display_name', `ilike.*${kw}*`]));
+            const andClauses = item.keywords.map(kw => `offer_display_name.ilike.*${kw}*`).join(',');
+            if (andClauses) params.push(['and', `(${andClauses})`]);
         }
         if (segOrFilter) params.push(['or', segOrFilter]);
       }
@@ -277,7 +278,8 @@ window.Cotador.tables.ms_solo = {
           const basePn = term.split('-')[0];
           params.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
         } else {
-            item.keywords.forEach(kw => params.push(['titulo_sku', `ilike.*${kw}*`]));
+            const andClauses = item.keywords.map(kw => `titulo_sku.ilike.*${kw}*`).join(',');
+            if (andClauses) params.push(['and', `(${andClauses})`]);
         }
         if (segOrFilter) params.push(['or', segOrFilter]);
       }
