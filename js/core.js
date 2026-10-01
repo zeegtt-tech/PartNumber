@@ -737,8 +737,8 @@ window.Cotador.core = {
     const normMap = {};
     for (const key in row) {
       if (!key) continue;
-      const cleanKey = key.replace(/^\uFEFF/, '').trim();
-      const val = (row[key] !== null && row[key] !== undefined) ? String(row[key]).trim() : '';
+      const cleanKey = key.replace(/\uFEFF/g, '').trim();
+      const val = (row[key] !== null && row[key] !== undefined) ? String(row[key]).replace(/\uFEFF/g, '').trim() : '';
       exactMap[cleanKey] = val;
       normMap[this._normalizarChaveCSV(cleanKey)] = val;
     }
@@ -1084,13 +1084,16 @@ window.Cotador.core = {
       const pnElements = document.querySelectorAll('td.col-pn [data-pn-val]');
       const pns = Array.from(new Set(Array.from(pnElements).map(el => el.getAttribute('data-pn-val'))));
       if (pns.length === 0) return;
-      const pnsFilter = pns.map(p => `"${p}"`).join(',');
-      const params = [['select', 'pn_crm,id_produto_it']];
-      if(pns.length <= 60) params.push(['pn_crm', `in.(${pnsFilter})`]);
-      const data = await window.Cotador.core.fetchSupabase('crm_mapping', params);
       const crmMap = {};
-      if (data && data.length > 0) {
-        data.forEach(r => crmMap[r.pn_crm] = r.id_produto_it);
+      const chunkSize = 50;
+      for (let i = 0; i < pns.length; i += chunkSize) {
+        const chunk = pns.slice(i, i + chunkSize);
+        const pnsFilter = chunk.map(p => `"${p}"`).join(',');
+        const params = [['select', 'pn_crm,id_produto_it'], ['pn_crm', `in.(${pnsFilter})`]];
+        const data = await window.Cotador.core.fetchSupabase('crm_mapping', params);
+        if (data && data.length > 0) {
+          data.forEach(r => crmMap[r.pn_crm] = r.id_produto_it);
+        }
       }
       pnElements.forEach(el => {
         const pn = el.getAttribute('data-pn-val');
@@ -1126,7 +1129,7 @@ window.Cotador.core = {
       }
     });
     clearTimeout(this._crmTimer);
-    this._crmTimer = setTimeout(() => this.enriquecerCRMBadges(), 300);
+    this._crmTimer = setTimeout(() => this.enriquecerCRMBadges(), 800);
   },
   copiarPropostaBlocoCliente(event, blockId) {
     if (event) event.stopPropagation();

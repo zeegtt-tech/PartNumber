@@ -322,9 +322,11 @@ function criarModuloAdobe(tableName, labelTitulo) {
 
             filtrados.forEach(r => {
               matchedItemIndices.add(item.itemIndex);
-              const usd = core.parsePrice(r.partner_price);
+              const meses = flags.mesesProRata || 12;
+              const baseUsd = core.parsePrice(r.partner_price);
+              const usd = meses === 12 ? baseUsd : (baseUsd / 12) * meses;
               const brl = usd * flags.taxaDolar;
-              const pn = r.part_number;
+              const pn = meses === 12 ? r.part_number : `${r.part_number}-${meses}`;
               const fmtUSD = `US$ ${core.formatUSD(usd)}`;
               const fmtBRL = `R$ ${core.formatBRL(brl)}`;
               const nomeBase = (r.product_family || '').trim();

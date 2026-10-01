@@ -814,10 +814,11 @@ window.Cotador.app = {
           segmentos,
           segmento: segmentos[0] || 'teams',
           levelSelect: lvlSelect,
-          targetLevel: (lvlSelect === 'auto') 
-            ? (this.totalLicenses > 0 ? this.getAdobeAutoLevel(this.totalLicenses) : 'all') 
-            : lvlSelect,
-          taxaDolar: parseFloat(document.getElementById('adobe-dolar')?.value) || 4.80,
+          targetLevel: (lvlSelect === 'auto')
+             ? (this.totalLicenses > 0 ? this.getAdobeAutoLevel(this.totalLicenses) : 'all')
+             : lvlSelect,
+          mesesProRata: parseInt(document.getElementById('adobe-meses')?.value) || 12,
+          taxaDolar: parseFloat(document.getElementById('adobe-dolar')?.value) || 4.80,taxaDolar: parseFloat(document.getElementById('adobe-dolar')?.value) || 4.80,
           showAdobeStock: document.getElementById('chk-adobe-show-stock')?.checked ?? false,
           show3Y: document.getElementById('chk-adobe-show-3y')?.checked ?? false,
           showFRL: document.getElementById('chk-adobe-show-frl')?.checked ?? false,
@@ -881,7 +882,7 @@ window.Cotador.app = {
       window.Cotador.core.limparBlocosVazios();
       window.Cotador.core.renderUnmatchedWarning(missingItems);
       window.Cotador.core.recalcularSubtotais();
-      setTimeout(() => window.Cotador.core.enriquecerCRMBadges(), 250);
+      setTimeout(() => window.Cotador.core.enriquecerCRMBadges(), 800);
     } catch (err) {
         if (err && err.name === 'AbortError') {
           return;
