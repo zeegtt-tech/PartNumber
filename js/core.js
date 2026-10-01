@@ -1111,7 +1111,7 @@ window.Cotador.core = {
             existingBadge.setAttribute('data-copy', crmMap[pn]);
             existingBadge.innerHTML = crmMap[pn];
           } else {
-            el.insertAdjacentHTML('afterend', `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${crmMap[pn]}" data-label="ID Dynamics" title="Copiar ID do Dynamics para inserir no CRM" class="copy-link crm-badge ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#0078d4] text-white cursor-pointer hover:bg-[#106ebe] transition-colors inline-flex items-center gap-1"><svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>${crmMap[pn]}</span>`);
+            el.insertAdjacentHTML('afterend', `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${crmMap[pn]}" data-label="ID Dynamics" title="Copiar ID do Dynamics para inserir no CRM" class="copy-link crm-badge ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#f3f2f1] text-[#605e5c] border border-[#edebe9] cursor-pointer hover:bg-[#edebe9] hover:text-[#323130] transition-colors inline-flex items-center gap-1"><svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>${crmMap[pn]}</span>`);
           }
         } else if (existingBadge) {
           existingBadge.remove();

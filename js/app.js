@@ -666,7 +666,7 @@ window.Cotador.app = {
     const feedbackEl = document.getElementById('input-feedback');
     if (feedbackEl) {
       if (items.length > 0) {
-        feedbackEl.textContent = `${items.length} item(ns)`;
+        feedbackEl.textContent = items.length === 1 ? '1 Item' : `${items.length} Itens`;
         feedbackEl.classList.remove('hidden');
       } else {
         feedbackEl.classList.add('hidden');
