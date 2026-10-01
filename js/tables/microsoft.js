@@ -191,7 +191,8 @@ window.Cotador.tables.ms_scan = {
 
       data = data.filter(r => {
         const nome = r.offer_display_name || r.titulo_sku || '';
-        const preco = core.parsePrice(r.preco_unitario);
+        let preco = core.parsePrice(r.preco_unitario);
+        if (preco <= 0) preco = core.parsePrice(r.erp_price); // Fallback para tabelas cruzadas
         if (preco <= 0) return false;
         if (!core.isItemSegmentoValido(nome, r, flags.segmentos, preco)) return false;
         return passaFiltroSecundarioMicrosoft(nome, item.rawSearch, flags, flags.facetTracker);
