@@ -173,7 +173,6 @@ window.Cotador.tables.ms_scan = {
         }
         if (segOrFilter) params.push(['or', segOrFilter]);
       }
-
       let data = [];
       try {
         data = await core.fetchSupabase('microsoft_scan', params);
@@ -278,7 +277,8 @@ window.Cotador.tables.ms_solo = {
           const basePn = term.split('-')[0];
           params.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
         } else {
-            const andClauses = item.keywords.map(kw => `titulo_sku.ilike.*${kw}*`).join(',');
+            // ERRO FUTURO EVITADO: Buscar também na descrição do produto, pois o nome comercial (ex: "Business Standard") às vezes não consta no titulo_sku
+            const andClauses = item.keywords.map(kw => `or(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`).join(',');
             if (andClauses) params.push(['and', `(${andClauses})`]);
         }
         if (segOrFilter) params.push(['or', segOrFilter]);
@@ -290,7 +290,9 @@ window.Cotador.tables.ms_solo = {
       } catch (err) {
         if (err?.name === 'AbortError') throw err;
         const fallback = [['select', '*'], ['limit', '1500']];
-        item.keywords.forEach(kw => fallback.push(['titulo_sku', `ilike.*${kw}*`]));
+        // Aplica a mesma robustez no fallback
+        const andClausesFb = item.keywords.map(kw => `or(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`).join(',');
+        if (andClausesFb) fallback.push(['and', `(${andClausesFb})`]);
         data = await core.fetchSupabase('microsoft_solo', fallback);
       }
 
@@ -326,54 +328,76 @@ window.Cotador.tables.ms_solo = {
       let rowsHTML = '';
 
       for (const { item, data } of resultadosPorItem) {
-        const filtrados = data.filter(r => {
+        const filtradosRaw = data.filter(r => {
           const termoBD = (r.termo_duracao || '').trim().toUpperCase();
           const planoBD = (r.plano_pagamento || '').trim().toLowerCase();
           
-          // Tratamento para Anual/Mensal (am): Puxa da linha Annual
-          if (c.id === 'am') return termoBD === 'P1Y' && planoBD === 'annual';
-          // Tratamento para Trienal/Mensal (tm): Puxa da linha Triennial ou Annual
-          if (c.id === 'tm') return termoBD === 'P3Y' && (planoBD === 'triennial' || planoBD === 'annual');
+          // Tratamento para Anual/Mensal (am): Permite puxar da linha Annual ou diretamente da Monthly
+          if (c.id === 'am') return termoBD === 'P1Y' && (planoBD === 'annual' || planoBD === 'monthly');
+          // Tratamento para Trienal/Mensal (tm): Permite puxar da linha Triennial, Annual ou Monthly
+          if (c.id === 'tm') return termoBD === 'P3Y' && (planoBD === 'triennial' || planoBD === 'annual' || planoBD === 'monthly');
           
           return termoBD === c.soloTermo && planoBD === c.soloPlano.toLowerCase();
         });
-        filtrados.forEach(r => {
+
+        // ERRO FUTURO EVITADO: Remove duplicadas priorizando o plano mensal caso a tabela do Dynamics traga ambas as linhas para o mesmo produto
+        const unicos = new Map();
+        filtradosRaw.forEach(r => {
+            const key = r.id_produto || r.titulo_sku;
+            const isMonthly = String(r.plano_pagamento || '').trim().toLowerCase() === 'monthly';
+            if (!unicos.has(key) || isMonthly) {
+                unicos.set(key, r);
+            }
+        });
+
+        unicos.forEach(r => {
           matchedItemIndices.add(item.itemIndex);
           const skuId = String(r.sku_id || '').padStart(4, '0');
-          // Força a montagem do PN com o plano selecionado na tela (ex: P1Y-Monthly) ao invés do que vem no banco
+          // For a a montagem do PN com o plano selecionado na tela (ex: P1Y-Monthly) ao inv s do que vem no banco
           const basePn = `${r.id_produto}-${skuId}-${c.soloTermo}-${c.soloPlano}`;
           const mods = core.obterModificadoresPnSolo ? core.obterModificadoresPnSolo() : { prefix: '', suffix: '' };
           const pn = `${mods.prefix}${basePn}${mods.suffix}`;
-          const custoCom5Base = core.parsePrice(r.valor_5pct_servicos ?? r.valor_com_5_servicos ?? r['Valor com 5% serviços'] ?? r.fob_impostos);
+          const custoCom5Base = core.parsePrice(r.valor_5pct_servicos ?? r.valor_com_5_servicos ?? r['Valor com 5% servi os'] ?? r.fob_impostos);
           const rawFob = core.parsePrice(r.fob_impostos);
           const rawMensalAnual = core.parsePrice(r.termo_anual_pagamento_mensal);
-          const divisor = c.id === 'ta' ? 3 : (c.id === 'tm' ? 36 : 1);
-
+          const planoPagamento = String(r.plano_pagamento || '').trim().toLowerCase();
+          const divisor = c.id === 'ta' ? 3 : (c.id === 'tm' && planoPagamento !== 'monthly' ? 36 : 1);
+          
           let custoFinal;
+          let mensalSem5 = 0;
+          let anualSem5 = 0;
+
           if (c.id === 'am') {
-            const mensalSem5Calc = rawMensalAnual > 0 ? rawMensalAnual : (rawFob / 12);
-            const mensalCom5Calc = (custoCom5Base > rawFob * 0.5 && rawFob > 0) ? (custoCom5Base / 12) : custoCom5Base;
-            custoFinal = isSoloEnabled ? mensalCom5Calc : mensalSem5Calc;
+            if (planoPagamento === 'monthly') {
+                mensalSem5 = rawFob;
+                anualSem5 = rawFob * 12;
+                custoFinal = isSoloEnabled ? custoCom5Base : rawFob;
+            } else {
+                mensalSem5 = rawMensalAnual > 0 ? rawMensalAnual : (rawFob / 12);
+                anualSem5 = rawFob;
+                const mensalCom5Calc = (custoCom5Base > rawFob * 0.5 && rawFob > 0) ? (custoCom5Base / 12) : custoCom5Base;
+                custoFinal = isSoloEnabled ? mensalCom5Calc : mensalSem5Calc;
+            }
+          } else if (c.id === 'tm') {
+            if (planoPagamento === 'monthly') {
+                mensalSem5 = rawFob;
+                anualSem5 = rawFob * 12;
+                custoFinal = isSoloEnabled ? custoCom5Base : rawFob;
+            } else {
+                mensalSem5 = rawFob / 36;
+                anualSem5 = (rawFob / 36) * 12;
+                custoFinal = (isSoloEnabled ? custoCom5Base : rawFob) / 36;
+            }
           } else {
             const rawTarget = isSoloEnabled ? custoCom5Base : rawFob;
             custoFinal = rawTarget / divisor;
+            if (c.id === 'mm') {
+                mensalSem5 = rawFob;
+                anualSem5 = rawFob * 12;
+            } else {
+                anualSem5 = rawFob / divisor;
+            }
           }
-
-          let mensalSem5 = 0;
-          let anualSem5 = 0;
-          if (c.id === 'am') {
-            mensalSem5 = rawMensalAnual > 0 ? rawMensalAnual : (rawFob / 12);
-            anualSem5 = rawFob;
-          } else if (c.id === 'mm') {
-            mensalSem5 = rawFob;
-            anualSem5 = rawFob * 12;
-          } else if (c.id === 'tm') {
-            mensalSem5 = rawFob / 36;
-            anualSem5 = (rawFob / 36) * 12;
-          } else {
-            anualSem5 = rawFob / divisor;
-          }
-
           const fmtCusto = `R$ ${core.formatBRL(custoFinal)}`;
           const infoMensal = core.renderDetalhesSoloCSP(c.id, custoFinal, mensalSem5, anualSem5, 1, false);
           const segBadge = core.renderSegmentBadge(r.titulo_sku, r, flags.segmentos);
