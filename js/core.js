@@ -895,7 +895,15 @@ window.Cotador.core = {
             }
 
             this._adminLog(`[Destino] Tabela: [${targetTable}] | Encoding: ${encoding} | Separador: "${delimiter}"`);
-            const mappedRows = results.data.map(r => this._mapearLinhaCSVParaTabela(targetTable, r)).filter(Boolean);
+            let mappedRows = results.data.map(r => this._mapearLinhaCSVParaTabela(targetTable, r)).filter(Boolean);
+            
+            // Remove duplicatas em memória baseadas na Chave Primária (evita Erro Crítico de Unique Constraint)
+            const pkField = pkByTable[targetTable] || 'part_number';
+            const uniqueMap = new Map();
+            mappedRows.forEach(row => {
+              if (row[pkField]) uniqueMap.set(row[pkField], row);
+            });
+            mappedRows = Array.from(uniqueMap.values());
 
             if (mappedRows.length === 0) {
               this._adminLog(`[Erro] 0 linhas válidas mapeadas para [${targetTable}].`);
