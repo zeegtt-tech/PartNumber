@@ -191,8 +191,7 @@ window.Cotador.tables.ms_scan = {
 
       data = data.filter(r => {
         const nome = r.offer_display_name || r.titulo_sku || '';
-        let preco = core.parsePrice(r.preco_unitario);
-        if (preco <= 0) preco = core.parsePrice(r.erp_price); // Fallback para tabelas cruzadas
+        const preco = core.parsePrice(r.preco_unitario);
         if (preco <= 0) return false;
         if (!core.isItemSegmentoValido(nome, r, flags.segmentos, preco)) return false;
         return passaFiltroSecundarioMicrosoft(nome, item.rawSearch, flags, flags.facetTracker);
@@ -292,35 +291,31 @@ window.Cotador.tables.ms_solo = {
       }
 
       let data = [];
-          try {
-            data = await core.fetchSupabase('microsoft_solo', params);
-          } catch (err) {
-            if (err?.name === 'AbortError') throw err;
-            const fallback = [['select', '*'], ['limit', '1500']];
-            if (isPnQuery) {
-              const term = item.keywords[0];
-              const basePn = term.split('-')[0];
-              fallback.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
-            } else {
-              const andClausesFb = item.keywords.map(kw => `or(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`).join(',');
-              if (andClausesFb) fallback.push(['and', `(${andClausesFb})`]);
-            }
-            data = await core.fetchSupabase('microsoft_solo', fallback);
-          }
+      try {
+        data = await core.fetchSupabase('microsoft_solo', params);
+      } catch (err) {
+        if (err?.name === 'AbortError') throw err;
+        const fallback = [['select', '*'], ['limit', '1500']];
+        // Aplica a mesma robustez no fallback
+        const andClausesFb = item.keywords.map(kw => `or(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`).join(',');
+        if (andClausesFb) fallback.push(['and', `(${andClausesFb})`]);
+        data = await core.fetchSupabase('microsoft_solo', fallback);
+      }
 
       data = data.filter(r => {
-            const tags = String(r.tags || '').toLowerCase();
-            if (!flags.showTrial && tags.includes('trial')) {
-              return false; // Pula a renderização deste produto
-            }
-            const nome = r.offer_display_name || r.titulo_sku || '';
-            const custoCom5Base = core.parsePrice(r.valor_5pct_servicos || r.valor_com_5_servicos || r['Valor com 5% serviços'] || r.fob_impostos);
-            const rawFob = core.parsePrice(r.fob_impostos);
-            const preco = isSoloEnabled ? custoCom5Base : rawFob;
-            if (preco <= 0) return false;
-            if (!core.isItemSegmentoValido(nome, r, flags.segmentos, preco)) return false;
-            return passaFiltroSecundarioMicrosoft(nome, item.rawSearch, flags, flags.facetTracker);
-          });
+        const tags = String(r.tags || '').toLowerCase();
+        if (!flags.showTrial && tags.includes('trial')) {
+          return false; // Pula a renderização deste produto
+        }
+
+        const nome = r.offer_display_name || r.titulo_sku || '';
+        const custoCom5Base = core.parsePrice(r.valor_5pct_servicos ?? r.valor_com_5_servicos ?? r['Valor com 5% serviços'] ?? r.fob_impostos);
+        const rawFob = core.parsePrice(r.fob_impostos);
+        const preco = isSoloEnabled ? custoCom5Base : rawFob;
+        if (preco <= 0) return false;
+        if (!core.isItemSegmentoValido(nome, r, flags.segmentos, preco)) return false;
+        return passaFiltroSecundarioMicrosoft(nome, item.rawSearch, flags, flags.facetTracker);
+      });
 
       data.sort((a, b) => {
         const nomeA = a.offer_display_name || a.titulo_sku || '';
@@ -392,16 +387,16 @@ window.Cotador.tables.ms_solo = {
           let mensalSem5 = 0;
           let anualSem5 = 0;
           if (c.id === 'am') {
-              if (isMonthly) {
-                  mensalSem5 = rawFob;
-                  anualSem5 = rawFob * 12;
-                  custoFinal = isSoloEnabled ? custoCom5Base : rawFob;
-              } else {
-                  mensalSem5 = rawMensalAnual > 0 ? rawMensalAnual : (rawFob / 12);
-                  anualSem5 = rawFob;
-                  const mensalCom5Calc = (custoCom5Base > rawFob * 0.5 && rawFob > 0) ? (custoCom5Base / 12) : custoCom5Base;
-                  custoFinal = isSoloEnabled ? mensalCom5Calc : mensalSem5;
-              }
+            if (isMonthly) {
+                mensalSem5 = rawFob;
+                anualSem5 = rawFob * 12;
+                custoFinal = isSoloEnabled ? custoCom5Base : rawFob;
+            } else {
+                mensalSem5 = rawMensalAnual > 0 ? rawMensalAnual : (rawFob / 12);
+                anualSem5 = rawFob;
+                const mensalCom5Calc = (custoCom5Base > rawFob * 0.5 && rawFob > 0) ? (custoCom5Base / 12) : custoCom5Base;
+                custoFinal = isSoloEnabled ? mensalCom5Calc : mensalSem5Calc;
+            }
           } else if (c.id === 'tm') {
             if (isMonthly) {
                 mensalSem5 = rawFob;
