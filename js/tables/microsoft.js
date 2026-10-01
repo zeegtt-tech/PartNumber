@@ -17,24 +17,23 @@ const MS_SECONDARY_RULES = [
     checkboxId: 'chk-show-noteams',
     flagProp: 'showNoTeams',
     label: 'Sem Teams',
-    queryRegex: /\b(no\s*teams|sem\s*teams|without\s*teams|s\/\s*teams)\b/i,
-    testProduct: (nome) => {
-        return /\b(no|sem|without|w\/o)\s*teams\b/i.test(nome);
-    }
+    queryRegex: /\b(no\s+teams|sem\s+teams|without\s+teams)\b/i,
+    productRegex: /\b(no|sem|without)\s+teams\b/i
   },
   {
     key: 'copilot',
     checkboxId: 'chk-show-copilot',
     flagProp: 'showCopilot',
-    label: 'Bundles Copilot',
-    queryRegex: /\b(with\s+copilot|copilot)\b/i,
+    label: 'Bundles Copilot / Add-ons',
+    queryRegex: /\b(with\s+copilot|attach|add-on|addon|extra\s+file|storage)\b/i,
     testProduct: (nome) => {
-        const isCopilotBundle = /\b(?:with|w\/|and)\s+(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome);
-        const isNativeCopilot = !isCopilotBundle && (
-            /^(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome) ||
-            /\bcopilot\s+(?:studio|for\s+sales|for\s+service|for\s+security|business)\b/i.test(nome)
-        );
-        return isCopilotBundle;
+      const isBundle = /\b(?:with|w\/)\b/i.test(nome) || /\band\s+(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome);
+      const isGenericAddon = /\b(attach|add[\s\-]?on|extra\s+file\s+storage)\b/i.test(nome);
+      const isNativeCopilot = !isBundle && (
+        /^(?:microsoft\s+)?(?:365\s+)?copilot\b/i.test(nome) ||
+        /\bcopilot\s+(?:studio|for\s+sales|for\s+service|for\s+security|business)\b/i.test(nome)
+      );
+      return isBundle || (isGenericAddon && !isNativeCopilot) || (nome.includes('copilot') && !isNativeCopilot);
     }
   },
   {
@@ -98,12 +97,8 @@ const MS_SECONDARY_RULES = [
 function passaFiltroSecundarioMicrosoft(nomeProdutoRaw, itemSearchRaw, flags = {}, facetTracker = null) {
   const nome = String(nomeProdutoRaw || '').toLowerCase();
   const query = String(itemSearchRaw || '').toLowerCase();
-  const buscouSemTeams = /\b(no\s*teams|sem\s*teams|without\s*teams|s\/\s*teams)\b/i.test(query);
-  const isProdSemTeams = /\b(no|sem|without|w\/o)\s*teams\b/i.test(nome);
-  if (buscouSemTeams && !isProdSemTeams) {
-    return false;
-  }
   let permitido = true;
+
   for (const rule of MS_SECONDARY_RULES) {
     const buscouExplicito = rule.queryRegex.test(query);
     const isSecProduct = rule.testProduct ? rule.testProduct(nome) : rule.productRegex.test(nome);
@@ -126,12 +121,12 @@ function calcularScoreRelevanciaMS(nomeProdutoRaw, itemSearchRaw) {
   const nome = String(nomeProdutoRaw || '').toLowerCase().trim();
   const query = String(itemSearchRaw || '').toLowerCase().trim();
   let score = 100;
-  
+
   // Match exato ou muito próximo ganha prioridade máxima
   if (nome === query || nome === `microsoft 365 ${query}` || nome === `microsoft 365 business ${query}`) score -= 80;
-  
-  // Prioridade para famílias Core B2B SMB (removido o '$' do final para aceitar sufixos como 'No Teams')
-  if (/^microsoft 365 business (basic|standard|premium)/i.test(nome)) score -= 60;
+
+  // Prioridade para famílias Core B2B SMB
+  if (/^microsoft 365 business (basic|standard|premium)$/i.test(nome)) score -= 60;
   else if (/^microsoft 365 (e3|e5|apps for business|apps for enterprise)/i.test(nome)) score -= 50;
   else if (/^office 365 (e1|e3|e5)/i.test(nome)) score -= 45;
   else if (/^exchange online (plan 1|plan 2|archiving)/i.test(nome)) score -= 45;
@@ -139,10 +134,9 @@ function calcularScoreRelevanciaMS(nomeProdutoRaw, itemSearchRaw) {
   else if (/^power bi premium per user$/i.test(nome)) score -= 40;
   else if (/^(project|visio|intune|defender|entra)/i.test(nome)) score -= 35;
   else if (/^(windows server|sql server)/i.test(nome)) score -= 35;
-  
+
   // Penaliza nomes muito longos (geralmente add-ons específicos ou SKUs de nicho)
   score += Math.min(25, Math.floor(nome.length / 8));
-  
   return score;
 }
 
@@ -166,26 +160,27 @@ window.Cotador.tables.ms_scan = {
       const params = [['select', '*'], ['limit', '1000']];
       const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z\-]{5,22}$/i.test(item.keywords[0]) && /\d/.test(item.keywords[0]);
 
-      if (isPnQuery && segOrFilter) {
+      if (isPnQuery) {
         const term = item.keywords[0];
-        params.push(['and', `(or(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*),or${segOrFilter})`]);
+        params.push(['or', `(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*)`]);
       } else {
-        if (isPnQuery) {
-          const term = item.keywords[0];
-          params.push(['or', `(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*)`]);
-        } else {
-            const andClauses = item.keywords.map(kw => `offer_display_name.ilike.*${kw}*`).join(',');
-            if (andClauses) params.push(['and', `(${andClauses})`]);
-        }
-        if (segOrFilter) params.push(['or', segOrFilter]);
+        item.keywords.forEach(kw => params.push(['offer_display_name', `ilike.*${kw}*`]));
       }
+
+      if (segOrFilter) params.push(['or', segOrFilter]);
+
       let data = [];
       try {
         data = await core.fetchSupabase('microsoft_scan', params);
       } catch (err) {
         if (err?.name === 'AbortError') throw err;
         const fallback = [['select', '*'], ['limit', '1000']];
-        item.keywords.forEach(kw => fallback.push(['offer_display_name', `ilike.*${kw}*`]));
+        if (isPnQuery) {
+          const term = item.keywords[0];
+          fallback.push(['or', `(sku.ilike.*${term}*,offer_display_name.ilike.*${term}*)`]);
+        } else {
+          item.keywords.forEach(kw => fallback.push(['offer_display_name', `ilike.*${kw}*`]));
+        }
         data = await core.fetchSupabase('microsoft_scan', fallback);
       }
 
@@ -273,22 +268,15 @@ window.Cotador.tables.ms_solo = {
       const params = [['select', '*'], ['limit', '1500']];
       const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z\-]{5,35}$/i.test(item.keywords[0]) && /\d/.test(item.keywords[0]);
 
-      if (isPnQuery && segOrFilter) {
+      if (isPnQuery) {
         const term = item.keywords[0];
         const basePn = term.split('-')[0];
-        params.push(['and', `(or(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*),or${segOrFilter})`]);
+        params.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
       } else {
-        if (isPnQuery) {
-          const term = item.keywords[0];
-          const basePn = term.split('-')[0];
-          params.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
-        } else {
-            // ERRO FUTURO EVITADO: Buscar também na descrição do produto, pois o nome comercial (ex: "Business Standard") às vezes não consta no titulo_sku
-            const andClauses = item.keywords.map(kw => `or(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`).join(',');
-            if (andClauses) params.push(['and', `(${andClauses})`]);
-        }
-        if (segOrFilter) params.push(['or', segOrFilter]);
+        item.keywords.forEach(kw => params.push(['titulo_sku', `ilike.*${kw}*`]));
       }
+
+      if (segOrFilter) params.push(['or', segOrFilter]);
 
       let data = [];
       try {
@@ -296,18 +284,17 @@ window.Cotador.tables.ms_solo = {
       } catch (err) {
         if (err?.name === 'AbortError') throw err;
         const fallback = [['select', '*'], ['limit', '1500']];
-        // Aplica a mesma robustez no fallback
-        const andClausesFb = item.keywords.map(kw => `or(titulo_sku.ilike.*${kw}*,descricao_produto.ilike.*${kw}*)`).join(',');
-        if (andClausesFb) fallback.push(['and', `(${andClausesFb})`]);
+        if (isPnQuery) {
+          const term = item.keywords[0];
+          const basePn = term.split('-')[0];
+          fallback.push(['or', `(id_produto.ilike.*${basePn}*,titulo_sku.ilike.*${term}*)`]);
+        } else {
+          item.keywords.forEach(kw => fallback.push(['titulo_sku', `ilike.*${kw}*`]));
+        }
         data = await core.fetchSupabase('microsoft_solo', fallback);
       }
 
       data = data.filter(r => {
-        const tags = String(r.tags || '').toLowerCase();
-        if (!flags.showTrial && tags.includes('trial')) {
-          return false; // Pula a renderização deste produto
-        }
-
         const nome = r.offer_display_name || r.titulo_sku || '';
         const custoCom5Base = core.parsePrice(r.valor_5pct_servicos ?? r.valor_com_5_servicos ?? r['Valor com 5% serviços'] ?? r.fob_impostos);
         const rawFob = core.parsePrice(r.fob_impostos);
@@ -334,95 +321,52 @@ window.Cotador.tables.ms_solo = {
       let rowsHTML = '';
 
       for (const { item, data } of resultadosPorItem) {
-        const filtradosRaw = data.filter(r => {
-          const termoBD = (r.termo_duracao || '').trim().toUpperCase();
-          const planoBD = (r.plano_pagamento || '').trim().toLowerCase();
-          
-          const isP1Y = termoBD === 'P1Y' || termoBD === '1 YEAR' || termoBD === '1 ANO' || termoBD === 'ANUAL';
-          const isP3Y = termoBD === 'P3Y' || termoBD === '3 YEARS' || termoBD === '3 ANOS' || termoBD === 'TRIENAL';
-          const isP1M = termoBD === 'P1M' || termoBD === '1 MONTH' || termoBD === '1 MÊS' || termoBD === '1 MES' || termoBD === 'MENSAL';
+        const filtrados = data.filter(r =>
+          (r.termo_duracao || '').trim().toUpperCase() === c.soloTermo &&
+          (r.plano_pagamento || '').trim().toLowerCase() === c.soloPlano.toLowerCase()
+        );
 
-          const isAnnual = planoBD === 'annual' || planoBD === 'anual' || planoBD === 'yearly';
-          const isMonthly = planoBD === 'monthly' || planoBD === 'mensal';
-          const isTriennial = planoBD === 'triennial' || planoBD === 'trienal';
-
-          if (c.id === 'am') return isP1Y && (isAnnual || isMonthly);
-          if (c.id === 'tm') return isP3Y && (isTriennial || isAnnual || isMonthly);
-
-          const matchTermo = (c.soloTermo === 'P1Y' && isP1Y) || (c.soloTermo === 'P3Y' && isP3Y) || (c.soloTermo === 'P1M' && isP1M) || (termoBD === c.soloTermo);
-          const matchPlano = (c.soloPlano.toLowerCase() === 'annual' && isAnnual) || 
-                             (c.soloPlano.toLowerCase() === 'monthly' && isMonthly) || 
-                             (c.soloPlano.toLowerCase() === 'triennial' && isTriennial) || 
-                             (planoBD === c.soloPlano.toLowerCase());
-
-          return matchTermo && matchPlano;
-        });
-
-        // ERRO FUTURO EVITADO: Remove duplicadas priorizando o plano mensal caso a tabela do Dynamics traga ambas as linhas para o mesmo produto
-        const unicos = new Map();
-        filtradosRaw.forEach(r => {
-            const key = r.id_produto || r.titulo_sku;
-            const strPlano = String(r.plano_pagamento || '').trim().toLowerCase();
-            const isMonthly = strPlano === 'monthly' || strPlano === 'mensal';
-            if (!unicos.has(key) || isMonthly) {
-                unicos.set(key, r);
-            }
-        });
-
-        unicos.forEach(r => {
+        filtrados.forEach(r => {
           matchedItemIndices.add(item.itemIndex);
           const skuId = String(r.sku_id || '').padStart(4, '0');
-          // For a a montagem do PN com o plano selecionado na tela (ex: P1Y-Monthly) ao inv s do que vem no banco
-          const basePn = `${r.id_produto}-${skuId}-${c.soloTermo}-${c.soloPlano}`;
-          const mods = core.obterModificadoresPnSolo ? core.obterModificadoresPnSolo() : { prefix: '', suffix: '' };
-          const pn = `${mods.prefix}${basePn}${mods.suffix}`;
-          const custoCom5Base = core.parsePrice(r.valor_5pct_servicos ?? r.valor_com_5_servicos ?? r['Valor com 5% servi os'] ?? r.fob_impostos);
+          const pn = `${r.id_produto}-${skuId}-${r.termo_duracao}-${r.plano_pagamento}`;
+
+          const custoCom5Base = core.parsePrice(r.valor_5pct_servicos ?? r.valor_com_5_servicos ?? r['Valor com 5% serviços'] ?? r.fob_impostos);
           const rawFob = core.parsePrice(r.fob_impostos);
           const rawMensalAnual = core.parsePrice(r.termo_anual_pagamento_mensal);
-          const planoPagamento = String(r.plano_pagamento || '').trim().toLowerCase();
-          const isMonthly = planoPagamento === 'monthly' || planoPagamento === 'mensal';
-          const divisor = c.id === 'ta' ? 3 : (c.id === 'tm' && !isMonthly ? 36 : 1);
-          
+          const divisor = c.id === 'ta' ? 3 : (c.id === 'tm' ? 36 : 1);
+
           let custoFinal;
-          let mensalSem5 = 0;
-          let anualSem5 = 0;
           if (c.id === 'am') {
-            if (isMonthly) {
-                mensalSem5 = rawFob;
-                anualSem5 = rawFob * 12;
-                custoFinal = isSoloEnabled ? custoCom5Base : rawFob;
-            } else {
-                mensalSem5 = rawMensalAnual > 0 ? rawMensalAnual : (rawFob / 12);
-                anualSem5 = rawFob;
-                const mensalCom5Calc = (custoCom5Base > rawFob * 0.5 && rawFob > 0) ? (custoCom5Base / 12) : custoCom5Base;
-                custoFinal = isSoloEnabled ? mensalCom5Calc : mensalSem5Calc;
-            }
-          } else if (c.id === 'tm') {
-            if (isMonthly) {
-                mensalSem5 = rawFob;
-                anualSem5 = rawFob * 12;
-                custoFinal = isSoloEnabled ? custoCom5Base : rawFob;
-            } else {
-                mensalSem5 = rawFob / 36;
-                anualSem5 = (rawFob / 36) * 12;
-                custoFinal = (isSoloEnabled ? custoCom5Base : rawFob) / 36;
-            }
+            const mensalSem5Calc = rawMensalAnual > 0 ? rawMensalAnual : (rawFob / 12);
+            const mensalCom5Calc = (custoCom5Base > rawFob * 0.5 && rawFob > 0) ? (custoCom5Base / 12) : custoCom5Base;
+            custoFinal = isSoloEnabled ? mensalCom5Calc : mensalSem5Calc;
           } else {
             const rawTarget = isSoloEnabled ? custoCom5Base : rawFob;
             custoFinal = rawTarget / divisor;
-            if (c.id === 'mm') {
-                mensalSem5 = rawFob;
-                anualSem5 = rawFob * 12;
-            } else {
-                anualSem5 = rawFob / divisor;
-            }
           }
+
+          let mensalSem5 = 0;
+          let anualSem5 = 0;
+          if (c.id === 'am') {
+            mensalSem5 = rawMensalAnual > 0 ? rawMensalAnual : (rawFob / 12);
+            anualSem5 = rawFob;
+          } else if (c.id === 'mm') {
+            mensalSem5 = rawFob;
+            anualSem5 = rawFob * 12;
+          } else if (c.id === 'tm') {
+            mensalSem5 = rawFob / 36;
+            anualSem5 = (rawFob / 36) * 12;
+          } else {
+            anualSem5 = rawFob / divisor;
+          }
+
           const fmtCusto = `R$ ${core.formatBRL(custoFinal)}`;
           const infoMensal = core.renderDetalhesSoloCSP(c.id, custoFinal, mensalSem5, anualSem5, 1, false);
           const segBadge = core.renderSegmentBadge(r.titulo_sku, r, flags.segmentos);
           const prodKey = core.normalizarChaveProdutoMS(r.titulo_sku, item.itemIndex);
 
-          rowsHTML += `<tr data-row-kind="ms_solo" data-contract-id="${c.id}" data-fob-impostos="${rawFob}" data-custo-com-5="${custoCom5Base}" data-termo-anual-mensal="${rawMensalAnual}" data-divisor="${divisor}" data-mensal-sem5="${mensalSem5}" data-anual-sem5="${anualSem5}" data-unit-price="${custoFinal}" data-pn="${core.escapeHTML(pn)}" data-base-pn="${core.escapeHTML(basePn)}" data-prod-key="${core.escapeHTML(prodKey)}">
+          rowsHTML += `<tr data-row-kind="ms_solo" data-contract-id="${c.id}" data-fob-impostos="${rawFob}" data-custo-com-5="${custoCom5Base}" data-termo-anual-mensal="${rawMensalAnual}" data-divisor="${divisor}" data-mensal-sem5="${mensalSem5}" data-anual-sem5="${anualSem5}" data-unit-price="${custoFinal}" data-pn="${core.escapeHTML(pn)}" data-prod-key="${core.escapeHTML(prodKey)}">
             <td class="font-medium text-[#323130]">${core.renderCopyLink(r.titulo_sku, r.titulo_sku, 'Produto')}${segBadge}</td>
             <td>${core.renderQtyInput(item.qty)}</td>
             <td class="col-pn">${core.renderPnBadge(pn)}</td>
@@ -456,7 +400,7 @@ window.Cotador.tables.ms_perpetuo = {
 
     let rowsHTML = '';
     const matchedItemIndices = new Set();
-    const segOrFilter = core.construirFiltroPostgrestSegmento('segmento', flags.segmentos);
+    const segOrFilter = core.construirFiltroPostgrestSegmento('segment', flags.segmentos);
 
     const allowMensal = Boolean(flags.pmShowMensal);
     const allowAnual = Boolean(flags.pmShowAnual);
@@ -634,25 +578,25 @@ window.Cotador.tables.ms_mpsa = {
       const isPnQuery = item.keywords.length === 1 && /^[0-9A-Z\-]{5,22}$/i.test(item.keywords[0]) && /\d/.test(item.keywords[0]);
 
       const p1 = [['select', '*'], ['limit', '800']];
-      if (isPnQuery && segOrFilterMpsa) {
+      if (isPnQuery) {
         const term = item.keywords[0];
-        p1.push(['and', `(or(numero_item.ilike.*${term}*,nome_curto_peca.ilike.*${term}*),or${segOrFilterMpsa})`]);
+        p1.push(['or', `(numero_item.ilike.*${term}*,nome_curto_peca.ilike.*${term}*)`]);
       } else {
-        if (isPnQuery) {
-          const term = item.keywords[0];
-          p1.push(['or', `(numero_item.ilike.*${term}*,nome_curto_peca.ilike.*${term}*)`]);
-        } else {
-            item.keywords.forEach(kw => p1.push(['nome_curto_peca', `ilike.*${kw}*`]));
-        }
-        if (segOrFilterMpsa) p1.push(['or', segOrFilterMpsa]);
+        item.keywords.forEach(kw => p1.push(['nome_curto_peca', `ilike.*${kw}*`]));
       }
+      if (segOrFilterMpsa) p1.push(['or', segOrFilterMpsa]);
       p1.push(['order', 'categoria_precos.asc']);
 
       queries.push(
         core.fetchSupabase('microsoft_mpsa', p1).catch((err) => {
           if (err?.name === 'AbortError') throw err;
           const fallbackP1 = [['select', '*'], ['limit', '800']];
-          item.keywords.forEach(kw => fallbackP1.push(['nome_curto_peca', `ilike.*${kw}*`]));
+          if (isPnQuery) {
+            const term = item.keywords[0];
+            fallbackP1.push(['or', `(numero_item.ilike.*${term}*,nome_curto_peca.ilike.*${term}*)`]);
+          } else {
+            item.keywords.forEach(kw => fallbackP1.push(['nome_curto_peca', `ilike.*${kw}*`]));
+          }
           return core.fetchSupabase('microsoft_mpsa', fallbackP1);
         })
       );

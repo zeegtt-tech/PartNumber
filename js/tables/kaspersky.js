@@ -13,7 +13,7 @@ function extrairOrdemBandaKaspersky(bandaStr) {
 
 function obterBandaAutoPorQtdKaspersky(qty) {
   const n = parseInt(qty, 10);
-  if (isNaN(n) || n <= 0) return '5-9';
+  if (isNaN(n) || n <= 0) return 'all';
   if (n <= 9) return '5-9';
   if (n <= 14) return '10-14';
   if (n <= 19) return '15-19';
@@ -29,8 +29,8 @@ function obterBandaAutoPorQtdKaspersky(qty) {
 }
 
 function extrairOrdemTipoKaspersky(row) {
-  const nome = String(row.sale_item_name || '').toLowerCase();
-  const tipo = String(row.tipo || '').toLowerCase();
+  const nome = (row.sale_item_name || '').toLowerCase();
+  const tipo = (row.tipo || '').toLowerCase();
   if (nome.includes('base plus') || tipo.includes('base plus')) return 2;
   if (nome.includes('successive') || tipo.includes('successive')) return 3;
   if (nome.includes('public sector') || tipo.includes('public sector') || tipo.includes('gov')) return 4;
@@ -40,6 +40,7 @@ function extrairOrdemTipoKaspersky(row) {
 function extrairInfoProdutoKaspersky(saleItemName) {
   const raw = String(saleItemName || '').trim();
   const lower = raw.toLowerCase();
+
   if (lower.startsWith('kaspersky atc training')) {
     const parts = raw.split('.').map(p => p.trim()).filter(Boolean);
     const curso = parts[2] ? parts[2].replace(/\s*Brazilian Edition\b/i, '').trim() : '';
@@ -47,13 +48,13 @@ function extrairInfoProdutoKaspersky(saleItemName) {
     const slug = titulo.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'atc';
     return { id: slug, titulo, ordem: 90 };
   }
-  
+
   const base = raw.split('.')[0].trim();
   let tituloLimpo = base.replace(/\s*Brazilian Edition\b/i, '').trim();
   if (tituloLimpo.toLowerCase().includes('foundation') && !tituloLimpo.toLowerCase().includes('edr')) {
     tituloLimpo += ' (Sem EDR)';
   }
-  
+
   const tl = tituloLimpo.toLowerCase();
   let ordem = 50;
   if (tl.includes('next foundations')) ordem = 1;
@@ -64,15 +65,24 @@ function extrairInfoProdutoKaspersky(saleItemName) {
   else if (tl.includes('mxdr optimum')) ordem = 8;
   else if (tl.includes('xdr optimum')) ordem = 6;
   else if (tl.includes('xdr expert')) ordem = 7;
-  
+
   const slug = base.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'kasp-prod';
   return { id: slug, titulo: tituloLimpo, ordem };
 }
 
 function extrairPrecoNaoPrimeKaspersky(row, core) {
   if (!row) return 0;
-  const direct = row.preco_nao_prime ?? row.preco_n_prime ?? row.nao_prime ?? row.valor_nao_prime ?? row['Pre o nao Prime'] ?? row['Preco nao Prime'] ?? row['pre o nao prime'] ?? row['preco nao prime'];
+  const direct =
+    row.preco_nao_prime ??
+    row.preco_n_prime ??
+    row.nao_prime ??
+    row.valor_nao_prime ??
+    row['Preço nao Prime'] ??
+    row['Preco nao Prime'] ??
+    row['preço nao prime'] ??
+    row['preco nao prime'];
   if (direct !== undefined && direct !== null) return core.parsePrice(direct);
+
   for (const [k, v] of Object.entries(row)) {
     if (/prime/i.test(k) && v !== null && v !== undefined) {
       return core.parsePrice(v);
@@ -84,8 +94,14 @@ function extrairPrecoNaoPrimeKaspersky(row, core) {
 function normalizarChaveProdutoKaspersky(saleItemName, banda) {
   let s = String(saleItemName || '').toLowerCase().trim();
   const b = String(banda || '').toLowerCase().trim();
-  if (b && b !== '-') { s = s.split(b).join('__banda__'); }
-  s = s.replace(/\b\d+\s*-\s*\d+\b/g, '__banda__').replace(/\b\d+\s*(?:year|years|ano|anos|month|months|m s|meses)\b/gi, '__periodo__').replace(/\s+/g, ' ').trim();
+  if (b && b !== '-') {
+    s = s.split(b).join('__banda__');
+  }
+  s = s
+    .replace(/\b\d+\s*-\s*\d+\b/g, '__banda__')
+    .replace(/\b\d+\s*(?:year|years|ano|anos|month|months|mês|meses)\b/gi, '__periodo__')
+    .replace(/\s+/g, ' ')
+    .trim();
   return s;
 }
 
@@ -117,7 +133,7 @@ window.Cotador.tables.kaspersky = {
       let data = [];
       const hasFoundationKw = item.keywords.some(kw => kw.toLowerCase().includes('foundation'));
       const hasEdrKw = item.keywords.some(kw => kw.toLowerCase() === 'edr');
-      const isPnQuery = item.keywords.length === 1 && /^KL[0-9A-Z\-]{5,}$/i.test(item.keywords[0]);
+      const isPnQuery = item.keywords.length === 1 && /^KL[0-9A-Z]{5,}$/i.test(item.keywords[0]);
 
       if (isPnQuery) {
         const params = [['select', '*'], ['limit', '500'], ['part_number', `ilike.*${item.keywords[0]}*`]];
@@ -144,9 +160,9 @@ window.Cotador.tables.kaspersky = {
       }
 
       data = data.filter(r => {
-        const nome = String(r.sale_item_name || '').toLowerCase();
-        const tipo = String(r.tipo || '').toLowerCase().trim();
-        const family = String(r.family || '').toLowerCase().trim();
+        const nome = (r.sale_item_name || '').toLowerCase();
+        const tipo = (r.tipo || '').toLowerCase().trim();
+        const family = (r.family || '').toLowerCase().trim();
 
         const isBasePlus = nome.includes('base plus') || tipo.includes('base plus');
         const isSuccessive = nome.includes('successive') || tipo.includes('successive');
@@ -159,9 +175,8 @@ window.Cotador.tables.kaspersky = {
           /\btraining\b/i.test(tipo);
         const isCrossgrade = /\b(cross[\s\-]?grade|cross)\b/i.test(nome) || /\bcross\b/i.test(tipo);
         const isEduc = /\b(educational|education|academic|escola|edu)\b/i.test(nome) || /\b(educ|acad)\b/i.test(tipo);
-        const isXdr = /\bxdr\b/i.test(nome);
-        const isNoEdr = /\bfoundations?\b/i.test(nome) && !/\bedr\b/i.test(nome);
         const isServiceOrTraining = tipo === '-' || isTraining;
+
         if (flags.facetTracker) {
           if (isBasePlus) flags.facetTracker['chk-kasp-show-baseplus'] = (flags.facetTracker['chk-kasp-show-baseplus'] || 0) + 1;
           if (isSuccessive) flags.facetTracker['chk-kasp-show-successive'] = (flags.facetTracker['chk-kasp-show-successive'] || 0) + 1;
@@ -169,20 +184,17 @@ window.Cotador.tables.kaspersky = {
           if (isTraining) flags.facetTracker['chk-kasp-show-training'] = (flags.facetTracker['chk-kasp-show-training'] || 0) + 1;
           if (isCrossgrade) flags.facetTracker['chk-kasp-show-crossgrade'] = (flags.facetTracker['chk-kasp-show-crossgrade'] || 0) + 1;
           if (isEduc) flags.facetTracker['chk-kasp-show-educ'] = (flags.facetTracker['chk-kasp-show-educ'] || 0) + 1;
-          if (isXdr) flags.facetTracker['chk-kasp-show-xdr'] = (flags.facetTracker['chk-kasp-show-xdr'] || 0) + 1;
-          if (isNoEdr) flags.facetTracker['chk-kasp-show-noedr'] = (flags.facetTracker['chk-kasp-show-noedr'] || 0) + 1;
         }
+
         if (!flags.showBasePlus && isBasePlus) return false;
         if (!flags.showSuccessive && isSuccessive) return false;
         if (!flags.showPublic && isPublic) return false;
         if (!flags.showTraining && isTraining) return false;
         if (!flags.showCrossgrade && isCrossgrade) return false;
         if (!flags.showEduc && isEduc) return false;
-        if (!flags.showXdr && isXdr) return false;
-        if (!flags.showNoEdr && isNoEdr) return false;
 
-        if (flags.tipo && flags.tipo !== 'all' && !isServiceOrTraining) {
-          const targetTipo = String(flags.tipo).toLowerCase();
+        if (flags.tipo !== 'all' && !isServiceOrTraining) {
+          const targetTipo = flags.tipo.toLowerCase();
           if (targetTipo === 'base') {
             const matchBase = tipo === 'base' ||
               (flags.showBasePlus && isBasePlus && !tipo.includes('renew') && !tipo.includes('renov') && !nome.includes('renewal')) ||
@@ -203,9 +215,9 @@ window.Cotador.tables.kaspersky = {
       let effectiveBanda = flags.targetBanda;
 
       if (modoBanda === 'auto' || modoBanda === 'auto_sum') {
-        effectiveBanda = somaTotalQtd > 0 ? obterBandaAutoPorQtdKaspersky(somaTotalQtd) : '5-9';
+        effectiveBanda = somaTotalQtd > 0 ? obterBandaAutoPorQtdKaspersky(somaTotalQtd) : 'all';
       } else if (modoBanda === 'auto_item') {
-        effectiveBanda = semQuantidade ? '5-9' : obterBandaAutoPorQtdKaspersky(item.qty);
+        effectiveBanda = semQuantidade ? 'all' : obterBandaAutoPorQtdKaspersky(item.qty);
       }
 
       if (effectiveBanda && effectiveBanda !== 'all') {
