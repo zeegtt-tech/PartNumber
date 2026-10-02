@@ -1,6 +1,12 @@
 // ============================================================================
 // NÚCLEO CENTRAL BLINDADO (CORE) - COTADOR v5.9 ENTERPRISE
 // ============================================================================
+const _origWarn = console.warn;
+console.warn = function(...args) {
+  if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com should not be used in production')) return;
+  _origWarn.apply(console, args);
+};
+
 window.Cotador = { core: {}, tables: {}, app: {} };
 
 window.Cotador.core = {
@@ -8,6 +14,43 @@ window.Cotador.core = {
   SUPABASE_URL: "https://rftvbxlbltmiwamjhgzl.supabase.co/rest/v1",
   SUPABASE_KEY: "sb_publishable_fN_BXmhXXod2gpeyJ8u38Q_rvgDPl7N",
   ADMIN_MASTER_EMAIL: "jose.garrett@solonetwork.com.br",
+
+
+  // MOTOR DE CLASSIFICAÇÃO E NORMALIZAÇÃO
+  classificarProdutoMicrosoft(nomeRaw) {
+    const nomeLimpo = String(nomeRaw || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    let produto_base = 'desconhecido';
+    let familia_produto = 'outros';
+    let tipo_produto = 'principal';
+
+    // 1. Identificar Produto Base via Aliases
+    for (const [base, aliases] of Object.entries(this.MS_ALIASES)) {
+      if (aliases.some(alias => nomeLimpo.includes(alias))) {
+        produto_base = base;
+        break;
+      }
+    }
+
+    // 2. Identificar Família
+    if (produto_base.includes('business')) familia_produto = 'business';
+    else if (['e1', 'e3', 'e5', 'f1', 'f3', 'apps-for-enterprise'].includes(produto_base)) familia_produto = 'enterprise';
+    else if (produto_base.includes('exchange')) familia_produto = 'exchange';
+    else if (produto_base.includes('power-bi')) familia_produto = 'powerbi';
+    else if (produto_base.includes('copilot')) familia_produto = 'copilot';
+    else if (produto_base.includes('defender')) familia_produto = 'security';
+    else if (produto_base.includes('teams')) familia_produto = 'teams';
+    else if (produto_base.includes('windows-server') || produto_base.includes('sql-server')) familia_produto = 'infrastructure';
+    else if (produto_base.includes('visual-studio')) familia_produto = 'developer';
+
+    // 3. Identificar Tipo de Produto (Filtros Secundários)
+    if (/\b(no teams|sem teams|without teams|w\/o teams)\b/.test(nomeLimpo)) tipo_produto = 'sem_teams';
+    else if (/\b(with copilot|\+ copilot)\b/.test(nomeLimpo)) tipo_produto = 'copilot_bundle';
+    else if (/\b(add-on|addon|attach)\b/.test(nomeLimpo)) tipo_produto = 'addon';
+    else if (/\b(trial|promo|gratuito|free)\b/.test(nomeLimpo)) tipo_produto = 'trial';
+    else if (/\b(faculty|student|academic)\b/.test(nomeLimpo)) tipo_produto = 'education';
+
+    return { produto_base, familia_produto, tipo_produto };
+  },
 
   _dragInitialized: false,
   _draggedRow: null,
@@ -19,8 +62,38 @@ window.Cotador.core = {
   markupPercent: 0,
   markupEnabled: false,
   calcMode: 'margin',
-  setCalcMode() {},
-  toggleCalcMode() {},
+  
+  setCalcMode(mode) {
+    const novoModo = mode === 'markup' ? 'markup' : 'margin';
+    this.calcMode = novoModo;
+    document.body.setAttribute('data-calc-mode', novoModo);
+    
+    document.getElementById('btn-mode-margin')?.classList.toggle('active', novoModo === 'margin');
+    document.getElementById('btn-mode-markup')?.classList.toggle('active', novoModo === 'markup');
+    
+    const formulaBadge = document.getElementById('calc-mode-formula-hint');
+    if (formulaBadge) {
+      formulaBadge.textContent = novoModo === 'margin' ? 'Custo ÷ (1 - %)' : 'Custo × (1 + %)';
+      formulaBadge.className = novoModo === 'margin'
+        ? 'calc-formula-pill is-margin hidden sm:inline-block'
+        : 'calc-formula-pill is-markup hidden sm:inline-block';
+    }
+    
+    if (novoModo === 'margin' && this.markupPercent >= 100) {
+      this.markupPercent = 99.9;
+      const input = document.getElementById('input-markup-pct');
+      if (input) input.value = '99.9';
+      this.mostrarToast('Na Margem Real (por dentro), o limite máximo é 99,9%.');
+    }
+    
+    this.atualizarTitulosColunasModoCliente();
+    this.recalcularSubtotais();
+    if (window.Cotador.app?.salvarPreferencias) window.Cotador.app.salvarPreferencias();
+  },
+  
+  toggleCalcMode() {
+    this.setCalcMode(this.calcMode === 'margin' ? 'markup' : 'margin');
+  },
 
   currentUser: null,
   currentProfile: null,
@@ -76,7 +149,7 @@ window.Cotador.core = {
     try {
       if (!window.CotadorAuth) return;
       if (!window.CotadorAuth.supabase && typeof window.CotadorAuth.init === 'function') {
-        window.CotadorAuth.init();
+        await window.CotadorAuth.init();
       }
       if (!window.CotadorAuth.supabase) return;
 
@@ -295,15 +368,18 @@ window.Cotador.core = {
           <div>
             <label class="section-label">Tabela de Destino</label>
             <select id="admin-upload-table" class="select-input text-xs">
-              <option value="auto">Detectar Tabela Automaticamente (Multi-CSVs suportado)</option>
-              <option value="microsoft_scan">Microsoft CSP - Scan (microsoft_scan)</option>
-              <option value="microsoft_solo">Microsoft CSP - Solo (microsoft_solo)</option>
-              <option value="microsoft_perpetuo">Microsoft CSP Perpétuo - Solo (microsoft_perpetuo)</option>
-              <option value="microsoft_mpsa">Microsoft MPSA - Solo (microsoft_mpsa)</option>
-              <option value="adobe_base">Adobe Base (adobe_base)</option>
-              <option value="adobe_promo">Adobe Promo (adobe_promo)</option>
-              <option value="kaspersky">Kaspersky Completo (kaspersky)</option>
-            </select>
+                <option value="auto">Detectar Tabela Automaticamente (Multi-CSVs suportado)</option>
+                <option value="crm_mapping">Dicionário CRM Dynamics (crm_mapping)</option>
+                <option value="microsoft_scan">Microsoft CSP - Scan (microsoft_scan)</option>
+                <option value="microsoft_solo">Microsoft CSP - Solo (microsoft_solo)</option>
+                <option value="microsoft_perpetuo">Microsoft CSP Perpétuo - Solo (microsoft_perpetuo)</option>
+                <option value="microsoft_mpsa">Microsoft MPSA - Solo (microsoft_mpsa)</option>
+                <option value="adobe_base">Adobe VIP - Comercial (adobe_base)</option>
+                <option value="adobe_edu">Adobe VIP - Education (adobe_edu)</option>
+                <option value="adobe_gov">Adobe VIP - Government (adobe_gov)</option>
+                <option value="adobe_promo">Adobe VIP - Promoção (adobe_promo)</option>
+                <option value="kaspersky">Kaspersky Completo (kaspersky)</option>
+              </select>
           </div>
           <div>
             <label class="section-label">Arquivo(s) CSV Original(is)</label>
@@ -684,6 +760,7 @@ window.Cotador.core = {
   _detectarTabelaPorColunasCSV(headers, fileName) {
     const cols = headers.map(h => this._normalizarChaveCSV(h));
     const fn = this._normalizarChaveCSV(fileName);
+    if (cols.includes('id do produto (product id)') || cols.includes('id do produto')) return 'crm_mapping';
     if (cols.includes('numero do item') || cols.includes('nome curto da peca')) return 'microsoft_mpsa';
     if (cols.includes('saleitemname') || cols.includes('preco nao prime')) return 'kaspersky';
     if (cols.includes('offer display name') || cols.includes('ciclo de pagamento')) return 'microsoft_scan';
@@ -703,8 +780,8 @@ window.Cotador.core = {
     const normMap = {};
     for (const key in row) {
       if (!key) continue;
-      const cleanKey = key.replace(/^\uFEFF/, '').trim();
-      const val = (row[key] !== null && row[key] !== undefined) ? String(row[key]).trim() : '';
+      const cleanKey = key.replace(/\uFEFF/g, '').trim();
+      const val = (row[key] !== null && row[key] !== undefined) ? String(row[key]).replace(/\uFEFF/g, '').trim() : '';
       exactMap[cleanKey] = val;
       normMap[this._normalizarChaveCSV(cleanKey)] = val;
     }
@@ -724,8 +801,13 @@ window.Cotador.core = {
       const s = String(val).trim();
       return /^\d{1,3}$/.test(s) ? s.padStart(4, '0') : s;
     };
-
-    if (table === 'adobe_base' || table === 'adobe_promo') {
+    if (table === 'crm_mapping') {
+      const pnCrm = String(get('Part Number') || '').replace(/[\uFEFF\u200B]/g, '').trim();
+      if (!pnCrm) return null;
+      const idProdIt = String(get('ID do produto (product ID)', 'ID do produto') || '').replace(/[\uFEFF\u200B]/g, '').trim();
+      return { pn_crm: pnCrm, id_produto_it: idProdIt, nome_crm: get('Nome do item', 'Nome') };
+    }
+    if (table === 'adobe_base' || table === 'adobe_promo' || table === 'adobe_edu' || table === 'adobe_gov') {
       const partNumber = get('Part Number');
       if (!partNumber) return null;
       return {
@@ -751,16 +833,23 @@ window.Cotador.core = {
     if (table === 'microsoft_scan') {
       const sku = get('Sku', 'SKU');
       if (!sku) return null;
+      const offerDisplayName = get('Offer Display Name');
+      const classif = window.Cotador.filters.microsoft.classificarProduto(offerDisplayName);
       return {
-        sku: sku, offer_display_name: get('Offer Display Name'), preco_unitario: get('Preço Unitário', 'Preco Unitario'),
+        sku: sku, offer_display_name: offerDisplayName,
+        produto_base: classif.produto_base, familia_produto: classif.familia_produto, tipo_produto: classif.tipo_produto,
+        preco_unitario: get('Preço Unitário', 'Preco Unitario'),
         tempo_contrato: get('Tempo de contrato'), segmento: get('Segmento'), categoria: get('Categoria'), ciclo_pagamento: get('Ciclo de pagamento')
       };
     }
     if (table === 'microsoft_solo') {
       const idProduto = get('IDProduto', 'ID Produto');
       if (!idProduto) return null;
+      const tituloSku = get('Titulo SKU', 'Título SKU');
+      const classif = window.Cotador.filters.microsoft.classificarProduto(tituloSku);
       return {
-        id_produto: idProduto, sku_id: formatSkuId(get('SkuId', 'SKU ID')), titulo_sku: get('Titulo SKU', 'Título SKU'),
+        id_produto: idProduto, sku_id: formatSkuId(get('SkuId', 'SKU ID')), titulo_sku: tituloSku,
+        produto_base: classif.produto_base, familia_produto: classif.familia_produto, tipo_produto: classif.tipo_produto,
         termo_duracao: get('Termo de Duração', 'Termo de Duracao'), plano_pagamento: get('Plano de Pagamento'), moeda: get('Moeda'),
         fob_impostos: get('FOB + Impostos'), termo_anual_pagamento_mensal: get('Termo anual com pagamento mensal'),
         valor_5pct_servicos: get('Valor com 5% serviços', 'Valor com 5% servicos'), erp_price: get('ERP Price'), segmento: get('Segmento'),
@@ -770,8 +859,11 @@ window.Cotador.core = {
     if (table === 'microsoft_perpetuo') {
       const productId = get('ProductId', 'Product ID');
       if (!productId) return null;
+      const nomeProduto = get('Nome do Produto');
+      const classif = this.classificarProdutoMicrosoft(nomeProduto);
       return {
-        product_id: productId, sku_id: formatSkuId(get('SkuId', 'SKU ID')), nome_produto: get('Nome do Produto'),
+        product_id: productId, sku_id: formatSkuId(get('SkuId', 'SKU ID')), nome_produto: nomeProduto,
+        produto_base: classif.produto_base, familia_produto: classif.familia_produto, tipo_produto: classif.tipo_produto,
         termo_duracao: get('Termo de Duração', 'Termo de Duracao'), plano_pagamento: get('Plano de Pagamento'),
         moeda: get('Moeda'), fob_impostos: get('FOB + Impostos'), erp: get('ERP'), tags: get('Tags'), segment: get('Segment', 'Segmento'), categoria: get('Categoria')
       };
@@ -779,8 +871,12 @@ window.Cotador.core = {
     if (table === 'microsoft_mpsa') {
       const numeroItem = get('NÚMERO DO ITEM', 'NUMERO DO ITEM');
       if (!numeroItem) return null;
+      const nomeCurto = get('NOME CURTO DA PEÇA', 'NOME CURTO DA PECA');
+      const classif = this.classificarProdutoMicrosoft(nomeCurto);
       return {
-        numero_item: numeroItem, nome_curto_peca: get('NOME CURTO DA PEÇA', 'NOME CURTO DA PECA'), grupo_itens: get('GRUPO DE ITENS'),
+        numero_item: numeroItem, nome_curto_peca: nomeCurto,
+        produto_base: classif.produto_base, familia_produto: classif.familia_produto, tipo_produto: classif.tipo_produto,
+        grupo_itens: get('GRUPO DE ITENS'),
         edicao_item: get('EDIÇÃO DE ITEM', 'EDICAO DE ITEM'), uso_recurso: get('USO DO RECURSO'), tipo_item: get('TIPO DE ITEM'),
         tipo_conta_compras: get('TIPO DE CONTA DE COMPRAS'), categoria_precos: get('CATEGORIA DE PREÇOS', 'CATEGORIA DE PRECOS'),
         unidade_compra: get('UNIDADE DE COMPRA'), duracao_compra: get('DURAÇÃO DE COMPRA', 'DURACAO DE COMPRA'),
@@ -817,7 +913,8 @@ window.Cotador.core = {
 
     const sb = window.CotadorAuth.supabase;
     const pkByTable = {
-      adobe_base: 'part_number', adobe_promo: 'part_number', kaspersky: 'part_number',
+      adobe_base: 'part_number', adobe_promo: 'part_number', adobe_edu: 'part_number', adobe_gov: 'part_number',
+      kaspersky: 'part_number', crm_mapping: 'pn_crm',
       microsoft_scan: 'sku', microsoft_solo: 'id_produto', microsoft_perpetuo: 'product_id', microsoft_mpsa: 'numero_item'
     };
 
@@ -856,7 +953,15 @@ window.Cotador.core = {
             }
 
             this._adminLog(`[Destino] Tabela: [${targetTable}] | Encoding: ${encoding} | Separador: "${delimiter}"`);
-            const mappedRows = results.data.map(r => this._mapearLinhaCSVParaTabela(targetTable, r)).filter(Boolean);
+            let mappedRows = results.data.map(r => this._mapearLinhaCSVParaTabela(targetTable, r)).filter(Boolean);
+            
+            // Remove duplicatas em memória baseadas na Chave Primária (evita Erro Crítico de Unique Constraint)
+            const pkField = pkByTable[targetTable] || 'part_number';
+            const uniqueMap = new Map();
+            mappedRows.forEach(row => {
+              if (row[pkField]) uniqueMap.set(row[pkField], row);
+            });
+            mappedRows = Array.from(uniqueMap.values());
 
             if (mappedRows.length === 0) {
               this._adminLog(`[Erro] 0 linhas válidas mapeadas para [${targetTable}].`);
@@ -1035,6 +1140,70 @@ window.Cotador.core = {
     this.recalcularSubtotais();
   },
 
+  obterModificadoresPnSolo() {
+    const prefix = document.getElementById('ms-solo-prefix')?.value || '';
+    const suffix = document.getElementById('ms-solo-suffix')?.value || '';
+    return { prefix, suffix };
+  },
+  async enriquecerCRMBadges() {
+    try {
+      const pnElements = document.querySelectorAll('td.col-pn [data-pn-val]');
+      const pns = Array.from(new Set(Array.from(pnElements).map(el => el.getAttribute('data-pn-val'))));
+      if (pns.length === 0) return;
+      const crmMap = {};
+      const chunkSize = 50;
+      for (let i = 0; i < pns.length; i += chunkSize) {
+        const chunk = pns.slice(i, i + chunkSize);
+        const pnsFilter = chunk.map(p => `"${p}"`).join(',');
+        const params = [['select', 'pn_crm,id_produto_it'], ['pn_crm', `in.(${pnsFilter})`]];
+        const data = await window.Cotador.core.fetchSupabase('crm_mapping', params);
+        if (data && data.length > 0) {
+          data.forEach(r => crmMap[r.pn_crm] = r.id_produto_it);
+        }
+      }
+      pnElements.forEach(el => {
+        const pn = el.getAttribute('data-pn-val');
+        const existingBadge = el.parentElement.querySelector('.crm-badge');
+        if (crmMap[pn]) {
+          if (existingBadge) {
+            existingBadge.setAttribute('data-copy', crmMap[pn]);
+            existingBadge.innerHTML = crmMap[pn];
+          } else {
+            el.insertAdjacentHTML('afterend', `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${crmMap[pn]}" data-label="ID Dynamics" title="Copiar ID do Dynamics para inserir no CRM" class="copy-link crm-badge ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#f3f2f1] text-[#605e5c] border border-[#edebe9] cursor-pointer hover:bg-[#edebe9] hover:text-[#323130] transition-colors inline-flex items-center gap-1"><svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>${crmMap[pn]}</span>`);
+          }
+        } else if (existingBadge) {
+          existingBadge.remove();
+        }
+      });
+    } catch(e) {}
+  },
+  atualizarModificadoresPnSoloEmTempoReal() {
+    const mods = this.obterModificadoresPnSolo();
+    document.querySelectorAll('tbody tr[data-row-kind="ms_solo"]').forEach(tr => {
+      const basePn = tr.getAttribute('data-base-pn') || tr.getAttribute('data-pn') || '';
+      if (!basePn) return;
+      if (!tr.hasAttribute('data-base-pn')) tr.setAttribute('data-base-pn', basePn);
+      
+      const novoPn = `${mods.prefix}${basePn}${mods.suffix}`;
+      tr.setAttribute('data-pn', novoPn);
+      
+      const pnBadge = tr.querySelector('td.col-pn [data-pn-val]');
+      if (pnBadge) {
+        pnBadge.setAttribute('data-pn-val', novoPn);
+        pnBadge.setAttribute('data-copy', novoPn);
+        pnBadge.textContent = novoPn;
+      }
+    });
+    clearTimeout(this._crmTimer);
+    this._crmTimer = setTimeout(() => this.enriquecerCRMBadges(), 800);
+  },
+  copiarPropostaBlocoCliente(event, blockId) {
+    if (event) event.stopPropagation();
+    const block = document.getElementById(blockId);
+    if (!block) return;
+    const { tsv, html } = this.gerarExtracaoBloco(block);
+    this.copiarRichTextOuTexto(tsv, html, 'Lista completa copiada para o cliente!');
+  },
   iniciarNovaSessaoBusca() {
     if (this._searchAbortController) this._searchAbortController.abort();
     this._searchAbortController = new AbortController();
@@ -1072,11 +1241,14 @@ window.Cotador.core = {
   _popoverListenerInitialized: false,
 
   CATALOGO_TABELAS: [
+    { id: 'crm_mapping', fab: 'crm', nome: 'Dicionário CRM Dynamics' },
     { id: 'microsoft_scan', fab: 'microsoft', nome: 'Microsoft CSP - Scan' },
     { id: 'microsoft_solo', fab: 'microsoft', nome: 'Microsoft CSP - Solo' },
     { id: 'microsoft_perpetuo', fab: 'microsoft', nome: 'Microsoft CSP Perpétuo' },
     { id: 'microsoft_mpsa', fab: 'microsoft', nome: 'Microsoft MPSA' },
-    { id: 'adobe_base', fab: 'adobe', nome: 'Adobe VIP - Base' },
+    { id: 'adobe_base', fab: 'adobe', nome: 'Adobe VIP - Comercial' },
+    { id: 'adobe_edu', fab: 'adobe', nome: 'Adobe VIP - Education' },
+    { id: 'adobe_gov', fab: 'adobe', nome: 'Adobe VIP - Government' },
     { id: 'adobe_promo', fab: 'adobe', nome: 'Adobe VIP - Promo' },
     { id: 'kaspersky', fab: 'kaspersky', nome: 'Kaspersky B2B' }
   ],
@@ -1097,25 +1269,6 @@ window.Cotador.core = {
         });
       }
     } catch (_) {}
-
-    const pendentes = this.CATALOGO_TABELAS.filter(t => !this.ultimasAtualizacoes[t.id]);
-    if (pendentes.length > 0) {
-      await Promise.allSettled(pendentes.map(async t => {
-        try {
-          const res = await this.fetchSupabase(t.id, [['select', 'updated_at'], ['order', 'updated_at.desc'], ['limit', '1']], { useAbort: false });
-          if (res && res[0] && res[0].updated_at) {
-            this.ultimasAtualizacoes[t.id] = { iso: res[0].updated_at, fabricante: t.fab, nome: t.nome };
-            return;
-          }
-        } catch (_) {}
-        try {
-          const resCreated = await this.fetchSupabase(t.id, [['select', 'created_at'], ['order', 'created_at.desc'], ['limit', '1']], { useAbort: false });
-          if (resCreated && resCreated[0] && resCreated[0].created_at) {
-            this.ultimasAtualizacoes[t.id] = { iso: resCreated[0].created_at, fabricante: t.fab, nome: t.nome };
-          }
-        } catch (_) {}
-      }));
-    }
 
     this.atualizarBadgeDataFabricante(window.Cotador.app?.currentVendor || 'microsoft');
   },
@@ -1207,6 +1360,9 @@ window.Cotador.core = {
   // 6. MOTOR DE BUSCA INTELIGENTE, CORREÇÃO FUZZY E PARSER DE INPUT
   // ==========================================================================
   SEARCH_KEYWORDS: {
+    "office 365 extra file storage": ["Extra File Storage"],
+    "extra file storage": ["Extra File Storage"],
+    "power apps premium": ["Power Apps", "Premium"],
     "adobe acrobat pro": ["Acrobat", "Pro"],
     "adobe acrobat standard": ["Acrobat", "Standard"],
     "adobe creative cloud": ["Creative Cloud"],
@@ -1247,6 +1403,10 @@ window.Cotador.core = {
     "incopy": ["InCopy"],
     "captivate": ["Captivate"],
     "firefly": ["Firefly"],
+    "basic": ["Business", "Basic"],
+    "standard": ["Business", "Standard"],
+    "std": ["Business", "Standard"],
+    "premium": ["Business", "Premium"],
     "business basic": ["Business Basic"],
     "m365 business basic": ["Business Basic"],
     "o365 business basic": ["Business Basic"],
@@ -1332,6 +1492,9 @@ window.Cotador.core = {
     "defender for office 365 plan 2": ["Defender", "Office 365", "Plan 2"],
     "entra id p1": ["Entra ID", "P1"],
     "azure ad p1": ["Entra ID", "P1"],
+    "windows server": ["Windows", "Server"],
+    "win server": ["Windows", "Server"],
+    "sql server": ["SQL", "Server"],
     "entra id p2": ["Entra ID", "P2"],
     "azure ad p2": ["Entra ID", "P2"],
     "intune plan 1": ["Intune", "Plan 1"],
@@ -1384,7 +1547,7 @@ window.Cotador.core = {
     "Exchange", "SharePoint", "Project", "Defender", "Copilot", "Photoshop",
     "Illustrator", "InDesign", "Acrobat", "Creative", "Premiere", "Lightroom",
     "Substance", "Kaspersky", "Foundations", "Optimum", "Advanced", "Endpoint",
-    "Security", "Datacenter"
+    "Security", "Datacenter", "Server", "SQL", "Windows", "Visual", "Studio"
   ],
 
   STOPWORDS_PT: new Set([
@@ -1440,8 +1603,15 @@ window.Cotador.core = {
     return String(termo || '').replace(/[,()*%\[\]]/g, ' ').replace(/(?:^|\s)[- /\\]+(?=\s|$)/g, ' ').replace(/\s+/g, ' ').trim();
   },
 
+  sanitizarTituloMicrosoft(rawTitle) {
+    return String(rawTitle || '').trim();
+  },
+
   construirFiltroAndKeywords(columnName, keywords) {
-    return keywords.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean).map(kw => [columnName, `ilike.*${kw}*`]);
+    const cleanKws = (keywords || []).map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
+    // Trava de segurança: se a pesquisa gerar 0 palavras válidas, impede de travar o sistema carregando a tabela inteira
+    if (cleanKws.length === 0) return [[columnName, 'eq.______INVALID______']];
+    return cleanKws.map(kw => [columnName, `ilike.*${kw}*`]);
   },
 
   isPartNumber(str) {
@@ -1458,10 +1628,13 @@ window.Cotador.core = {
   },
 
   normalizarChaveProdutoMS(rawName, itemIndex) {
-    const clean = String(rawName || '').toLowerCase().replace(/\(.*?\)/g, ' ')
-      .replace(/\b(commercial|education|academic|faculty|student|charity|non-profit|nonprofit|government|gov)\b/gi, ' ')
-      .replace(/\s+/g, ' ').trim();
+    const clean = String(rawName || '').toLowerCase().trim();
     return `ms-item-${itemIndex ?? 0}::${clean}`;
+  },
+
+  limparRuidoComercialLinha(str) {
+    if (!str) return '';
+    return String(str).trim();
   },
 
   extrairKeywords(prodName) {
@@ -1472,21 +1645,36 @@ window.Cotador.core = {
       if (nceMatch) return [this.sanitizarTermoPostgrest(nceMatch[1])];
       return [this.sanitizarTermoPostgrest(rawTrimmed)];
     }
-    const deaccented = rawTrimmed.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const lower = this.sanitizarTermoPostgrest(deaccented).toLowerCase();
-    if (this.SEARCH_KEYWORDS[lower]) return this.SEARCH_KEYWORDS[lower].map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
+    const cleanedProd = this.limparRuidoComercialLinha(rawTrimmed);
+    const hasNoTeamsIntent = /(no\s+teams|without\s+teams|sem\s+teams)/i.test(rawTrimmed.replace(/[()]/g, ' '));
+    const deaccented = cleanedProd.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    let normalized = this.sanitizarTermoPostgrest(deaccented).trim();
 
-    let normalized = this.sanitizarTermoPostgrest(deaccented)
-      .replace(/\b(exchenge|exchage|excange|exhange|exchagne)\b/gi, 'Exchange')
-      .replace(/\bexchange\s+(?:online\s+)?(?:plan(?:o)?|p)\s*(\d+)\b/gi, 'Exchange Online __PLAN_$1__')
-      .replace(/\b(project|visio|planner|intune)\s+(?:plan(?:o)?|p)\s*(\d+)\b/gi, '$1 __PLAN_$2__')
-      .replace(/\bplan(?:o)?\s*(\d+)\b/gi, '__PLAN_$1__');
+    const lowerNorm = normalized.toLowerCase();
 
-    const lowerNorm = normalized.toLowerCase().trim();
-    for (const [key, kwList] of Object.entries(this.SEARCH_KEYWORDS)) {
-      if (lowerNorm === key) return kwList.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
+    // 1. Tenta correspondência EXATA primeiro (ex: "standard" digitado sozinho)
+    if (this.SEARCH_KEYWORDS[lowerNorm]) {
+      const kws = [...this.SEARCH_KEYWORDS[lowerNorm]];
+      if (hasNoTeamsIntent && !kws.includes('Teams')) kws.push('Teams');
+      return kws.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
     }
 
+    // 2. Tenta encontrar frases COMPOSTAS (multi-word) para extrair o produto central
+    // Ex: "comprar business standard anual" -> encontra apenas "business standard"
+    const multiWordKeys = Object.keys(this.SEARCH_KEYWORDS)
+      .filter(k => k.includes(' '))
+      .sort((a, b) => b.length - a.length);
+
+    for (const key of multiWordKeys) {
+      const regex = new RegExp(`\\b${key}\\b`, 'i');
+      if (regex.test(lowerNorm)) {
+        const kws = [...this.SEARCH_KEYWORDS[key]];
+        if (hasNoTeamsIntent && !kws.includes('Teams')) kws.push('Teams');
+        return kws.map(kw => this.sanitizarTermoPostgrest(kw)).filter(Boolean);
+      }
+    }
+
+    // 3. Fallback: analisa palavra por palavra mantendo suporte a erros de digitação (fuzzy)
     return normalized.split(/\s+/).filter(w => w.length > 0).flatMap(w => {
       const planMatch = w.match(/^__PLAN_(\d+)__$/i);
       if (planMatch) return [`Plan ${planMatch[1]}`];
@@ -1556,6 +1744,7 @@ window.Cotador.core = {
         }
       }
       prodName = prodName.replace(/^[\s\- :|=/ *+]+|[\s\- :|=/ *+]+$/g, '').trim();
+      prodName = this.limparRuidoComercialLinha(prodName);
       if (!prodName) return;
       if (qty !== null && !isNaN(qty)) sumLicenses += qty;
       items.push({ itemIndex: idx, original: this.escapeHTML(prodName), rawSearch: prodName, keywords: this.extrairKeywords(prodName), qty: qty !== null ? qty : '-' });
@@ -1701,6 +1890,10 @@ window.Cotador.core = {
   calcularFatorComercial() {
     const pct = this.obterMarkupEfetivo();
     if (!this.markupEnabled || pct <= 0) return 1;
+    if (this.calcMode === 'margin') {
+      const safePct = Math.min(pct, 99.9);
+      return 1 / (1 - (safePct / 100));
+    }
     return 1 + (pct / 100);
   },
 
@@ -1740,11 +1933,19 @@ window.Cotador.core = {
     bar.id = 'commercial-mode-bar';
     bar.className = 'unified-view-control';
     bar.innerHTML = `
-      <div class="markup-controls-group flex items-center gap-1.5 px-2 text-[11px] text-[#605e5c]">
-        <span class="font-semibold text-[#323130]">Margem de Venda:</span>
-        <input type="number" id="input-markup-pct" value="0" step="0.5" min="0" max="500" oninput="Cotador.core.setMarkupPercent(this.value)" class="w-14 bg-white border border-[#8a8886] rounded px-1.5 py-0.5 text-center text-[11px] font-semibold text-[#323130] tabular-nums focus:outline-none transition-colors" title="Informe a porcentagem de margem de venda direta">
+      <div class="markup-controls-group flex flex-wrap items-center gap-1.5 px-2 text-[11px] text-[#605e5c]">
+        <div class="calc-mode-segmented inline-flex items-center bg-[#edebe9] p-0.5 rounded border border-[#c8c6c4]" role="group" aria-label="Tipo de Cálculo Comercial">
+          <button type="button" id="btn-mode-margin" onclick="Cotador.core.setCalcMode('margin')" class="calc-seg-btn active" title="Margem Real (Por Dentro): Custo ÷ (1 - %)">
+            Margem Real
+          </button>
+          <button type="button" id="btn-mode-markup" onclick="Cotador.core.setCalcMode('markup')" class="calc-seg-btn" title="Markup (Multiplicador Direto): Custo × (1 + %)">
+            Markup
+          </button>
+        </div>
+        <span id="calc-mode-formula-hint" class="calc-formula-pill is-margin hidden sm:inline-block" title="Fórmula matemática ativa">Custo ÷ (1 - %)</span>
+        <input type="number" id="input-markup-pct" value="0" step="0.5" min="0" max="500" oninput="Cotador.core.setMarkupPercent(this.value)" class="w-14 bg-white border border-[#8a8886] rounded px-1.5 py-0.5 text-center text-[11px] font-semibold text-[#323130] tabular-nums focus:outline-none transition-colors" title="Informe a porcentagem">
         <span class="font-medium text-[#323130]">%</span>
-        <button type="button" id="btn-toggle-markup" onclick="Cotador.core.toggleMarkupAtivo()" class="mini-toggle-btn ml-1" title="Ligar/Desligar Margem">
+        <button type="button" id="btn-toggle-markup" onclick="Cotador.core.toggleMarkupAtivo()" class="mini-toggle-btn ml-0.5" title="Ligar/Desligar Cálculo Comercial">
           <span class="dot"></span><span>Aplicar</span>
         </button>
       </div>
@@ -1758,6 +1959,7 @@ window.Cotador.core = {
     document.body.classList.remove('client-proposal-mode');
     document.body.classList.add('markup-disabled', 'hide-secondary-details', 'hide-subtotals');
     this.atualizarVisibilidadeDetalhes();
+    document.body.setAttribute('data-calc-mode', this.calcMode || 'margin');
   },
 
   toggleModoCliente() {
@@ -1794,8 +1996,17 @@ window.Cotador.core = {
   },
 
   setMarkupPercent(val) {
-    const parsed = parseFloat(val);
-    this.markupPercent = isNaN(parsed) || parsed < 0 ? 0 : parsed;
+    let parsed = parseFloat(val);
+    if (isNaN(parsed) || parsed < 0) parsed = 0;
+    
+    if (this.calcMode === 'margin' && parsed >= 100) {
+      parsed = 99.9;
+      const input = document.getElementById('input-markup-pct');
+      if (input) input.value = '99.9';
+      this.mostrarToast('Na Margem Real (por dentro), o limite máximo é 99,9%.');
+    }
+    
+    this.markupPercent = parsed;
     if (this.markupPercent > 0 && !this.markupEnabled) {
       this.markupEnabled = true;
       document.getElementById('btn-toggle-markup')?.classList.add('active');
@@ -1817,7 +2028,6 @@ window.Cotador.core = {
 
   atualizarTitulosColunasModoCliente() {
     const pct = this.obterMarkupEfetivo();
-    const sufixoPct = (this.markupEnabled && pct > 0) ? ` (+${pct}%)` : '';
     document.querySelectorAll('.quote-block thead th').forEach(th => {
       if (!th.dataset.originalHeader) th.dataset.originalHeader = th.innerText.trim();
       const orig = th.dataset.originalHeader;
@@ -1828,9 +2038,13 @@ window.Cotador.core = {
           else if (/brl/i.test(orig)) th.innerText = 'Valor Unit. (BRL)';
           else th.innerText = 'Valor Unitário';
         } else {
-          if (/usd/i.test(orig)) th.innerText = `Valor c/ Margem (USD)${sufixoPct}`;
-          else if (/brl/i.test(orig)) th.innerText = `Valor c/ Margem (BRL)${sufixoPct}`;
-          else th.innerText = `Valor c/ Margem${sufixoPct}`;
+          const tituloInterno = (this.markupEnabled && pct > 0)
+            ? (this.calcMode === 'margin' ? `Venda [Margem Real ${pct}%]` : `Venda [Markup +${pct}%]`)
+            : `Valor c/ Margem`;
+            
+          if (/usd/i.test(orig)) th.innerText = `${tituloInterno} (USD)`;
+          else if (/brl/i.test(orig)) th.innerText = `${tituloInterno} (BRL)`;
+          else th.innerText = tituloInterno;
         }
       } else {
         th.innerText = orig;
@@ -1845,7 +2059,10 @@ window.Cotador.core = {
     const safeDisplay = this.escapeHTML(String(displayText ?? ''));
     const safeCopy = this.escapeHTML(String(copyValue ?? displayText ?? ''));
     const safeLabel = this.escapeHTML(label);
-    const hint = /[R$US$]/i.test(String(copyValue ?? displayText ?? '')) ? `Copiar ${safeLabel.toLowerCase()} (Shift+Clique p/ número puro)` : `Copiar ${safeLabel.toLowerCase()}`;
+    const hint = /[R$US$]/i.test(String(copyValue ?? displayText ?? ''))
+      ? `Clique p/ copiar número puro • Shift+Clique p/ copiar com moeda`
+      : `Copiar ${safeLabel.toLowerCase()}`;
+    
     return `<span onclick="Cotador.core.copiarElemento(event, this)" data-copy="${safeCopy}" data-label="${safeLabel}" title="${hint}" class="copy-link ${extraClass}">${safeDisplay}</span>`;
   },
 
@@ -1855,10 +2072,30 @@ window.Cotador.core = {
   },
 
   renderQtyInput(qty) {
-    const val = (qty === '-' || isNaN(qty)) ? '' : qty;
-    return `<input type="number" min="1" value="${val}" placeholder="-" oninput="Cotador.core.aoAlterarQuantidade(event, this)" title="Altera em todas as tabelas (Shift p/ alterar só nesta)" class="qty-input">`;
+  const val = (qty === '-' || isNaN(qty)) ? '' : qty;
+    return `<div class="qty-control-wrap inline-flex items-center gap-1">
+      <input type="number" min="1" value="${val}" placeholder="-" oninput="Cotador.core.aoAlterarQuantidade(event, this)" title="Altera em todas as tabelas (Shift p/ alterar só nesta)" class="qty-input">
+      <button type="button" onclick="Cotador.core.copiarQuantidadeLinha(event, this)" title="Copiar quantidade (1 clique)" class="no-export copy-qty-btn">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+        </svg>
+      </button>
+    </div>`;
   },
-
+  copiarQuantidadeLinha(event, btnEl) {
+    if (event) event.stopPropagation();
+    const td = btnEl ? btnEl.closest('td') : null;
+    const input = td ? td.querySelector('.qty-input') : null;
+    const val = input && input.value ? String(input.value).trim() : '';
+    if (!val || val === '-') {
+      this.mostrarToast('Defina uma quantidade antes de copiar.');
+      return;
+    }
+    navigator.clipboard.writeText(val);
+    btnEl.classList.add('is-copied');
+    setTimeout(() => btnEl.classList.remove('is-copied'), 450);
+    this.mostrarToast(`Quantidade copiada: ${val}`);
+  },
   aoAlterarQuantidade(event, inputEl) {
     const tr = inputEl ? inputEl.closest('tr') : null;
     const novaQtd = inputEl ? inputEl.value : '';
@@ -1887,8 +2124,7 @@ window.Cotador.core = {
     const labelCliente = `Total 12x: ${fmtAnualVal}`;
     if (isMarginCol) {
       return `<div class="sec-detail text-[11px] font-medium text-[#605e5c] mt-0.5">
-        <span class="internal-only-text">${this.renderCopyLink(labelInterno, fmtAnualVal, labelInterno.split(':')[0])}</span>
-        <span class="client-only-text">${this.renderCopyLink(labelCliente, fmtAnualVal, 'Total 12 meses')}</span>
+        <span>${this.renderCopyLink(labelCliente, fmtAnualVal, 'Total 12 meses')}</span>
       </div>`;
     }
     return `<div class="sec-detail text-[11px] font-medium text-[#605e5c] mt-0.5">${this.renderCopyLink(labelInterno, fmtAnualVal, labelInterno.split(':')[0])}</div>`;
@@ -1918,7 +2154,7 @@ window.Cotador.core = {
     const infoData = tabelaRef ? this.ultimasAtualizacoes[tabelaRef] : null;
     const dataCurta = infoData ? this.formatarDataCurta(infoData.iso) : null;
     const badgeDataHTML = dataCurta ? `<span class="sec-detail no-export text-[10px] font-normal text-gray-400 bg-white border border-gray-200 px-2 py-0.5 rounded-full whitespace-nowrap">Atualizado em ${dataCurta}</span>` : '';
-    return `<div onclick="Cotador.core.toggleBlock('${blockId}')" class="block-header-bar flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none"><div class="flex items-center gap-2"><svg class="w-4 h-4 text-gray-400 chevron-icon transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg><h3 onclick="Cotador.core.copiarBlocoAoClicarTitulo(event, '${blockId}')" class="copy-link text-xs font-semibold text-[#323130]">${safeTitle}</h3></div><div class="flex items-center gap-2" onclick="event.stopPropagation()">${badgeDataHTML}<span id="total-${blockId}" onclick="Cotador.core.copiarElemento(event, this)" data-copy="" data-label="Total da Tabela" class="copy-link block-total-badge text-xs font-semibold theme-badge px-2.5 py-0.5 rounded tabular-nums hidden"></span></div></div>`;
+    return `<div onclick="Cotador.core.toggleBlock('${blockId}')" class="block-header-bar flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 cursor-pointer select-none"><div class="flex items-center gap-2"><svg class="w-4 h-4 text-gray-400 chevron-icon transition-transform duration-150 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg><h3 onclick="Cotador.core.copiarBlocoAoClicarTitulo(event, '${blockId}')" class="copy-link text-xs font-semibold text-[#323130]">${safeTitle}</h3></div><div class="flex items-center gap-2" onclick="event.stopPropagation()">${badgeDataHTML}<span id="total-${blockId}" onclick="Cotador.core.copiarElemento(event, this)" data-copy="" data-label="Total da Tabela" class="copy-link block-total-badge text-xs font-semibold theme-badge px-2.5 py-0.5 rounded tabular-nums hidden"></span><button type="button" onclick="Cotador.core.copiarPropostaBlocoCliente(event, '${blockId}')" title="Copiar lista completa do cliente" class="client-only-inline-btn no-export bg-[#ffffff] border border-[#c8c6c4] text-[#323130] hover:bg-[#f3f2f1] px-2 py-0.5 rounded text-[10px] font-semibold items-center gap-1 transition"><svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg><span>Copiar Lista</span></button></div></div>`;
   },
 
   renderUnmatchedWarning(missingItems) {
@@ -2005,19 +2241,19 @@ window.Cotador.core = {
     });
     document.addEventListener('drop', (e) => { if (this._draggedRow) e.preventDefault(); });
     document.addEventListener('dragend', () => {
-      if (!this._draggedRow) return;
-      const movedRow = this._draggedRow; const sourceTbody = movedRow.parentElement;
-      movedRow.classList.remove('is-dragging'); this._draggedRow = null;
-      if (sourceTbody) this.sincronizarOrdemTabelas(sourceTbody, movedRow);
-    });
-  },
+        if (!this._draggedRow) return;
+        const movedRow = this._draggedRow; const sourceTbody = movedRow.parentElement;
+        movedRow.classList.remove('is-dragging'); this._draggedRow = null;
+        if (sourceTbody) this.sincronizarOrdemTabelas(sourceTbody, movedRow);
+      });
+    },
 
-  prepararLinhasDrag() {
+    prepararLinhasDrag() {
     this.initDragEvents();
     document.querySelectorAll('.quote-block thead th').forEach((th, idx, arr) => {
       if (idx === arr.length - 1 || th.dataset.thReady) return;
       th.dataset.thReady = '1'; th.classList.add('copyable-th');
-      th.addEventListener('click', () => this.copiarColunaTabela(th, idx));
+      th.addEventListener('click', (e) => this.copiarColunaTabela(e, th, idx));
     });
     document.querySelectorAll('.quote-block tbody').forEach(tbody => {
       const keyCounts = {};
@@ -2098,7 +2334,7 @@ window.Cotador.core = {
   },
 
   atualizarCambioAdobeEmTempoReal(novaTaxa) {
-    const taxa = parseFloat(novaTaxa);
+    const taxa = this.parsePrice(novaTaxa);
     if (isNaN(taxa) || taxa <= 0) return;
     document.querySelectorAll('.quote-block[data-currency="USD"]').forEach(block => {
       const newTitle = (block.getAttribute('data-title') || '').replace(/Câmbio:\s*R\$\s*[\d.,]+/i, `Câmbio: R$ ${this.formatBRL(taxa)}`);
@@ -2120,7 +2356,14 @@ window.Cotador.core = {
     this.recalcularSubtotais();
   },
 
+  _recalcTimer: null,
   recalcularSubtotais() {
+    if (this._recalcTimer) clearTimeout(this._recalcTimer);
+    this._recalcTimer = setTimeout(() => {
+      this._executarRecalculoSubtotais();
+    }, 150);
+  },
+  _executarRecalculoSubtotais() {
     this.prepararLinhasDrag();
     this.atualizarTitulosColunasModoCliente();
     const chkSub = document.getElementById('chk-mostrar-subtotal');
@@ -2297,10 +2540,13 @@ window.Cotador.core = {
     if (event) event.stopPropagation();
     if (!el) return;
     let txt = el.getAttribute('data-copy') ?? el.innerText.trim();
-    if (event && (event.shiftKey || event.altKey) && /[R$US$]/i.test(txt)) {
+    const comSimboloMoeda = Boolean(event && (event.shiftKey || event.altKey));
+    
+    if (!comSimboloMoeda && /^(?:R\$|US\$)/i.test(txt)) {
       const num = this.parsePrice(txt);
-      txt = num > 0 ? num.toFixed(2).replace('.', ',') : txt.replace(/[R$US$\s]/gi, '').trim();
+      txt = num > 0 ? num.toFixed(2).replace('.', ',') : txt.replace(/^(?:R\$|US\$)\s*/i, '').trim();
     }
+    
     if (!txt || txt === '-') return;
     navigator.clipboard.writeText(txt);
     el.classList.add('is-copied');
@@ -2308,14 +2554,21 @@ window.Cotador.core = {
     this.mostrarToast(`${el.getAttribute('data-label') || 'Item'} copiado: ${txt}`);
   },
 
-  copiarColunaTabela(th, colIndex) {
+  copiarColunaTabela(event, th, colIndex) {
+    if (event) event.stopPropagation();
     const table = th.closest('table');
     if (!table) return;
     const valores = [];
     table.querySelectorAll('tbody tr').forEach(tr => {
       if (tr.children[colIndex]) {
-        const val = this.extrairValorCelula(tr.children[colIndex]);
-        if (val && val !== '-') valores.push(val);
+        let val = this.extrairValorCelula(tr.children[colIndex]);
+        if (val && val !== '-') {
+          const comSimbolo = Boolean(event && (event.shiftKey || event.altKey));
+          if (!comSimbolo && /[R$US$]/i.test(val)) {
+            val = this.parsePrice(val).toFixed(2).replace('.', ',');
+          }
+          valores.push(val);
+        }
       }
     });
     if (valores.length > 0) {

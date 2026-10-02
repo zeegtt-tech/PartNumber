@@ -9,8 +9,8 @@
 
   <!-- 1. SUPABASE SDK, NÚCLEO E AUTH (Síncronos na ordem correta) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./js/core.js?v=5.9"></script>
-  <script src="./js/auth.js?v=5.9"></script>
+  <script src="./js/core.js?v=6.0"></script>
+  <script src="./js/auth.js?v=6.0"></script>
   <script>
     // Se não tiver sessão, redireciona para o login imediatamente (evita a tela piscar)
     window.CotadorAuth.init();
@@ -25,7 +25,8 @@
 
   <!-- 2. TABELAS, PAPAPARSE E APP (Carregamento com defer após o DOM) -->
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script defer src="./js/tables/microsoft.js?v=5.9"></script>
+  <script defer src="./js/filters/microsoft_filters.js?v=6.0"></script>
+  <script defer src="./js/tables/microsoft.js?v=6.0"></script>
   <script defer src="./js/tables/adobe.js?v=5.9"></script>
   <script defer src="./js/tables/kaspersky.js?v=5.9"></script>
   <script defer src="./js/app.js?v=5.9"></script>
@@ -135,12 +136,15 @@
 
           <div>
             <div class="flex justify-between items-center mb-1">
-              <label class="section-label !mb-0">2. Lista de Produtos</label>
+              <div class="flex items-center gap-2">
+                <label class="section-label !mb-0">2. Lista de Produtos</label>
+                <span id="input-feedback" class="hidden px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[#f3f2f1] text-[#605e5c] border border-[#edebe9]"></span>
+              </div>
               <div class="flex gap-2.5 text-[11px] font-medium">
                 <button onclick="Cotador.app.limparInput()" class="text-gray-400 hover:text-gray-600">Limpar</button>
               </div>
             </div>
-            <textarea id="input-itens" oninput="Cotador.app.analisarInput()" rows="4" placeholder="Ex:&#10;business basic 10&#10;business standard 26&#10;Exchange plan 1 80" class="textarea-input w-full rounded bg-[#faf9f8] border border-[#8a8886] p-2.5 text-xs text-[#323130] font-normal leading-relaxed transition"></textarea>
+            <textarea id="input-itens" oninput="Cotador.app.analisarInputDebounced()" rows="4" placeholder="Ex:&#10;business basic 10&#10;business standard 26&#10;Exchange plan 1 80" class="textarea-input w-full rounded bg-[#faf9f8] border border-[#8a8886] p-2.5 text-xs text-[#323130] font-normal leading-relaxed transition resize-none overflow-y-auto"></textarea>
           </div>
 
           <button onclick="Cotador.app.gerarCotacao()" id="btn-buscar" class="btn-theme-primary w-full py-2.5 px-4 rounded font-semibold text-xs flex items-center justify-center gap-2">
@@ -185,6 +189,47 @@
               </div>
             </div>
 
+            <!-- MODIFICADORES PN SOLO (PREFIXO E SUFIXO) -->
+            <div id="ms-box-solo-modifiers" class="hidden pt-2 mt-2 border-t border-[#edebe9]">
+              <details class="group bg-[#f3f2f1] rounded border border-[#edebe9] p-2">
+                <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[11px] font-semibold text-[#323130]">
+                  <div class="flex items-center gap-1.5">
+                    <span>⚙ Modificadores CRM (Prefixo/Sufixo)</span>
+                  </div>
+                  <svg class="w-3.5 h-3.5 text-[#0078d4] transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </summary>
+                <div class="space-y-3 pt-2.5 mt-2 border-t border-[#edebe9]">
+                  <!-- Prefixo -->
+                  <div>
+                    <div class="flex items-center justify-between mb-1">
+                      <label class="section-label !mb-0 text-[10px] text-gray-500 uppercase tracking-wider">Prefixo</label>
+                      <input type="hidden" id="ms-solo-prefix" value="">
+                    </div>
+                    <div class="grid grid-cols-5 gap-1">
+                      <button type="button" onclick="Cotador.app.setSoloPnPrefix('')" id="btn-solo-pfx-none" class="segment-chip active" title="PN base sem prefixo">Base</button>
+                      <button type="button" onclick="Cotador.app.setSoloPnPrefix('SN-NCE-')" id="btn-solo-pfx-SN" class="segment-chip" title="SN-NCE-">Solo</button>
+                      <button type="button" onclick="Cotador.app.setSoloPnPrefix('FC-SN-NCE-')" id="btn-solo-pfx-FC" class="segment-chip" title="FC-SN-NCE-">FC</button>
+                      <button type="button" onclick="Cotador.app.setSoloPnPrefix('PC-SN-NCE-')" id="btn-solo-pfx-PC" class="segment-chip" title="PC-SN-NCE-">PC</button>
+                      <button type="button" onclick="Cotador.app.setSoloPnPrefix('SP-SN-NCE-')" id="btn-solo-pfx-SP" class="segment-chip" title="SP-SN-NCE-">SP</button>
+                    </div>
+                  </div>
+                  <!-- Sufixo -->
+                  <div>
+                    <div class="flex items-center justify-between mb-1">
+                      <label class="section-label !mb-0 text-[10px] text-gray-500 uppercase tracking-wider">Sufixo</label>
+                      <input type="hidden" id="ms-solo-suffix" value="">
+                    </div>
+                    <div class="grid grid-cols-4 gap-1">
+                      <button type="button" onclick="Cotador.app.setSoloPnSuffix('')" id="btn-solo-sfx-none" class="segment-chip active" title="PN base sem sufixo">Padrão</button>
+                      <button type="button" onclick="Cotador.app.setSoloPnSuffix('-BSC')" id="btn-solo-sfx-BSC" class="segment-chip" title="-BSC">Basic</button>
+                      <button type="button" onclick="Cotador.app.setSoloPnSuffix('-STD')" id="btn-solo-sfx-STD" class="segment-chip" title="-STD">Standard</button>
+                      <button type="button" onclick="Cotador.app.setSoloPnSuffix('-PRM')" id="btn-solo-sfx-PRM" class="segment-chip" title="-PRM">Premium</button>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </div>
+
             <!-- 3.2 CONTRATOS CSP -->
             <div id="ms-box-contratos" class="space-y-1.5">
               <div class="flex items-center justify-between">
@@ -222,7 +267,7 @@
                 <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[11px] font-semibold text-[#323130]">
                   <div class="flex items-center gap-1.5">
                     <span>Linhas Secundárias &amp; Filtros</span>
-                    <span id="badge-ms-flags-count" class="px-1.5 py-0.2 rounded-full bg-white border border-[#c8c6c4] text-[9px] font-normal text-[#605e5c]">Busca Limpa</span>
+                    <span id="badge-ms-flags-count" class="px-1.5 py-0.5 rounded-full bg-white border border-[#c8c6c4] text-[9px] font-normal text-[#605e5c]">Busca Limpa</span>
                   </div>
                   <svg class="w-3.5 h-3.5 text-[#605e5c] transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </summary>
@@ -288,16 +333,21 @@
 
           <!-- 3. FILTROS ADOBE -->
           <div id="filtros-adobe" class="hidden space-y-3.5 pt-3 border-t border-[#edebe9]">
+            
+            <!-- Modelo de Compra -->
             <div>
-              <div class="flex items-center justify-between mb-1">
-                <label class="section-label !mb-0">Segmento Adobe</label>
-                <label class="inline-flex items-center gap-1.5 cursor-pointer select-none text-[11px] bg-[#fdf3f4] border border-[#f8d7da] px-2 py-0.5 rounded" title="Alternar entre tabela Adobe Base e Adobe Promo (Novos Clientes)">
-                  <input type="checkbox" id="chk-adobe-promo" class="sr-only peer" onchange="Cotador.app.reexecutarSeHouverItens()">
-                  <span class="text-[#323130] font-medium">Tabela:</span>
-                  <span class="font-bold text-[#a4262c] peer-checked:inline hidden">Promo</span>
-                  <span class="font-bold text-gray-500 peer-checked:hidden inline">Base</span>
-                </label>
+              <label class="section-label">Modelo de Compra</label>
+              <input type="hidden" id="adobe-modelo" value="base">
+              <div class="grid grid-cols-3 gap-1.5">
+                <button type="button" onclick="Cotador.app.setAdobeModelo('base')" id="btn-adobe-mod-base" class="modality-chip active">Comercial</button>
+                <button type="button" onclick="Cotador.app.setAdobeModelo('gov')" id="btn-adobe-mod-gov" class="modality-chip">Governo</button>
+                <button type="button" onclick="Cotador.app.setAdobeModelo('edu')" id="btn-adobe-mod-edu" class="modality-chip">Educação</button>
               </div>
+            </div>
+
+            <!-- Versão (Teams/Enterprise) -->
+            <div>
+              <label class="section-label">Versão do Produto</label>
               <input type="hidden" id="adobe-segmento" value="teams">
               <div class="grid grid-cols-2 gap-1.5">
                 <button type="button" onclick="Cotador.app.toggleAdobeSegmento('teams')" id="btn-adobe-seg-teams" class="modality-chip active">For Teams</button>
@@ -305,7 +355,7 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-2">
+            <div class="grid grid-cols-3 gap-2">
               <div>
                 <label class="section-label">Filtro de Level</label>
                 <select id="adobe-level" onchange="Cotador.app.reexecutarSeHouverItens()" class="select-input">
@@ -316,6 +366,10 @@
                   <option value="4">Level 4 / 14 (100+)</option>
                   <option value="all">Todos os Levels</option>
                 </select>
+              </div>
+              <div>
+                <label class="section-label">Meses (Pro-rata)</label>
+                <input type="number" id="adobe-meses" value="12" min="1" max="36" onchange="Cotador.app.reexecutarSeHouverItens()" class="select-input" title="Pro-rata (Ex: 4 = 4 meses)">
               </div>
               <div>
                 <div class="flex items-center justify-between mb-1">
@@ -339,7 +393,7 @@
                 <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[11px] font-semibold text-[#323130]">
                   <div class="flex items-center gap-1.5">
                     <span>Linhas Secundárias &amp; Filtros</span>
-                    <span id="badge-adobe-flags-count" class="px-1.5 py-0.2 rounded-full bg-white border border-[#c8c6c4] text-[9px] font-normal text-[#605e5c]">Busca Limpa</span>
+                    <span id="badge-adobe-flags-count" class="px-1.5 py-0.5 rounded-full bg-white border border-[#c8c6c4] text-[9px] font-normal text-[#605e5c]">Busca Limpa</span>
                   </div>
                   <svg class="w-3.5 h-3.5 text-[#605e5c] transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </summary>
@@ -369,14 +423,13 @@
             </div>
 
             <div>
-              <label class="section-label">Períodos (Flags)</label>
-              <div class="grid grid-cols-5 gap-1 text-[11px] text-[#323130] font-medium bg-[#f3f2f1] p-2 rounded border border-[#edebe9]" onchange="Cotador.app.reexecutarSeHouverItens()">
-                <!-- SOMENTE 1 ANO MARCADO POR PADRÃO -->
-                <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p1" checked><span>1 Ano</span></label>
-                <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p2"><span>2 Anos</span></label>
-                <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p3"><span>3 Anos</span></label>
-                <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p4"><span>4 Anos</span></label>
-                <label class="flex items-center justify-center gap-1 cursor-pointer"><input type="checkbox" id="chk-kasp-p5"><span>5 Anos</span></label>
+              <label class="section-label">Períodos</label>
+              <div class="grid grid-cols-5 gap-1" onchange="Cotador.app.reexecutarSeHouverItens()">
+                <label class="contract-chip"><input type="checkbox" id="chk-kasp-p1" class="sr-only" checked>1 Ano</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-kasp-p2" class="sr-only">2 Anos</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-kasp-p3" class="sr-only">3 Anos</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-kasp-p4" class="sr-only">4 Anos</label>
+                <label class="contract-chip"><input type="checkbox" id="chk-kasp-p5" class="sr-only">5 Anos</label>
               </div>
             </div>
 
@@ -407,7 +460,7 @@
                 <summary class="flex items-center justify-between cursor-pointer select-none list-none text-[11px] font-semibold text-[#323130]">
                   <div class="flex items-center gap-1.5">
                     <span>Linhas Secundárias &amp; Filtros</span>
-                    <span id="badge-kasp-flags-count" class="px-1.5 py-0.2 rounded-full bg-white border border-[#c8c6c4] text-[9px] font-normal text-[#605e5c]">Busca Limpa</span>
+                    <span id="badge-kasp-flags-count" class="px-1.5 py-0.5 rounded-full bg-white border border-[#c8c6c4] text-[9px] font-normal text-[#605e5c]">Busca Limpa</span>
                   </div>
                   <svg class="w-3.5 h-3.5 text-[#605e5c] transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </summary>
@@ -419,6 +472,8 @@
                     <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-training"><span>ATC Training</span></label>
                     <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-crossgrade"><span>Cross-grade</span></label>
                     <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-educ"><span>Educational / Edu</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-xdr"><span>Linha XDR</span></label>
+                    <label class="flag-mini-pill"><input type="checkbox" id="chk-kasp-show-noedr"><span>Fnd. (Sem EDR)</span></label>
                   </div>
                 </div>
               </details>
@@ -447,7 +502,7 @@
               </button>
             </div>
             
-            <div id="copy-toast" class="hidden mb-3 p-2 rounded theme-badge text-xs text-center font-medium shadow-sm transition-all">
+            <div id="copy-toast" class="hidden fixed top-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-2.5 rounded-full theme-badge border text-xs text-center font-semibold shadow-lg backdrop-blur-sm opacity-95 pointer-events-none">
               Copiado com sucesso!
             </div>
             
